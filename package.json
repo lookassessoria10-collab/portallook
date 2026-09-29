@@ -1,0 +1,50 @@
+{
+  "name": "portal-look",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "setup": "tsx --conditions=react-server scripts/setup-env.ts",
+    "seed": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/seed.ts",
+    "hash-password": "tsx --conditions=react-server scripts/hash-password.ts",
+    "templates": "tsx --conditions=react-server scripts/generate-templates.ts",
+    "links": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/links.ts"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.0",
+    "clsx": "^2.1.1",
+    "jose": "^6.2.12",
+    "lucide-react": "^1.48.0",
+    "next": "16.3.7",
+    "papaparse": "^5.7.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-pdf": "^11.0.0",
+    "recharts": "^3.10.1",
+    "server-only": "^0.0.1",
+    "sonner": "^2.0.8",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^24.19.0",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.7",
+    "pdf-lib": "^1.17.1",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.0.2"
+  }
+}
