@@ -5,6 +5,7 @@ import { Readable } from "node:stream";
 import path from "node:path";
 import {
   assertSafePath,
+  assertSafePrefix,
   contentTypeFromPath,
   StorageAlreadyExistsError,
   StoragePreconditionError,
@@ -155,5 +156,12 @@ export class LocalFileStorageProvider implements StorageProvider {
     } catch {
       return false;
     }
+  }
+
+  async deletePrefix(prefix: string) {
+    assertSafePrefix(prefix);
+    const count = (await this.list(prefix)).length;
+    await rm(this.resolve(prefix.slice(0, -1)), { recursive: true, force: true });
+    return count;
   }
 }

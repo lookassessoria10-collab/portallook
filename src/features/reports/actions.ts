@@ -6,7 +6,8 @@ import { actionError, type ActionResult } from "@/lib/errors";
 import { isValidId } from "@/lib/ids";
 import { requireAdmin } from "@/features/auth/session";
 import { InsightTypeSchema } from "./schema";
-import { archiveReport, newInsightId, publishReport, reindexClient, restoreReport, unpublishReport, updateReportDetails } from "./service";
+import { archiveReport, newInsightId, publishReport, restoreReport, unpublishReport, updateReportDetails } from "./service";
+import { repairClientIndex } from "@/features/admin/maintenance";
 import { getRepositories } from "@/server/repositories";
 
 function ids(clientId: string, reportId: string) {
@@ -81,9 +82,9 @@ export async function rebuildIndexAction(clientId: string): Promise<ActionResult
   await requireAdmin();
   try {
     if (!isValidId(clientId, "cl")) throw new Error("invalid id");
-    const count = await reindexClient(clientId);
+    const r = await repairClientIndex(clientId);
     refresh();
-    return { ok: true, data: undefined, message: `Índice reconstruído (${count} relatório(s) recalculado(s)).` };
+    return { ok: true, data: undefined, message: `Índice reconstruído: ${r.reports} relatório(s) e ${r.imports} upload(s) conferidos.` };
   } catch (e) {
     return actionError(e, "report:rebuild-index");
   }

@@ -51,7 +51,7 @@ export function uploadLimits() {
   return { maxBytes: Math.round(e.UPLOAD_MAX_MB * 1024 * 1024), serverMaxBytes: Math.round(e.SERVER_UPLOAD_MAX_MB * 1024 * 1024) };
 }
 
-function toIndexEntry(r: ImportRecord): ImportIndexEntry {
+export function importIndexEntry(r: ImportRecord): ImportIndexEntry {
   return {
     id: r.id,
     reportType: r.reportType,
@@ -69,7 +69,7 @@ function toIndexEntry(r: ImportRecord): ImportIndexEntry {
 
 async function syncIndex(record: ImportRecord) {
   const now = new Date().toISOString();
-  await getRepositories().reports.updateIndex(record.clientId, (index) => upsertImportEntry(index, toIndexEntry(record), now));
+  await getRepositories().reports.updateIndex(record.clientId, (index) => upsertImportEntry(index, importIndexEntry(record), now));
 }
 
 async function saveRecord(record: ImportRecord): Promise<ImportRecord> {

@@ -102,6 +102,17 @@ class JsonClientRepository implements ClientRepository {
   getFileStream(path: string) {
     return this.storage.getStream(path);
   }
+
+  async delete(clientId: string) {
+    const client = await this.get(clientId);
+    const removed = await this.storage.deletePrefix(`${paths.clientDir(clientId)}/`);
+    if (client) {
+      // Só libera o slug se ele ainda apontar para este cliente.
+      const slugDoc = await readJSON(this.storage, paths.slug(client.slug), SlugDocSchema).catch(() => null);
+      if (slugDoc?.data.clientId === clientId) await this.storage.delete(paths.slug(client.slug));
+    }
+    return removed;
+  }
 }
 
 class JsonAccessRepository implements AccessRepository {
@@ -225,6 +236,10 @@ class JsonImportRepository implements ImportRepository {
 
   async deleteFiles(list: string[]) {
     if (list.length) await this.storage.delete(list);
+  }
+
+  deleteImport(importId: string) {
+    return this.storage.deletePrefix(`${paths.importDir(importId)}/`);
   }
 }
 

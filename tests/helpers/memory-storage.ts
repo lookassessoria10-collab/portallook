@@ -59,6 +59,12 @@ export class MemoryStorageProvider implements StorageProvider {
     return this.files.has(path);
   }
 
+  async deletePrefix(prefix: string) {
+    const keys = [...this.files.keys()].filter((p) => p.startsWith(prefix));
+    for (const k of keys) this.files.delete(k);
+    return keys.length;
+  }
+
   paths() {
     return [...this.files.keys()];
   }

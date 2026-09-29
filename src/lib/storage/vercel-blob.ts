@@ -2,6 +2,7 @@ import "server-only";
 import { BlobNotFoundError, BlobPreconditionFailedError, copy, del, get, head, list, put } from "@vercel/blob";
 import {
   assertSafePath,
+  assertSafePrefix,
   StorageAlreadyExistsError,
   StoragePreconditionError,
   type PutOptions,
@@ -42,14 +43,23 @@ export class VercelBlobStorageProvider implements StorageProvider {
     assertSafePath(p);
     try {
       // useCache: false → documentos JSON mudam; nunca ler versão antiga do CDN.
-      const res = await get(p, { access: "private", useCache: false, ...this.opts() });
+      // accept-encoding: identity → resposta sem compressão. Respostas comprimidas vêm
+      // com ETag fraco (W/"…"), que o ifMatch rejeita e quebra toda atualização otimista.
+      const res = await get(p, { access: "private", useCache: false, headers: { "accept-encoding": "identity" }, ...this.opts() });
       if (!res || res.statusCode !== 200) return null;
       const body = await streamToBuffer(res.stream);
-      return { body, contentType: res.blob.contentType, etag: res.blob.etag, size: res.blob.size };
+      return { body, contentType: res.blob.contentType, etag: await this.strongEtag(p, res.blob.etag), size: res.blob.size };
     } catch (e) {
       if (e instanceof BlobNotFoundError) return null;
       throw e;
     }
+  }
+
+  /** Garante ETag forte (exigido pelo ifMatch); se vier fraco, consulta os metadados. */
+  private async strongEtag(p: string, etag: string): Promise<string> {
+    if (!etag.startsWith("W/")) return etag;
+    const meta = await head(p, this.opts());
+    return meta.etag;
   }
 
   async getStream(p: string) {
@@ -127,5 +137,12 @@ export class VercelBlobStorageProvider implements StorageProvider {
       if (e instanceof BlobNotFoundError) return false;
       throw e;
     }
+  }
+
+  async deletePrefix(prefix: string) {
+    assertSafePrefix(prefix);
+    const all = (await this.list(prefix)).map((b) => b.path);
+    for (let i = 0; i < all.length; i += 100) await del(all.slice(i, i + 100), this.opts());
+    return all.length;
   }
 }

@@ -16,6 +16,8 @@ export interface ClientRepository {
   create(client: Client): Promise<Client>;
   update(clientId: string, mutate: (current: Client) => Client): Promise<Client>;
   saveLogo(clientId: string, extension: string, body: Buffer, contentType: string): Promise<string>;
+  /** Exclusão definitiva: remove todos os dados do cliente e libera o slug. */
+  delete(clientId: string): Promise<number>;
   getFileStream(path: string): Promise<StoredStream | null>;
 }
 
@@ -46,6 +48,8 @@ export interface ImportRepository {
   getFile(path: string): Promise<Buffer | null>;
   getFileStream(path: string): Promise<StoredStream | null>;
   deleteFiles(paths: string[]): Promise<void>;
+  /** Remove o registro e os arquivos temporários de uma importação. */
+  deleteImport(importId: string): Promise<number>;
 }
 
 export interface EventRepository {

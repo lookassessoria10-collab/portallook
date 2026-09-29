@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Copy, ExternalLink, Search, Settings, UploadCloud, UserPlus, Users } from "lucide-react";
+import { Copy, ExternalLink, Search, Settings, Trash2, UploadCloud, UserPlus, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatDate, formatTimestampDate } from "@/lib/dates/period";
 import { normalizeText } from "@/lib/ids";
@@ -14,6 +15,7 @@ import { buttonClass } from "@/components/ui/button";
 import { ClientAvatar } from "@/components/brand/client-avatar";
 import { DeliveryBadge } from "@/components/dashboard/status-badge";
 import type { ClientRow, ModuleCell } from "@/features/admin/client-rows";
+import { DeleteClientDialog } from "./delete-client-dialog";
 
 type Filter = "all" | "updated" | "pending" | "draft" | "error" | "inactive";
 
@@ -43,6 +45,8 @@ function matches(row: ClientRow, filter: Filter): boolean {
 export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: string }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
+  const [toDelete, setToDelete] = useState<ClientRow | null>(null);
+  const router = useRouter();
   const counts = useMemo(() => Object.fromEntries(FILTERS.map((f) => [f.key, rows.filter((r) => matches(r, f.key)).length])) as Record<Filter, number>, [rows]);
   const visible = useMemo(() => {
     const q = normalizeText(query);
@@ -59,6 +63,12 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
 
   return (
     <div>
+      <DeleteClientDialog
+        client={toDelete ? { id: toDelete.id, name: toDelete.name, slug: toDelete.slug } : null}
+        open={toDelete !== null}
+        onClose={() => setToDelete(null)}
+        onDeleted={() => router.refresh()}
+      />
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div role="radiogroup" aria-label="Filtrar clientes" className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 md:mx-0 md:px-0">
           {FILTERS.map((f) => (
@@ -146,7 +156,7 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
                     <td className="tabular px-3 py-3.5 text-text-2">{r.lastUpdatedAt ? formatTimestampDate(r.lastUpdatedAt, timeZone) : "—"}</td>
                     <td className="tabular px-3 py-3.5 text-text-2">{r.nextDueDate ? formatDate(r.nextDueDate) : "—"}</td>
                     <td className="px-5 py-3.5">
-                      <RowActions row={r} onCopy={() => copy(r.portalUrl)} />
+                      <RowActions row={r} onCopy={() => copy(r.portalUrl)} onDelete={() => setToDelete(r)} />
                     </td>
                   </tr>
                 ))}
@@ -169,7 +179,7 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
                       </span>
                     </span>
                   </Link>
-                  <RowActions row={r} onCopy={() => copy(r.portalUrl)} compact />
+                  <RowActions row={r} onCopy={() => copy(r.portalUrl)} onDelete={() => setToDelete(r)} compact />
                 </div>
                 <dl className="mt-4 grid grid-cols-2 gap-3">
                   <div>
@@ -212,7 +222,7 @@ function ModuleStatus({ cell }: { cell: ModuleCell }) {
   );
 }
 
-function RowActions({ row, onCopy, compact }: { row: ClientRow; onCopy: () => void; compact?: boolean }) {
+function RowActions({ row, onCopy, onDelete, compact }: { row: ClientRow; onCopy: () => void; onDelete: () => void; compact?: boolean }) {
   return (
     <div className="flex items-center justify-end gap-1">
       {!compact ? (
@@ -229,6 +239,7 @@ function RowActions({ row, onCopy, compact }: { row: ClientRow; onCopy: () => vo
           ...(row.portalUrl ? [{ label: "Ver portal", href: row.portalUrl, external: true, icon: <ExternalLink /> }] : []),
           { label: "Copiar link", onSelect: onCopy, icon: <Copy /> },
           { label: "Enviar relatório", href: `/adm/uploads?cliente=${row.id}`, icon: <UploadCloud /> },
+          { label: "Excluir cliente", onSelect: onDelete, icon: <Trash2 />, tone: "danger" },
         ]}
       />
     </div>

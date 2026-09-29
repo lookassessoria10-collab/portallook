@@ -6,6 +6,7 @@ import { updateClientAction } from "@/features/clients/actions";
 import { getClient } from "@/features/clients/service";
 import { LogoUploader } from "@/features/admin/components/logo-uploader";
 import { MaintenanceActions } from "@/features/admin/components/maintenance-actions";
+import { DangerZone } from "@/features/admin/components/danger-zone";
 
 export const metadata: Metadata = { title: "Configurações" };
 
@@ -41,6 +42,12 @@ export default async function ClientSettingsPage(props: PageProps<"/adm/clientes
           <CardHeader title="Manutenção" subtitle="Ferramentas de recuperação" />
           <CardBody>
             <MaintenanceActions clientId={client.id} />
+          </CardBody>
+        </Card>
+        <Card className="border-[rgb(255_123_139/0.25)]">
+          <CardHeader title="Excluir cliente" subtitle="Ação permanente" />
+          <CardBody>
+            <DangerZone client={{ id: client.id, name: client.name, slug: client.slug }} />
           </CardBody>
         </Card>
       </div>

@@ -8,6 +8,7 @@ import { requireAdmin } from "@/features/auth/session";
 import { clientInputFromForm, ClientInputSchema, fieldErrorsFrom } from "./input";
 import { createClient, removeClientLogo, setClientStatus, updateClient, updateClientLogo } from "./service";
 import { revokeAccessToken, rotateAccessToken, setAccessEnabled } from "./access";
+import { deleteClient } from "@/features/admin/maintenance";
 
 export interface ClientFormState {
   error?: string;
@@ -120,5 +121,17 @@ export async function removeLogoAction(clientId: string): Promise<ActionResult> 
     return { ok: true, data: undefined, message: "Logo removido." };
   } catch (e) {
     return actionError(e, "client:logo-remove");
+  }
+}
+
+export async function deleteClientAction(clientId: string, confirmation: string): Promise<ActionResult> {
+  const session = await requireAdmin();
+  try {
+    assertId(clientId);
+    const r = await deleteClient(clientId, String(confirmation ?? "").slice(0, 60), session.email);
+    revalidatePath("/adm", "layout");
+    return { ok: true, data: undefined, message: `${r.name} foi excluído definitivamente.` };
+  } catch (e) {
+    return actionError(e, "client:delete");
   }
 }

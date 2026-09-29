@@ -43,6 +43,17 @@ export interface StorageProvider {
   listFolders(prefix: string): Promise<string[]>;
   copy(from: string, to: string, contentType: string): Promise<void>;
   exists(path: string): Promise<boolean>;
+  /** Remove tudo sob `prefix` (terminado em "/"). Retorna quantos arquivos saíram. */
+  deletePrefix(prefix: string): Promise<number>;
+}
+
+/** Prefixos de exclusão em massa precisam ser pastas seguras e específicas (nunca a raiz). */
+export function assertSafePrefix(prefix: string): string {
+  if (!prefix.endsWith("/") || prefix.split("/").filter(Boolean).length < 2) {
+    throw new Error(`Prefixo de exclusão inválido: ${JSON.stringify(prefix)}`);
+  }
+  assertSafePath(prefix.slice(0, -1));
+  return prefix;
 }
 
 export class StoragePreconditionError extends Error {

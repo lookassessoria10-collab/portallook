@@ -1,0 +1,4 @@
+# Nunca enviar dados locais nem segredos em deploys pela CLI
+.data
+.env*
+!.env.example
