@@ -148,3 +148,25 @@ describe("fluxo de importação (upload → validação → rascunho → publica
     expect(m.summary.leads).toBe(281);
   });
 });
+
+describe("entrega do arquivo original", () => {
+  it("não envia Content-Length quando o tamanho é desconhecido (evita documento vazio)", async () => {
+    const storage = useMemoryStorage();
+    const client = await createClient(clientInput("html", "HTML"), null);
+    const html = Buffer.from("<!doctype html><html><body><h1>Dashboard</h1></body></html>");
+    const rec = await upload(client.id, "commercial", "d.html", html, { contentType: "text/html", period: monthPeriod(2026, 9) });
+    const done = await confirmImport(rec.id, { periodKeys: [] });
+    const manifest = (await getReportManifest(client.id, done.reportIds[0]))!;
+    // Simula o Blob respondendo comprimido, sem tamanho.
+    const original = storage.getStream.bind(storage);
+    storage.getStream = async (p: string) => {
+      const f = await original(p);
+      return f ? { ...f, size: 0 } : null;
+    };
+    const { serveReportOriginal } = await import("@/features/reports/files");
+    const res = await serveReportOriginal(manifest, { download: false });
+    expect(res.headers.get("content-length")).toBeNull();
+    expect(res.headers.get("content-security-policy")).toMatch(/^sandbox allow-scripts/);
+    expect(Buffer.from(await res.arrayBuffer()).toString()).toContain("<h1>Dashboard</h1>");
+  });
+});

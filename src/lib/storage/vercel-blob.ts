@@ -65,9 +65,12 @@ export class VercelBlobStorageProvider implements StorageProvider {
   async getStream(p: string) {
     assertSafePath(p);
     try {
-      const res = await get(p, { access: "private", ...this.opts() });
+      // Sem compressão: arquivos de texto (HTML, CSV) comprimidos chegam sem
+      // content-length (size = 0) e o navegador receberia um documento vazio.
+      const res = await get(p, { access: "private", headers: { "accept-encoding": "identity" }, ...this.opts() });
       if (!res || res.statusCode !== 200) return null;
-      return { stream: res.stream, contentType: res.blob.contentType, size: res.blob.size, etag: res.blob.etag };
+      const size = res.blob.size > 0 ? res.blob.size : ((await head(p, this.opts()).catch(() => null))?.size ?? 0);
+      return { stream: res.stream, contentType: res.blob.contentType, size, etag: res.blob.etag };
     } catch (e) {
       if (e instanceof BlobNotFoundError) return null;
       throw e;

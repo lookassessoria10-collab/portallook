@@ -9,16 +9,17 @@ vi.mock("@vercel/blob", () => {
     BlobPreconditionFailedError: class extends BlobError {},
     get: vi.fn(async (_p: string, opts: { headers?: unknown }) => {
       calls.push({ fn: "get", headers: opts.headers });
+      // Resposta comprimida: sem content-length (size 0) e ETag fraco.
       return {
         statusCode: 200,
         stream: new Response('{"n":1}').body,
         headers: new Headers(),
-        blob: { contentType: "application/json", size: 7, etag: 'W/"abc123"' },
+        blob: { contentType: "application/json", size: 0, etag: 'W/"abc123"' },
       };
     }),
     head: vi.fn(async () => {
       calls.push({ fn: "head" });
-      return { etag: '"abc123"' };
+      return { etag: '"abc123"', size: 7 };
     }),
     put: vi.fn(),
     del: vi.fn(),
@@ -36,5 +37,12 @@ describe("VercelBlobStorageProvider — ETag", () => {
     expect(obj?.body.toString()).toBe('{"n":1}');
     expect(calls[0]).toEqual({ fn: "get", headers: { "accept-encoding": "identity" } });
     expect(calls.some((c) => c.fn === "head")).toBe(true);
+  });
+
+  it("getStream devolve o tamanho real quando o Blob responde sem content-length", async () => {
+    const { VercelBlobStorageProvider } = await import("@/lib/storage/vercel-blob");
+    const s = new VercelBlobStorageProvider("token-de-teste");
+    const file = await s.getStream("clients/cl_abc123def456/reports/traffic/rp_abc123def456/original.html");
+    expect(file?.size).toBe(7);
   });
 });

@@ -43,8 +43,9 @@ export async function serveReportOriginal(manifest: ReportManifest, options: { d
     "Cache-Control": "private, no-store",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
-    "Content-Length": String(file.size),
   });
+  // Tamanho só quando conhecido: um Content-Length errado faz o navegador cortar o arquivo.
+  if (file.size > 0) headers.set("Content-Length", String(file.size));
 
   const isHtml = source.type === "html_legacy" || source.type === "html_structured";
   if (options.download) {
