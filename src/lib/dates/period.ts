@@ -184,6 +184,60 @@ export function formatPeriod(p: Period, style: "long" | "short" | "compact" = "l
   return `${formatDate(p.start)} a ${formatDate(p.end)}`;
 }
 
+/** Intervalo coberto por vários períodos: "Janeiro a agosto de 2026", "3 de agosto a 27 de setembro de 2026". */
+export function formatPeriodRange(first: Period, last: Period): string {
+  if (first.granularity === "month" && last.granularity === "month") {
+    const [sy, sm] = parts(first.start);
+    const [ey, em] = parts(last.start);
+    if (sy === ey && sm === em) return formatPeriod(first);
+    if (sy === ey) return `${cap(MONTHS_PT[sm - 1])} a ${MONTHS_PT[em - 1]} de ${ey}`;
+    return `${cap(MONTHS_PT[sm - 1])} de ${sy} a ${MONTHS_PT[em - 1]} de ${ey}`;
+  }
+  const span: Period = { start: first.start, end: last.end, granularity: first.granularity === "custom" ? "custom" : "week" };
+  return cap(formatPeriod(span));
+}
+
+export interface PeriodLabels {
+  /** Eixos e abas: "Jan", "Jan/26", "21/09". */
+  axis: string;
+  /** Linhas de tabela: "Janeiro", "Janeiro/2026", "21/09 a 27/09". */
+  row: string;
+  /** Por extenso: "Janeiro de 2026". */
+  full: string;
+}
+
+/** Rótulos de uma série de períodos. O ano só aparece nos meses quando a série cruza anos. */
+export function periodSeriesLabels(periods: readonly Period[]): PeriodLabels[] {
+  const years = new Set(periods.map((p) => p.start.slice(0, 4)));
+  const multiYear = years.size > 1;
+  return periods.map((p) => {
+    const full = formatPeriod(p);
+    if (p.granularity === "month") {
+      const [y, m] = parts(p.start);
+      const month = cap(MONTHS_PT[m - 1]);
+      return {
+        axis: multiYear ? `${cap(MONTHS_SHORT_PT[m - 1])}/${String(y).slice(2)}` : cap(MONTHS_SHORT_PT[m - 1]),
+        row: multiYear ? `${month}/${y}` : month,
+        full,
+      };
+    }
+    return { axis: formatPeriod(p, "compact"), row: p.granularity === "week" ? formatPeriod(p, "short") : full, full };
+  });
+}
+
+/** Nome da unidade de período para textos ("Resumo do mês", "Últimas 8 semanas"). */
+export interface PeriodUnit {
+  singular: string;
+  plural: string;
+  feminine: boolean;
+}
+
+export function periodUnit(granularity: Granularity): PeriodUnit {
+  if (granularity === "month") return { singular: "mês", plural: "meses", feminine: false };
+  if (granularity === "week") return { singular: "semana", plural: "semanas", feminine: true };
+  return { singular: "período", plural: "períodos", feminine: false };
+}
+
 /** Forma usada em comparações: "vs. agosto", "vs. 14 a 20/09". */
 export function formatPeriodReference(p: Period): string {
   const [, sm] = parts(p.start);

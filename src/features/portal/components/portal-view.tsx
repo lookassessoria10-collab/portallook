@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Inbox } from "lucide-react";
+import Link from "next/link";
+import { FileText, Inbox } from "lucide-react";
 import { env } from "@/lib/env";
 import { formatTimestampDate } from "@/lib/dates/period";
 import { LookLogo } from "@/components/brand/look-logo";
@@ -12,21 +13,25 @@ import { CommercialDashboard } from "@/features/commercial/components/commercial
 import { buildCommercialViewModel } from "@/features/commercial/view-model";
 import { TrafficDashboard } from "@/features/traffic/components/traffic-dashboard";
 import { buildTrafficViewModel } from "@/features/traffic/view-model";
+import { CommercialOverview } from "@/features/commercial/components/commercial-overview";
+import { buildCommercialOverview } from "@/features/commercial/overview";
+import { TrafficOverview } from "@/features/traffic/components/traffic-overview";
+import { buildTrafficOverview } from "@/features/traffic/overview";
 import type { PortalModel } from "@/features/portal/model";
-import { PeriodSelector } from "./period-selector";
+import { PeriodNav } from "./period-nav";
 import { PortalTabs, TAB_LABEL } from "./portal-tabs";
-import { HistoryList, OriginalDocuments, type PortalLinks } from "./portal-sections";
+import { OriginalDocuments, type PortalLinks } from "./portal-sections";
 
 /**
  * Visão do cliente: produto de relatório, não painel administrativo.
- * Números em primeiro plano; navegação mínima (área + período).
+ * Números em primeiro plano; navegação mínima (área + visão geral/período).
  */
 export function PortalView({ model, basePath, links, logoUrl, banner }: { model: PortalModel; basePath: string; links: PortalLinks; logoUrl?: string | null; banner?: ReactNode }) {
   const { client, selection } = model;
   const tz = env().APP_TIMEZONE;
   const greeting = client.greetingName || client.shortName;
   const tabLabel = TAB_LABEL[model.tab];
-  const draftIds = new Set(model.archive.filter((e) => e.status === "draft").map((e) => e.id));
+  const periodItems = model.periods.map((p) => ({ key: p.key, label: p.short, title: p.label, href: links.period(p.key), draft: model.mode === "preview" && p.draft }));
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 pb-16 sm:px-6 lg:px-8">
@@ -56,10 +61,10 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 mt-5 border-b border-border bg-[rgb(6_14_28/0.94)] px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
-          <PortalTabs tabs={model.tabs} active={model.tab} basePath={basePath} className="md:w-[320px]" />
-          {model.tabs.length < 2 ? <p className="hidden text-sm font-bold text-text-2 md:block">{tabLabel}</p> : null}
-          <PeriodSelector periods={model.periods} value={model.periodKey} className="md:w-[300px]" />
+        <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:gap-4">
+          <PortalTabs tabs={model.tabs} active={model.tab} basePath={basePath} className="md:w-[280px] md:shrink-0" />
+          {model.tabs.length < 2 ? <p className="hidden shrink-0 text-sm font-bold text-text-2 md:block">{tabLabel}</p> : null}
+          <PeriodNav overviewHref={model.overview ? links.overview : null} items={periodItems} active={model.periodKey} className="md:flex-1" />
         </div>
       </div>
 
@@ -68,6 +73,26 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
           <EmptyState icon={<Inbox />} title="Nenhuma área disponível" description="Assim que a Look ativar os relatórios, eles aparecerão aqui." />
         ) : !model.periods.length ? (
           <EmptyState icon={<Inbox />} title={`Ainda não há relatórios de ${tabLabel.toLowerCase()}`} description="Os relatórios aparecerão aqui assim que forem publicados pela equipe da Look." />
+        ) : model.view === "overview" && model.overview ? (
+          <div className="space-y-6">
+            {model.latestDocumentOnly ? (
+              <Link
+                href={links.period(model.latestDocumentOnly.key)}
+                className="flex items-center gap-3 rounded-[var(--radius-lg)] border border-[rgb(140_156_248/0.25)] bg-info-soft px-4 py-3 text-sm text-text-2 hover:brightness-110"
+              >
+                <FileText className="size-5 shrink-0 text-info" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <strong className="text-text">{model.latestDocumentOnly.label}</strong> já está disponível como relatório em documento e ainda não entra nos números abaixo.
+                </span>
+                <span className="shrink-0 font-semibold text-info">Abrir →</span>
+              </Link>
+            ) : null}
+            {model.tab === "traffic" ? (
+              <TrafficOverview vm={buildTrafficOverview(model.overview, client.currency)} currency={client.currency} periodHref={links.period} />
+            ) : (
+              <CommercialOverview vm={buildCommercialOverview(model.overview, { dashboard: client.dashboard, currency: client.currency })} currency={client.currency} periodHref={links.period} />
+            )}
+          </div>
         ) : (
           <div className="space-y-8 sm:space-y-10">
             {selection.dataset ? (
@@ -100,7 +125,6 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
 
             <div className="grid gap-4 lg:grid-cols-2">
               <OriginalDocuments documents={selection.dataset ? selection.documents : selection.documents.slice(1)} dataset={selection.dataset?.entry ?? null} links={links} />
-              <HistoryList entries={model.archive} current={model.periodKey} links={links} draftIds={model.mode === "preview" ? draftIds : undefined} />
             </div>
           </div>
         )}

@@ -35,10 +35,12 @@ export function sniffFormat(buf: Uint8Array): SniffedFormat {
   return "csv";
 }
 
-export const EXTENSION_FORMAT: Record<string, "xlsx" | "xls" | "csv" | "pdf" | "html"> = {
+export const EXTENSION_FORMAT: Record<string, "xlsx" | "xls" | "csv" | "pdf" | "html" | "md"> = {
   xlsx: "xlsx",
   xls: "xls",
   csv: "csv",
+  md: "md",
+  txt: "md",
   pdf: "pdf",
   html: "html",
   htm: "html",

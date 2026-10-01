@@ -18,7 +18,8 @@ function normalizeCell(v: unknown): CellValue {
  * primeira linha (entre as 10 primeiras) com pelo menos duas células de texto —
  * títulos decorativos acima da tabela são ignorados.
  */
-export function matrixToSheet(name: string, matrix: unknown[][]): RawSheet {
+/** `lineNumbers`: número real de cada linha da matriz na origem (ex.: linha do texto colado). */
+export function matrixToSheet(name: string, matrix: unknown[][], lineNumbers?: number[]): RawSheet {
   const rows = matrix.slice(0, MAX_ROWS_PER_SHEET + 10).map((r) => (Array.isArray(r) ? r.map(normalizeCell) : []));
   let headerIndex = rows.findIndex((r, i) => i < 10 && r.filter((c) => typeof c === "string").length >= 2);
   if (headerIndex === -1) headerIndex = rows.findIndex((r) => r.some((c) => !isEmpty(c)));
@@ -39,7 +40,7 @@ export function matrixToSheet(name: string, matrix: unknown[][]): RawSheet {
     if (!r.some((c) => !isEmpty(c))) continue;
     const cells: Record<string, CellValue> = {};
     headers.forEach((h, j) => (cells[h] = r[j] ?? null));
-    out.push({ line: i + 1, cells });
+    out.push({ line: lineNumbers?.[i] ?? i + 1, cells });
   }
   return { name, headers, rows: out };
 }

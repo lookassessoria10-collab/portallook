@@ -1,20 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
-import { ArrowLeft, ArrowRight, Check, CircleCheck, Download, FileWarning, LoaderCircle, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { ArrowLeft, ArrowRight, Check, CircleCheck, ClipboardPaste, Download, FileWarning, LoaderCircle, RotateCcw, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
 import { Button, buttonClass } from "@/components/ui/button";
-import { Checkbox, Field, Input, Select } from "@/components/ui/field";
+import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field";
+import { ActionButton } from "@/components/ui/confirm-action";
 import { Badge } from "@/components/ui/badge";
 import { ReportViewer } from "@/components/dashboard/report-viewer";
 import { extensionOf } from "@/lib/parsers/sniff";
-import { CSV_CONTENT_OPTIONS, type CsvContent, type ImportRecord } from "@/features/uploads/schema";
-import { confirmImportAction, discardImportAction, initImportAction, processImportAction } from "@/features/uploads/actions";
+import { CSV_CONTENT_OPTIONS, UPLOAD_PLATFORM_OPTIONS, type CsvContent, type ImportRecord, type PreviewPeriod, type UploadPlatform } from "@/features/uploads/schema";
+import { confirmImportAction, discardImportAction, initImportAction, processImportAction, publishImportAction } from "@/features/uploads/actions";
 import { periodOptions } from "@/features/uploads/period-options";
 import { UploadDropzone } from "./upload-dropzone";
 import { ValidationList } from "./validation-list";
+import { FormatGuide, pasteExample } from "./format-guide";
 import { sendFile } from "./transport";
 
 export interface WizardClient {
@@ -29,6 +31,7 @@ const STEPS = ["Cliente", "Tipo", "Período", "Arquivo", "Validação", "Prévia
 type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 const TYPE_LABEL: Record<ReportType, string> = { commercial: "Comercial", traffic: "Tráfego" };
+const PLATFORM_SHORT: Record<UploadPlatform, string> = { meta_ads: "Meta Ads", google_ads: "Google Ads" };
 const EXISTING_LABEL = { none: "Novo", draft: "Já existe rascunho", published: "Já publicado — criará nova versão", other: "Existe versão anterior" } as const;
 
 export function UploadWizard({
@@ -52,6 +55,12 @@ export function UploadWizard({
   const [type, setType] = useState<ReportType | null>(firstType);
   const [periodKey, setPeriodKey] = useState<string>(resume?.requestedPeriod ? keyFromRecord(resume) : (initial?.periodKey ?? (firstClient && firstType ? (firstClient.modules[firstType].expectedKey ?? "") : "")));
   const [file, setFile] = useState<File | null>(null);
+  /** Enviar um arquivo ou colar os dados (tabela Markdown ou células copiadas da planilha). */
+  const [source, setSource] = useState<"file" | "paste">(resume?.format === "md" ? "paste" : "file");
+  const [pasted, setPasted] = useState("");
+  const [platform, setPlatform] = useState<UploadPlatform | "">(resume?.platform ?? "");
+  /** Quantos relatórios o "Publicar todos" publicou (null = ainda não usado). */
+  const [publishedCount, setPublishedCount] = useState<number | null>(null);
   const [csvContent, setCsvContent] = useState<CsvContent | "">(resume?.csvContent ?? "");
   const [dimensionLabel, setDimensionLabel] = useState(resume?.csvDimensionLabel ?? "");
   const [title, setTitle] = useState(resume?.title ?? "");
@@ -59,14 +68,31 @@ export function UploadWizard({
   const [progress, setProgress] = useState<number | null>(null);
   const [record, setRecord] = useState<ImportRecord | null>(resume ?? null);
   const [selected, setSelected] = useState<string[]>(resume?.preview?.suggestedPeriodKeys ?? []);
+  /** Quando o arquivo tem outro período que o escolhido: qual usar (escolha obrigatória). */
+  const [target, setTarget] = useState<"requested" | "file" | null>(null);
   const [phase, setPhase] = useState<"idle" | "uploading" | "validating">("idle");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
+  // Reabrir uma colagem que ainda não foi importada: o texto volta para o campo, para corrigir.
+  useEffect(() => {
+    if (resume?.format !== "md" || resume.status === "imported" || resume.status === "discarded") return;
+    let active = true;
+    fetch(`/api/adm/uploads/${resume.id}/file`)
+      .then((r) => (r.ok ? r.text() : ""))
+      .then((text) => {
+        if (active && text) setPasted((current) => current || text);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [resume?.format, resume?.id, resume?.status]);
+
   const client = clients.find((c) => c.id === clientId) ?? null;
   const mod = client && type ? client.modules[type] : null;
   const options = useMemo(() => (mod ? periodOptions(mod.cadence, today) : []), [mod, today]);
-  const ext = file ? extensionOf(file.name) : "";
+  const ext = source === "file" && file ? extensionOf(file.name) : "";
   const isCsv = ext === "csv";
   const isDocument = ext === "pdf" || ext === "html" || ext === "htm";
   const csvOptions = CSV_CONTENT_OPTIONS.filter((o) => o.reportType === type);
@@ -85,6 +111,7 @@ export function UploadWizard({
   const selectType = (t: ReportType) => {
     setType(t);
     setCsvContent("");
+    if (t !== "traffic") setPlatform("");
     if (client) {
       setPeriodKey(client.modules[t].expectedKey ?? "");
       setAllowDownload(client.modules[t].allowOriginalDownload);
@@ -93,17 +120,28 @@ export function UploadWizard({
 
   const reset = () => {
     setFile(null);
+    setPublishedCount(null);
     setRecord(null);
     setSelected([]);
+    setTarget(null);
     setProgress(null);
     setError(null);
     setPhase("idle");
     setStep(3);
   };
 
+  const platformChoice = type === "traffic" && platform ? platform : null;
+  const platformName = platformChoice ? PLATFORM_SHORT[platformChoice] : null;
+  const unitWord = mod?.cadence === "weekly" ? "semana" : "mês";
+
   const submitFile = () => {
-    if (!client || !type || !file) return;
+    if (!client || !type) return;
     setError(null);
+    if (source === "paste" && !pasted.trim()) return setError("Cole os dados antes de continuar.");
+    // Dados colados viram um arquivo .md e seguem o mesmo caminho de validação das planilhas.
+    const upload = source === "paste" ? new File([pasted], `dados-colados${platformChoice ? `-${platformChoice === "meta_ads" ? "meta" : "google"}` : ""}.md`, { type: "text/markdown" }) : file;
+    if (!upload) return;
+    if (platformChoice && isDocument) return setError("O upload por plataforma aceita planilhas (XLSX, XLS, CSV) ou dados colados, não PDF/HTML.");
     if (ext === "pdf" && !periodKey) return setError("Para PDF, selecione o período no passo Período.");
     if (isCsv && !csvContent) return setError("Informe o tipo de conteúdo do CSV.");
     if (isCsv && csvContent === "dimension" && !dimensionLabel.trim()) return setError("Informe o nome da dimensão.");
@@ -113,11 +151,12 @@ export function UploadWizard({
       const init = await initImportAction({
         clientId: client.id,
         reportType: type,
-        fileName: file.name,
-        size: file.size,
-        contentType: file.type,
+        fileName: upload.name,
+        size: upload.size,
+        contentType: upload.type,
         csvContent: isCsv ? csvContent || null : null,
         csvDimensionLabel: isCsv && csvContent === "dimension" ? dimensionLabel : null,
+        platform: platformChoice,
         periodKey: periodKey || null,
         title: title || null,
         allowDownload,
@@ -128,7 +167,7 @@ export function UploadWizard({
         return setError(init.error);
       }
       try {
-        await sendFile(init.data, file, setProgress);
+        await sendFile(init.data, upload, setProgress);
       } catch (e) {
         setPhase("idle");
         setProgress(null);
@@ -141,6 +180,7 @@ export function UploadWizard({
       if (!processed.ok) return setError(processed.error);
       setRecord(processed.data);
       setSelected(processed.data.preview?.suggestedPeriodKeys ?? []);
+      setTarget(null);
       setStep(4);
     });
   };
@@ -152,10 +192,14 @@ export function UploadWizard({
       reset();
     });
 
+  const mismatch = record?.preview?.kind === "dataset" ? record.preview.periodMismatch : null;
+  const filePeriod = mismatch ? (record?.preview?.periods[0] ?? null) : null;
+
   const confirm = () =>
     start(async () => {
       if (!record) return;
-      const res = await confirmImportAction(record.id, record.preview?.kind === "document" ? record.preview.suggestedPeriodKeys : selected);
+      const keys = record.preview?.kind === "document" ? record.preview.suggestedPeriodKeys : mismatch ? (target === "file" && filePeriod ? [filePeriod.periodKey] : []) : selected;
+      const res = await confirmImportAction(record.id, keys, { useRequestedPeriod: Boolean(mismatch) && target === "requested" });
       if (!res.ok) return setError(res.error);
       setRecord(res.data);
       toast.success(res.message ?? "Rascunho criado.");
@@ -163,6 +207,13 @@ export function UploadWizard({
     });
 
   const hasErrors = record?.issues.some((i) => i.level === "error") ?? false;
+  const importLabels = !record?.preview
+    ? []
+    : record.preview.kind === "document"
+      ? record.preview.periods.map((p) => p.label)
+      : mismatch
+        ? [target === "requested" ? mismatch.requestedLabel : (filePeriod?.label ?? "")]
+        : record.preview.periods.filter((p) => selected.includes(p.periodKey)).map((p) => p.label);
   const canGoTo = (s: Step) => s < step && s <= 3 && !record;
 
   return (
@@ -220,7 +271,7 @@ export function UploadWizard({
           <StepFrame title="Qual o período?" description="Para planilhas, você pode deixar o sistema detectar os períodos pelo arquivo." onBack={() => setStep(1)} onNext={() => setStep(3)}>
             <Field label="Período" htmlFor="wiz-period" hint={mod.expectedKey ? "Sugerimos o período pendente mais recente." : undefined}>
               <Select id="wiz-period" value={periodKey} onChange={(e) => setPeriodKey(e.target.value)}>
-                <option value="">Detectar pela planilha</option>
+                <option value="">Detectar pelos dados (planilha ou tabela colada)</option>
                 {options.map((o) => (
                   <option key={o.key} value={o.key}>
                     {o.label}
@@ -234,16 +285,97 @@ export function UploadWizard({
 
         {step === 3 && mod && type ? (
           <StepFrame
-            title="Envie o arquivo"
-            description={`${client?.name} · ${TYPE_LABEL[type]} · ${periodKey ? (options.find((o) => o.key === periodKey)?.label ?? periodKey) : "período detectado pelo arquivo"}`}
+            title={source === "paste" ? "Cole os dados" : "Envie o arquivo"}
+            description={`${client?.name} · ${TYPE_LABEL[type]}${platformName ? ` · só ${platformName}` : ""} · ${periodKey ? (options.find((o) => o.key === periodKey)?.label ?? periodKey) : "período detectado pelos dados"}`}
             onBack={() => setStep(2)}
             nextLabel={phase === "uploading" ? `Enviando ${progress ?? 0}%` : phase === "validating" ? "Validando…" : "Enviar e validar"}
             onNext={submitFile}
-            nextDisabled={!file || pending}
+            nextDisabled={(source === "paste" ? !pasted.trim() : !file) || pending}
             busy={pending}
           >
             <div className="space-y-5">
-              <UploadDropzone file={file} onFile={(f) => { setFile(f); setError(null); }} disabled={pending} maxMb={maxMb} />
+              <div role="radiogroup" aria-label="Como enviar os dados" className="grid grid-cols-2 gap-1 rounded-[12px] border border-border bg-surface-2 p-1 sm:w-[360px]">
+                {(
+                  [
+                    { value: "file", label: "Enviar arquivo", icon: Upload },
+                    { value: "paste", label: "Colar dados", icon: ClipboardPaste },
+                  ] as const
+                ).map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={source === o.value}
+                    disabled={pending}
+                    onClick={() => {
+                      setSource(o.value);
+                      setError(null);
+                    }}
+                    className={cn("flex h-9 items-center justify-center gap-2 rounded-[9px] text-sm font-bold transition-colors", source === o.value ? "bg-surface text-text shadow-sm" : "text-text-3 hover:text-text-2")}
+                  >
+                    <o.icon className="size-4" aria-hidden />
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+
+              {type === "traffic" ? (
+                <Field
+                  label="Plataforma"
+                  htmlFor="wiz-platform"
+                  hint={
+                    platformChoice
+                      ? `Pode trazer vários períodos de uma vez. Em cada ${unitWord}, só os dados de ${platformName} são substituídos; as outras plataformas que já estão no relatório são mantidas.`
+                      : "Use quando o arquivo tem a coluna Plataforma (várias plataformas juntas)."
+                  }
+                >
+                  <Select id="wiz-platform" value={platform} onChange={(e) => setPlatform(e.target.value as UploadPlatform | "")} disabled={pending}>
+                    <option value="">Várias plataformas (coluna Plataforma)</option>
+                    {UPLOAD_PLATFORM_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        Só {o.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
+
+              {source === "file" ? (
+                <UploadDropzone file={file} onFile={(f) => {
+                    setFile(f);
+                    setError(null);
+                    if (f && extensionOf(f.name) === "csv" && csvOptions.length === 1) setCsvContent(csvOptions[0].value);
+                  }} disabled={pending} maxMb={maxMb} />
+              ) : (
+                <Field label="Dados" htmlFor="wiz-paste" hint="Cole a tabela aqui. Confira o formato esperado logo abaixo.">
+                  <Textarea
+                    id="wiz-paste"
+                    value={pasted}
+                    onChange={(e) => {
+                      setPasted(e.target.value);
+                      setError(null);
+                    }}
+                    disabled={pending}
+                    rows={12}
+                    spellCheck={false}
+                    placeholder={pasteExample(type, mod.cadence, platformChoice)}
+                    className="font-mono text-[13px] leading-relaxed"
+                  />
+                </Field>
+              )}
+              {source === "paste" || !isDocument ? (
+                <FormatGuide
+                  type={type}
+                  cadence={mod.cadence}
+                  platform={platformChoice}
+                  source={source}
+                  periodChosen={Boolean(periodKey)}
+                  onUseExample={() => {
+                    setPasted(pasteExample(type, mod.cadence, platformChoice));
+                    setError(null);
+                  }}
+                />
+              ) : null}
               {progress !== null ? (
                 <div aria-live="polite">
                   <div className="h-2 overflow-hidden rounded-full bg-chart-track" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Progresso do envio">
@@ -278,7 +410,7 @@ export function UploadWizard({
                   <Input id="wiz-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={160} placeholder="Ex.: Relatório comercial completo — setembro" />
                 </Field>
               ) : null}
-              <Checkbox checked={allowDownload} onChange={(e) => setAllowDownload(e.target.checked)} label="Permitir que o cliente baixe o arquivo original" />
+              {source === "file" ? <Checkbox checked={allowDownload} onChange={(e) => setAllowDownload(e.target.checked)} label="Permitir que o cliente baixe o arquivo original" /> : null}
               <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-text-3">
                 Modelos:
                 <a className="inline-flex items-center gap-1 font-semibold text-primary hover:underline" href="/modelos/modelo-comercial.xlsx" download>
@@ -297,14 +429,14 @@ export function UploadWizard({
 
         {step === 4 && record ? (
           <StepFrame
-            title={hasErrors ? "Encontramos problemas no arquivo" : "Arquivo validado"}
-            description={record.fileName}
+            title={record.format === "md" ? (hasErrors ? "Encontramos problemas nos dados colados" : "Dados validados") : hasErrors ? "Encontramos problemas no arquivo" : "Arquivo validado"}
+            description={record.format === "md" ? `Dados colados${record.platform ? ` · só ${PLATFORM_SHORT[record.platform]}` : ""}` : record.fileName}
             nextLabel={hasErrors ? undefined : "Ver prévia"}
             onNext={hasErrors ? undefined : () => setStep(5)}
             extra={
               <>
                 <Button variant="ghost" onClick={discard} disabled={pending}>
-                  <RotateCcw className="size-4" aria-hidden /> {hasErrors ? "Enviar outro arquivo" : "Cancelar"}
+                  <RotateCcw className="size-4" aria-hidden /> {hasErrors ? (record.format === "md" ? "Corrigir os dados" : "Enviar outro arquivo") : "Cancelar"}
                 </Button>
               </>
             }
@@ -320,10 +452,10 @@ export function UploadWizard({
         {step === 5 && record?.preview ? (
           <StepFrame
             title="Prévia dos dados"
-            description={record.preview.kind === "document" ? "Confira o documento antes de criar o rascunho." : "Escolha os períodos que serão importados como rascunho."}
+            description={record.preview.kind === "document" ? "Confira o documento antes de criar o rascunho." : mismatch ? "Confirme em qual período o relatório deve entrar." : "Escolha os períodos que serão importados como rascunho."}
             onBack={() => setStep(4)}
             onNext={() => setStep(6)}
-            nextDisabled={record.preview.kind === "dataset" && !selected.length}
+            nextDisabled={record.preview.kind === "dataset" && (mismatch ? !target : !selected.length)}
           >
             {record.preview.kind === "document" ? (
               <div className="space-y-3">
@@ -350,43 +482,69 @@ export function UploadWizard({
                     </ul>
                   </div>
                 ) : null}
-                <fieldset>
-                  <legend className="mb-2 text-xs font-semibold text-text-3">Períodos encontrados</legend>
-                  <ul className="space-y-2">
-                    {record.preview.periods.map((p) => {
-                      const checked = selected.includes(p.periodKey);
-                      return (
-                        <li key={p.periodKey}>
-                          <label className={cn("flex cursor-pointer gap-3 rounded-[var(--radius-md)] border p-3.5", checked ? "border-primary bg-primary-soft/60" : "border-border-strong hover:bg-surface-2")}>
-                            <input
-                              type="checkbox"
-                              className="mt-1 size-[18px] shrink-0 accent-[var(--primary)]"
-                              checked={checked}
-                              onChange={(e) => setSelected((s) => (e.target.checked ? [...s, p.periodKey] : s.filter((k) => k !== p.periodKey)))}
-                            />
+                {mismatch && filePeriod ? (
+                  <>
+                    <fieldset>
+                      <legend className="mb-1 text-sm font-bold text-text">Em qual período este relatório deve entrar?</legend>
+                      <p className="mb-3 text-[13px] text-text-3">
+                        Você escolheu <strong className="text-text-2">{mismatch.requestedLabel}</strong>, mas as datas da planilha são de <strong className="text-text-2">{filePeriod.label}</strong>. Se a planilha foi montada a partir de outro relatório, as datas provavelmente ficaram desatualizadas.
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {(
+                          [
+                            { value: "requested", label: mismatch.requestedLabel, existing: mismatch.existing, hint: "Período escolhido no assistente. As datas da planilha são ignoradas." },
+                            { value: "file", label: filePeriod.label, existing: filePeriod.existing, hint: "Período das datas que estão na planilha." },
+                          ] as const
+                        ).map((o) => (
+                          <label key={o.value} className={cn("flex cursor-pointer gap-3 rounded-[var(--radius-md)] border p-3.5", target === o.value ? "border-primary bg-primary-soft/60" : "border-border-strong hover:bg-surface-2")}>
+                            <input type="radio" name="period-target" className="mt-1 size-[18px] shrink-0 accent-[var(--primary)]" checked={target === o.value} onChange={() => setTarget(o.value)} />
                             <span className="min-w-0 flex-1">
                               <span className="flex flex-wrap items-center gap-2">
-                                <span className="font-bold text-text">{p.label}</span>
-                                <Badge tone={p.existing === "none" ? "positive" : p.existing === "published" ? "attention" : "info"}>{EXISTING_LABEL[p.existing]}</Badge>
+                                <span className="font-bold text-text">{o.label}</span>
+                                <Badge tone={existingTone(o.existing)}>{EXISTING_LABEL[o.existing]}</Badge>
                               </span>
-                              {p.metrics.length ? (
-                                <span className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
-                                  {p.metrics.map((m) => (
-                                    <span key={m.label} className="min-w-0 text-[13px]">
-                                      <span className="block truncate text-text-3">{m.label}</span>
-                                      <span className="tabular block font-semibold text-text">{m.value}</span>
-                                    </span>
-                                  ))}
-                                </span>
-                              ) : null}
-                              {p.details.length ? <span className="mt-1.5 block text-xs text-text-3">{p.details.join(" · ")}</span> : null}
+                              <span className="mt-1 block text-xs text-text-3">{o.hint}</span>
                             </span>
                           </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </fieldset>
+                        ))}
+                      </div>
+                    </fieldset>
+                    <div>
+                      <p className="mb-2 text-xs font-semibold text-text-3">Dados encontrados no arquivo</p>
+                      <div className="rounded-[var(--radius-md)] border border-border-strong p-3.5 [&>*:first-child]:mt-0">
+                        <PeriodFigures p={filePeriod} />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <fieldset>
+                    <legend className="mb-2 text-xs font-semibold text-text-3">Períodos encontrados</legend>
+                    <ul className="space-y-2">
+                      {record.preview.periods.map((p) => {
+                        const checked = selected.includes(p.periodKey);
+                        return (
+                          <li key={p.periodKey}>
+                            <label className={cn("flex cursor-pointer gap-3 rounded-[var(--radius-md)] border p-3.5", checked ? "border-primary bg-primary-soft/60" : "border-border-strong hover:bg-surface-2")}>
+                              <input
+                                type="checkbox"
+                                className="mt-1 size-[18px] shrink-0 accent-[var(--primary)]"
+                                checked={checked}
+                                onChange={(e) => setSelected((s) => (e.target.checked ? [...s, p.periodKey] : s.filter((k) => k !== p.periodKey)))}
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex flex-wrap items-center gap-2">
+                                  <span className="font-bold text-text">{p.label}</span>
+                                  <Badge tone={existingTone(p.existing)}>{EXISTING_LABEL[p.existing]}</Badge>
+                                </span>
+                                <PeriodFigures p={p} />
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </fieldset>
+                )}
               </div>
             )}
           </StepFrame>
@@ -396,18 +554,28 @@ export function UploadWizard({
           <StepFrame title="Confirmar importação" onBack={() => setStep(5)} nextLabel="Criar rascunho" onNext={confirm} nextDisabled={pending} busy={pending}>
             <div className="space-y-3 text-sm text-text-2">
               <p>
-                Serão criados <strong className="text-text">{record.preview.kind === "document" ? 1 : selected.length} rascunho(s)</strong> para <strong className="text-text">{client?.name}</strong>:
+                Serão criados <strong className="text-text">{importLabels.length} rascunho(s)</strong> para <strong className="text-text">{client?.name}</strong>:
               </p>
               <ul className="list-inside list-disc space-y-1 text-text">
-                {(record.preview.kind === "document" ? record.preview.periods : record.preview.periods.filter((p) => selected.includes(p.periodKey))).map((p) => (
-                  <li key={p.periodKey}>
-                    {TYPE_LABEL[record.reportType]} · {p.label}
+                {importLabels.map((label) => (
+                  <li key={label}>
+                    {TYPE_LABEL[record.reportType]} · {label}
                   </li>
                 ))}
               </ul>
+              {mismatch && target === "requested" && filePeriod ? (
+                <p className="rounded-xl bg-info-soft px-4 py-3 text-[13px] text-text-2">
+                  Os dados da planilha (datas de {filePeriod.label}) entram como {mismatch.requestedLabel}.
+                </p>
+              ) : null}
               <p className="rounded-xl bg-surface-2 px-4 py-3 text-[13px] text-text-3">Nada será publicado agora. O cliente só verá o relatório depois que você revisar e clicar em Publicar. O arquivo original fica guardado junto do relatório.</p>
-              {record.format === "csv" && record.csvContent !== "funnel" ? (
+              {record.format === "csv" && record.reportType === "commercial" && record.csvContent !== "funnel" ? (
                 <p className="rounded-xl bg-info-soft px-4 py-3 text-[13px] text-text-2">Este CSV atualiza apenas a seção enviada: os dados das outras seções serão copiados do relatório mais recente do período.</p>
+              ) : null}
+              {record.platform ? (
+                <p className="rounded-xl bg-info-soft px-4 py-3 text-[13px] text-text-2">
+                  Em cada período, só os dados de {UPLOAD_PLATFORM_OPTIONS.find((o) => o.value === record.platform)?.label ?? record.platform} são substituídos. As campanhas das outras plataformas são copiadas do relatório mais recente {unitWord === "semana" ? "da semana" : "do mês"}.
+                </p>
               ) : null}
             </div>
           </StepFrame>
@@ -419,13 +587,34 @@ export function UploadWizard({
               <CircleCheck className="size-7" />
             </span>
             <div>
-              <h2 className="text-xl font-bold text-text">{record.reportIds.length === 1 ? "Rascunho criado" : `${record.reportIds.length} rascunhos criados`}</h2>
-              <p className="mt-1 text-sm text-text-3">Revise a prévia e publique quando estiver tudo certo.</p>
+              <h2 className="text-xl font-bold text-text">
+                {publishedCount !== null ? (publishedCount === 1 ? "1 relatório publicado" : `${publishedCount} relatórios publicados`) : record.reportIds.length === 1 ? "Rascunho criado" : `${record.reportIds.length} rascunhos criados`}
+              </h2>
+              <p className="mt-1 text-sm text-text-3">{publishedCount !== null ? (publishedCount ? "O cliente já vê os dados no portal." : "Nada foi publicado: esses relatórios já tinham sido publicados ou substituídos por versões mais novas.") : "Revise a prévia e publique quando estiver tudo certo."}</p>
             </div>
             <div className="flex flex-wrap justify-center gap-2">
+              {record.reportIds.length > 1 && publishedCount === null ? (
+                <ActionButton
+                  variant="primary"
+                  icon={<Send className="size-4" aria-hidden />}
+                  action={async () => {
+                    const result = await publishImportAction(record.id);
+                    if (result.ok) setPublishedCount(result.data.published);
+                    return result;
+                  }}
+                  confirm={{
+                    title: `Publicar ${record.reportIds.length} relatórios?`,
+                    description: `Os rascunhos criados agora ficam visíveis para ${client?.name ?? "o cliente"} na hora. Se algum período já estava publicado, a versão anterior é substituída (e continua no histórico interno). Rascunhos que já têm uma versão mais nova não são publicados. Dá para retirar a publicação depois.`,
+                    confirmLabel: "Publicar todos",
+                    tone: "primary",
+                  }}
+                >
+                  Publicar todos
+                </ActionButton>
+              ) : null}
               {record.reportIds.slice(0, 1).map((id) => (
-                <Link key={id} href={`/adm/clientes/${record.clientId}/relatorios/${id}`} className={buttonClass("primary")}>
-                  Revisar e publicar <ArrowRight className="size-4" aria-hidden />
+                <Link key={id} href={`/adm/clientes/${record.clientId}/relatorios/${id}`} className={buttonClass(record.reportIds.length > 1 && publishedCount === null ? "secondary" : "primary")}>
+                  {publishedCount !== null ? "Ver relatório" : record.reportIds.length > 1 ? "Revisar um por um" : "Revisar e publicar"} <ArrowRight className="size-4" aria-hidden />
                 </Link>
               ))}
               <Link href={`/adm/clientes/${record.clientId}/portal`} className={buttonClass("secondary")}>
@@ -446,6 +635,29 @@ export function UploadWizard({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function existingTone(existing: PreviewPeriod["existing"]) {
+  return existing === "none" ? "positive" : existing === "published" ? "attention" : "info";
+}
+
+/** Indicadores e detalhes lidos de um período do arquivo. */
+function PeriodFigures({ p }: { p: PreviewPeriod }) {
+  return (
+    <>
+      {p.metrics.length ? (
+        <span className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+          {p.metrics.map((m) => (
+            <span key={m.label} className="min-w-0 text-[13px]">
+              <span className="block truncate text-text-3">{m.label}</span>
+              <span className="tabular block font-semibold text-text">{m.value}</span>
+            </span>
+          ))}
+        </span>
+      ) : null}
+      {p.details.length ? <span className="mt-1.5 block text-xs text-text-3">{p.details.join(" · ")}</span> : null}
+    </>
   );
 }
 

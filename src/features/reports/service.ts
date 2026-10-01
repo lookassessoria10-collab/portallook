@@ -144,8 +144,15 @@ export async function publishReport(clientId: string, reportId: string, actor: s
 
   if (manifest.kind === "dataset") {
     const index = await repos.reports.getIndex(clientId);
+    // A versão publicada anterior e os rascunhos MAIS ANTIGOS que esta do mesmo período viram
+    // "substituídos": assim um rascunho esquecido não volta a servir de base nem é publicado por cima.
     const others = index.reports.filter(
-      (r) => r.id !== reportId && r.type === manifest.type && r.kind === "dataset" && r.periodKey === manifest.periodKey && r.status === "published",
+      (r) =>
+        r.id !== reportId &&
+        r.type === manifest.type &&
+        r.kind === "dataset" &&
+        r.periodKey === manifest.periodKey &&
+        (r.status === "published" || (r.status === "draft" && r.createdAt < manifest.createdAt)),
     );
     for (const other of others) {
       const m = await repos.reports.getManifest(clientId, other.type, other.id);
@@ -197,6 +204,41 @@ export async function updateReportDetails(
     insights,
   });
   await logEvent("report.updated", { clientId, actor, summary: `${describe(manifest)} atualizado.`, meta: { reportId } });
+  return updated;
+}
+
+/** Avisos da importação que dependem do período — deixam de valer quando ele é corrigido. */
+export const PERIOD_WARNING_CODES = new Set(["requested_period_missing", "no_previous"]);
+
+/**
+ * Corrige o período de um relatório (ex.: planilha enviada com as datas de outro
+ * mês). Em dashboards, o período também é regravado nos dados. Um relatório
+ * publicado não pode ocupar um período que já tem outro dashboard publicado.
+ */
+export async function changeReportPeriod(clientId: string, reportId: string, period: Period, actor: string | null): Promise<ReportManifest> {
+  const repos = getRepositories();
+  const manifest = await requireReport(clientId, reportId);
+  const key = periodKey(period);
+  if (key === manifest.periodKey) return manifest;
+  if (manifest.status === "archived") throw new UserFacingError("Restaure o relatório antes de alterar o período.");
+
+  if (manifest.kind === "dataset" && manifest.status === "published") {
+    const index = await repos.reports.getIndex(clientId);
+    const clash = index.reports.some((r) => r.id !== reportId && r.type === manifest.type && r.kind === "dataset" && r.periodKey === key && r.status === "published");
+    if (clash) throw new UserFacingError(`Já existe um relatório publicado de ${formatPeriod(period)}. Retire-o do portal antes de mover este para o mesmo período.`);
+  }
+
+  let patch: Partial<ReportManifest> = { period, periodKey: key, warnings: manifest.warnings.filter((w) => !PERIOD_WARNING_CODES.has(w.code)) };
+  if (manifest.kind === "dataset") {
+    const current = await getReportData(manifest);
+    if (!current) throw new UserFacingError("Os dados deste relatório não puderam ser lidos.");
+    const next: ReportData = current.type === "commercial" ? { type: "commercial", data: { ...current.data, period } } : { type: "traffic", data: { ...current.data, period } };
+    const dataPath = await repos.reports.saveData(clientId, manifest.type, reportId, next.data);
+    patch = { ...patch, dataPath, ...summarize(next) };
+  }
+
+  const updated = await saveWithStatus(manifest, patch);
+  await logEvent("report.updated", { clientId, actor, summary: `${describe(manifest)}: período corrigido para ${formatPeriod(period)}.`, meta: { reportId } });
   return updated;
 }
 

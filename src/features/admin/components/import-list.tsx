@@ -2,9 +2,10 @@ import Link from "next/link";
 import { formatDateTime } from "@/lib/dates/period";
 import { ImportStatusBadge } from "@/components/dashboard/status-badge";
 import { REPORT_TYPE_LABEL, type ImportIndexEntry } from "@/features/reports/schema";
+import { DeleteImportButton } from "./delete-import-button";
 
 /** Uploads recebidos (inclusive com erro) — o registro completo abre no assistente. */
-export function ImportList({ imports, timeZone, showClient }: { imports: Array<ImportIndexEntry & { clientName?: string }>; timeZone: string; showClient?: boolean }) {
+export function ImportList({ imports, timeZone, showClient }: { imports: Array<ImportIndexEntry & { clientId: string; clientName?: string }>; timeZone: string; showClient?: boolean }) {
   return (
     <ul className="divide-y divide-border">
       {imports.map((i) => (
@@ -15,12 +16,15 @@ export function ImportList({ imports, timeZone, showClient }: { imports: Array<I
             </Link>
             <p className="truncate text-xs text-text-3">
               {showClient && i.clientName ? `${i.clientName} · ` : ""}
-              {REPORT_TYPE_LABEL[i.reportType]} · {i.format.toUpperCase()} · {formatDateTime(i.createdAt, timeZone)}
+              {REPORT_TYPE_LABEL[i.reportType]} · {i.format === "md" ? "Dados colados" : i.format.toUpperCase()} · {formatDateTime(i.createdAt, timeZone)}
               {i.errorCount ? ` · ${i.errorCount} erro(s)` : ""}
               {i.warningCount ? ` · ${i.warningCount} aviso(s)` : ""}
             </p>
           </div>
-          <ImportStatusBadge status={i.status} />
+          <div className="flex items-center justify-between gap-2 sm:justify-end">
+            <ImportStatusBadge status={i.status} />
+            <DeleteImportButton clientId={i.clientId} importId={i.id} fileName={i.fileName} imported={i.status === "imported"} />
+          </div>
         </li>
       ))}
     </ul>

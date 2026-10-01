@@ -11,7 +11,9 @@ import { ReportViewer } from "@/components/dashboard/report-viewer";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ReportStatusActions } from "@/features/admin/components/report-status-actions";
 import { ReportDetailsEditor } from "@/features/admin/components/report-details-editor";
-import { getClient } from "@/features/clients/service";
+import { ReportPeriodDialog } from "@/features/admin/components/report-period-dialog";
+import { getClient, today } from "@/features/clients/service";
+import { periodOptions } from "@/features/uploads/period-options";
 import { loadPortalModel } from "@/features/portal/model";
 import { CommercialDashboard } from "@/features/commercial/components/commercial-dashboard";
 import { buildCommercialViewModel } from "@/features/commercial/view-model";
@@ -61,6 +63,15 @@ export default async function AdminReportPage(props: PageProps<"/adm/clientes/[i
               <a href={`${fileUrl}?download=1`} className={buttonClass("ghost")}>
                 <Download className="size-4" aria-hidden /> Original
               </a>
+            ) : null}
+            {manifest.status !== "archived" ? (
+              <ReportPeriodDialog
+                clientId={id}
+                reportId={reportId}
+                current={{ key: manifest.periodKey, label: formatPeriod(manifest.period) }}
+                options={periodOptions(client.modules[manifest.type].cadence, today())}
+                published={manifest.status === "published"}
+              />
             ) : null}
             <ReportStatusActions clientId={id} reportId={reportId} status={manifest.status} label={label} />
           </div>

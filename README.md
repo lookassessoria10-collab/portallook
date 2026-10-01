@@ -333,17 +333,23 @@ Todos os schemas estão em `src/features/*/schema.ts` (Zod).
 1. **Cliente**
 2. **Tipo** (Comercial ou Tráfego)
 3. **Período.** Planilhas podem "detectar pelo arquivo". PDF exige o período.
-4. **Arquivo:** arraste e solte ou selecione. Para CSV, informe o conteúdo (funil, financeiro, canais, dimensão ou tráfego).
+4. **Arquivo:** arraste e solte ou selecione, ou use **Colar dados** (tabela em Markdown ou células copiadas da planilha). Para CSV, informe o conteúdo (funil, financeiro, canais, dimensão ou tráfego). Em tráfego, escolha a **plataforma** quando o arquivo for de uma só (ver abaixo).
 5. **Validação:**
    - **ERRO** impede a importação (ex.: aba Funil ausente, período inválido, cliente incompatível, arquivo corrompido);
    - **AVISO** permite continuar (ex.: receita não informada, canal sem conversão, campanha sem alcance, sem período anterior para comparar, CTR informado diferente do calculado).
 6. **Prévia:** abas reconhecidas e períodos encontrados, com os números principais. Escolha quais períodos importar. Uma planilha anual pode criar vários meses de uma vez.
 7. **Confirmação**
-8. **Rascunho criado.** Nada é publicado automaticamente.
+8. **Rascunho criado.** Nada é publicado automaticamente. Quando a importação cria vários rascunhos, o botão **Publicar todos** publica todos de uma vez (com confirmação).
 
 Arquivos maiores que `SERVER_UPLOAD_MAX_MB` vão direto do navegador para o Blob privado, com progresso e token de uso único restrito ao caminho daquele upload.
 
 **CSV parcial:** um CSV de canais, financeiro ou dimensão atualiza só aquela seção. O sistema cria um novo rascunho copiando as outras seções do relatório mais recente do período.
+
+**Upload por plataforma (tráfego):** escolha "Só Meta Ads" ou "Só Google Ads" e envie a exportação da plataforma com todos os meses de uma vez (Meta: Divisão › Por tempo › Mês; Google: segmentar por Mês). A coluna Plataforma deixa de ser obrigatória e cada mês vira um rascunho que **substitui só as campanhas daquela plataforma**: as das outras plataformas são copiadas do relatório mais recente do mês (rascunho ou publicado). Enviar Meta e depois Google acumula as duas no mesmo rascunho; um rascunho criado antes da última publicação é considerado esquecido e não serve de base. Linhas de outras plataformas conhecidas (ex.: Google num upload do Meta) são ignoradas, com aviso; valores como "Display", "YouTube" ou "audience_network" pertencem à plataforma escolhida.
+
+**Publicar todos:** publica os rascunhos da importação que ainda estão em rascunho, pulando os que já têm uma versão mais nova do mesmo período. Ao publicar qualquer versão, a publicada anterior e os rascunhos mais antigos do mesmo período viram "substituídos".
+
+**Dados colados:** o texto vira um arquivo `.md` guardado como original e passa pela mesma validação das planilhas. Cada tabela Markdown é uma aba, com o nome do título logo acima (`## Funil`, `## Canais`; numeração como `## 1. Funil` é ignorada); a linha separadora `|---|` é opcional. A primeira tabela sem título é lida como Campanhas (tráfego) ou Funil (comercial); no comercial, outra tabela sem título é erro. Sem tabela Markdown, o texto é lido como células copiadas da planilha (separadas por tabulação). As mensagens apontam a linha do texto colado e falam em "tabela". Dados colados nunca ficam disponíveis para download no portal. O passo de envio mostra o **formato esperado** (com exemplo para inserir no campo) conforme o tipo de relatório, a periodicidade e a plataforma escolhida.
 
 ---
 
@@ -369,6 +375,7 @@ Outras ações:
 | --- | --- |
 | **XLSX / XLS** | Interpretado e convertido para o modelo padronizado. Baixe os modelos em `public/modelos/` ou no próprio assistente. |
 | **CSV** | Uma tabela por arquivo; o ADM informa o conteúdo. Separador `;` ou `,`, UTF-8 ou Windows-1252. |
+| **Dados colados / .md** | Tabelas Markdown (uma aba por tabela, nomeada pelo título acima dela) ou células copiadas da planilha. Mesmas colunas das planilhas. |
 | **PDF** | Documento visual, sem extração de dados no MVP. Visualizador com páginas, zoom e download opcional. |
 | **HTML estruturado** | Contém `<script type="application/json" id="portal-look-data">` com `{ type, client, data, insights }`, onde `data` segue `CommercialData` ou `TrafficData` (exemplo em `public/modelos/exemplo-html-estruturado.html`). Vira dashboard. |
 | **HTML legado** | Qualquer outro HTML. Exibido isolado em iframe sandbox. |
@@ -383,8 +390,12 @@ Outras ações:
 
 **Planilha de tráfego:**
 
-- **Colunas obrigatórias:** Plataforma, Campanha, Investimento e Impressões.
-- **Colunas opcionais:** Cliente, Início e Fim, Alcance, Cliques, Cliques no link, Resultados, Tipo de resultado, Conversões e Receita atribuída.
+- **Colunas obrigatórias:** Plataforma (dispensada no upload por plataforma), Investimento e Impressões, mais o período: Início e Fim, ou uma coluna Mês/Período/Semana/Data ("01/2026", "janeiro de 2026", "21/09/2026 a 27/09/2026").
+- **Periodicidade do cliente:** cada linha é encaixada na periodicidade do tráfego do cliente — o portal nunca mistura semanas e meses. Cliente mensal: dias e semanas dentro do mesmo mês são somados no mês; linhas que atravessam dois meses são recusadas (exporte com divisão por mês). Cliente semanal: dias da mesma semana são somados; linhas com o mês inteiro são recusadas.
+- **Colunas opcionais:** Campanha (sem ela, cada linha é o total da plataforma no período), Cliente, Alcance, Cliques, Cliques no link, Resultados, Tipo de resultado, Conversões e Receita atribuída.
+- **Exportações do Meta Ads e do Google Ads** são lidas direto: "Valor usado (BRL)", "Nome da campanha", "Início/Término dos relatórios", "Indicador de resultado", "Custo", "Impr.", "Mês", "--" como vazio. Colunas de taxa e custo unitário (CTR, CPC, "Custo/conv.") nunca são lidas como contagem ou investimento, e "Início/Término dos relatórios" tem prioridade sobre a agenda da campanha. Linhas "Total: …" são ignoradas; linhas repetidas da mesma campanha no mesmo período são somadas (o alcance dessas fica sem informação, porque não soma); sem resultados, as conversões contam como resultado; contagens como "12,345" (exportação em inglês) são lidas como milhar.
+- **O que não é resultado:** alcance, impressões, cliques no link, visualizações de vídeo e engajamento ("reach", "actions:link_click"…) não entram em Resultados — continuam em Alcance e Cliques, com aviso.
+- **Nome da coluna de resultado vira o rótulo no portal:** uma coluna "Contatos" aparece como "Contatos" / "Custo por contato".
 
 Os nomes de coluna são reconhecidos com tolerância a acentos, maiúsculas e variações ("Valor investido", "Impressões", "Mês").
 

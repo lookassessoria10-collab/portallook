@@ -45,7 +45,10 @@ export function numberCell(v: CellValue): NumberCell {
   if (typeof v === "number") return Number.isFinite(v) ? { value: v, invalid: false } : { value: null, invalid: true };
   if (typeof v === "boolean" || v instanceof Date) return { value: null, invalid: true };
   const s = v.trim();
-  if (!s || /^[-–—]$/.test(s) || /^(n\/?a|nd|não informado|nao informado)$/i.test(s)) return { value: null, invalid: false };
+  // "-", "--" (Google Ads), "—" e afins = não informado.
+  if (!s || /^[-–—\s]+$/.test(s) || /^(n\/?a|nd|não informado|nao informado)$/i.test(s)) return { value: null, invalid: false };
+  // Moeda, % e "x" (multiplicador) são aceitos; outras letras ("1.5k", "12 mil") indicam valor que não dá para ler com segurança.
+  if (/[a-zà-ú]/i.test(s.replace(/R\$|US\$|BRL|USD|EUR|€|\$|%/gi, "").replace(/x\s*$/i, ""))) return { value: null, invalid: true };
   const n = parseLocaleNumber(s);
   return n === null ? { value: null, invalid: true } : { value: n, invalid: false };
 }

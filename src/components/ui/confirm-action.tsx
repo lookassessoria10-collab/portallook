@@ -21,6 +21,7 @@ export function ActionButton({
   successMessage,
   icon,
   onDone,
+  ariaLabel,
 }: {
   action: () => Promise<ActionResult<unknown>>;
   children: ReactNode;
@@ -31,6 +32,8 @@ export function ActionButton({
   successMessage?: string;
   icon?: ReactNode;
   onDone?: () => void;
+  /** Rótulo acessível — obrigatório na prática quando o botão só tem ícone. */
+  ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -51,7 +54,7 @@ export function ActionButton({
 
   return (
     <>
-      <Button variant={variant} size={size} className={className} disabled={pending} onClick={() => (confirm ? setOpen(true) : run())} aria-busy={pending}>
+      <Button variant={variant} size={size} className={className} disabled={pending} onClick={() => (confirm ? setOpen(true) : run())} aria-busy={pending} aria-label={ariaLabel} title={ariaLabel}>
         {icon}
         {children}
       </Button>

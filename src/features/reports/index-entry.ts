@@ -37,6 +37,10 @@ export function upsertImportEntry(index: ClientIndex, entry: ImportIndexEntry, n
   return { ...index, imports, updatedAt: now };
 }
 
+export function removeImportEntry(index: ClientIndex, importId: string, now: string): ClientIndex {
+  return { ...index, imports: index.imports.filter((i) => i.id !== importId), updatedAt: now };
+}
+
 export function emptyIndex(clientId: string, now: string): ClientIndex {
   return { clientId, updatedAt: now, reports: [], imports: [] };
 }

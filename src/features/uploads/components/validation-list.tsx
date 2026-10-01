@@ -24,7 +24,7 @@ export function ValidationList({ issues }: { issues: ValidationIssue[] }) {
       {warnings.length ? (
         <section aria-labelledby="val-warnings">
           <h3 id="val-warnings" className="mb-2 flex items-center gap-2 text-sm font-bold text-attention">
-            <TriangleAlert className="size-4" aria-hidden /> {warnings.length === 1 ? "1 aviso" : `${warnings.length} avisos`} (não impedem a importação)
+            <TriangleAlert className="size-4" aria-hidden /> {warnings.length === 1 ? "1 aviso" : `${warnings.length} avisos`} {warnings.length === 1 ? "(não impede a importação)" : "(não impedem a importação)"}
           </h3>
           <ul className="space-y-2">
             {warnings.map((w, i) => (

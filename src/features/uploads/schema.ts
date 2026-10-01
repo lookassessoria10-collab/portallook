@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { PeriodSchema, ReportTypeSchema, TimestampSchema, ValidationIssueSchema } from "@/features/reports/schema";
 
-export const FileFormatSchema = z.enum(["xlsx", "xls", "csv", "pdf", "html"]);
+/** "md": dados colados no painel (tabelas Markdown ou células copiadas da planilha). */
+export const FileFormatSchema = z.enum(["xlsx", "xls", "csv", "pdf", "html", "md"]);
 export type FileFormat = z.infer<typeof FileFormatSchema>;
 
 /** CSV não tem abas: o ADM informa qual conteúdo o arquivo representa. */
@@ -15,6 +16,18 @@ export const CSV_CONTENT_OPTIONS: Array<{ value: CsvContent; label: string; repo
   { value: "dimension", label: "Dimensão adicional (serviços, profissionais, unidades, produtos…)", reportType: "commercial" },
   { value: "insights", label: "Insights", reportType: "commercial" },
   { value: "traffic", label: "Tráfego (campanhas)", reportType: "traffic" },
+];
+
+/**
+ * Upload de uma plataforma só (ex.: exportação do Meta Ads com todos os meses):
+ * cada período substitui apenas as campanhas dessa plataforma no relatório do mês.
+ */
+export const UploadPlatformSchema = z.enum(["meta_ads", "google_ads"]);
+export type UploadPlatform = z.infer<typeof UploadPlatformSchema>;
+
+export const UPLOAD_PLATFORM_OPTIONS: Array<{ value: UploadPlatform; label: string }> = [
+  { value: "meta_ads", label: "Meta Ads (Facebook e Instagram)" },
+  { value: "google_ads", label: "Google Ads" },
 ];
 
 export const ImportStatusSchema = z.enum([
@@ -58,6 +71,14 @@ export const ImportPreviewSchema = z.object({
   /** Período sugerido para importar (o pedido ou o mais recente do arquivo). */
   suggestedPeriodKeys: z.array(z.string()).default([]),
   documentPages: z.number().int().nullable().default(null),
+  /**
+   * O período escolhido no assistente não aparece no arquivo (que tem um único
+   * período): o ADM decide na prévia se usa o escolhido ou o das datas do arquivo.
+   */
+  periodMismatch: z
+    .object({ requestedKey: z.string(), requestedLabel: z.string(), existing: PreviewPeriodSchema.shape.existing })
+    .nullable()
+    .default(null),
 });
 export type ImportPreview = z.infer<typeof ImportPreviewSchema>;
 
@@ -73,6 +94,8 @@ export const ImportRecordSchema = z.object({
   status: ImportStatusSchema,
   csvContent: CsvContentSchema.nullable().default(null),
   csvDimensionLabel: z.string().nullable().default(null),
+  /** Tráfego: arquivo de uma plataforma só (null = coluna Plataforma do arquivo). */
+  platform: UploadPlatformSchema.nullable().default(null),
   requestedPeriod: PeriodSchema.nullable().default(null),
   title: z.string().nullable().default(null),
   allowDownload: z.boolean().default(false),

@@ -10,10 +10,12 @@ export interface RawSheet {
   name: string;
   headers: string[];
   rows: RawRow[];
+  /** Tabela colada sem título acima dela (o nome é o padrão do tipo de relatório). */
+  untitled?: boolean;
 }
 
 export interface RawWorkbook {
-  format: "xlsx" | "xls" | "csv";
+  format: "xlsx" | "xls" | "csv" | "md";
   sheets: RawSheet[];
 }
 

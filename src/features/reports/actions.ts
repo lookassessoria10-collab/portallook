@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { actionError, type ActionResult } from "@/lib/errors";
 import { isValidId } from "@/lib/ids";
+import { formatPeriod, parsePeriodKey } from "@/lib/dates/period";
 import { requireAdmin } from "@/features/auth/session";
 import { InsightTypeSchema } from "./schema";
-import { archiveReport, newInsightId, publishReport, restoreReport, unpublishReport, updateReportDetails } from "./service";
+import { archiveReport, changeReportPeriod, newInsightId, publishReport, restoreReport, unpublishReport, updateReportDetails } from "./service";
 import { repairClientIndex } from "@/features/admin/maintenance";
 import { getRepositories } from "@/server/repositories";
 
@@ -75,6 +76,20 @@ export async function saveReportDetailsAction(clientId: string, reportId: string
     return { ok: true, data: undefined, message: "Alterações salvas." };
   } catch (e) {
     return actionError(e, "report:details");
+  }
+}
+
+export async function changeReportPeriodAction(clientId: string, reportId: string, key: string): Promise<ActionResult> {
+  const session = await requireAdmin();
+  try {
+    ids(clientId, reportId);
+    const period = typeof key === "string" && key.length <= 40 ? parsePeriodKey(key) : null;
+    if (!period) return { ok: false, error: "Período inválido." };
+    await changeReportPeriod(clientId, reportId, period, session.email);
+    refresh();
+    return { ok: true, data: undefined, message: `Período alterado para ${formatPeriod(period)}.` };
+  } catch (e) {
+    return actionError(e, "report:period");
   }
 }
 

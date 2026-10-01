@@ -1,7 +1,7 @@
-import { formatInteger, isFiniteNumber, type ValueFormat } from "@/lib/format/number";
+import { formatCurrency, formatInteger, isFiniteNumber, type ValueFormat } from "@/lib/format/number";
 import { compareValues, type Comparison } from "@/lib/metrics/comparison";
 import { METRICS, type MetricKey } from "@/lib/metrics/definitions";
-import { formatPeriod, formatPeriodReference } from "@/lib/dates/period";
+import { formatPeriod, formatPeriodReference, periodUnit, type PeriodUnit } from "@/lib/dates/period";
 import { costPerLabel, lowerFirst } from "@/lib/format/text";
 import type { SeriesDef, SeriesPoint } from "@/components/charts/types";
 import type { ReportIndexEntry } from "@/features/reports/schema";
@@ -20,15 +20,21 @@ export interface ComparisonRow {
 
 export interface PlatformSummary extends PlatformView {
   comparison: Comparison | null;
+  /** Só o total da plataforma no período (dados sem coluna de campanha): não há campanhas para listar. */
+  totalsOnly: boolean;
 }
 
 export interface TrafficViewModel {
+  /** Unidade do período ("mês", "semana") para os textos da tela. */
+  unit: PeriodUnit;
   headline: string;
   reference: string | null;
   kpis: KpiView[];
   secondary: KpiView[];
   totals: TrafficTotals;
   platforms: PlatformSummary[];
+  /** Há campanhas de verdade (não só totais por plataforma). */
+  campaignDetail: boolean;
   comparisonRows: ComparisonRow[];
   trend: { points: SeriesPoint[]; series: SeriesDef[] } | null;
 }
@@ -36,6 +42,17 @@ export interface TrafficViewModel {
 interface Ctx {
   previous: ReportIndexEntry | null;
   history: ReportIndexEntry[];
+  /** Resultados só são comparáveis se o período anterior teve os mesmos tipos (conversas com conversas). */
+  comparableResults?: boolean;
+}
+
+const RESULT_KEYS = new Set(["results", "costPerResult"]);
+
+function resultTypes(summary: Record<string, number | null>): string {
+  return Object.keys(summary)
+    .filter((k) => /^result\.[a-z_]+$/.test(k) && summary[k] !== null)
+    .sort()
+    .join(",");
 }
 
 function kpi(key: MetricKey, value: number | null, ctx: Ctx, icon: KpiIcon, overrides: Partial<KpiView> = {}): KpiView {
@@ -45,7 +62,7 @@ function kpi(key: MetricKey, value: number | null, ctx: Ctx, icon: KpiIcon, over
     label: overrides.label ?? def.label,
     value,
     format: def.format,
-    comparison: ctx.previous ? compareValues(value, ctx.previous.summary[key] ?? null, { direction: def.direction, kind: def.comparison }) : null,
+    comparison: ctx.previous && (ctx.comparableResults !== false || !RESULT_KEYS.has(key)) ? compareValues(value, ctx.previous.summary[key] ?? null, { direction: def.direction, kind: def.comparison }) : null,
     trend: ctx.history.map((h) => h.summary[key] ?? null),
     description: overrides.description ?? def.description,
     footnote: overrides.footnote ?? null,
@@ -56,7 +73,8 @@ function kpi(key: MetricKey, value: number | null, ctx: Ctx, icon: KpiIcon, over
 export function buildTrafficViewModel(data: TrafficData, input: Ctx): TrafficViewModel {
   const view = buildTrafficView(data);
   const t = view.totals;
-  const ctx: Ctx = input;
+  const current: Record<string, number | null> = Object.fromEntries(t.resultGroups.map((g) => [`result.${g.type}`, g.count]));
+  const ctx: Ctx = { ...input, comparableResults: !input.previous || resultTypes(current) === resultTypes(input.previous.summary) };
   const reference = input.previous ? formatPeriodReference(input.previous.period) : null;
 
   const singleResult = t.resultGroups.length === 1 ? t.resultGroups[0] : null;
@@ -89,6 +107,7 @@ export function buildTrafficViewModel(data: TrafficData, input: Ctx): TrafficVie
 
   const platforms: PlatformSummary[] = view.platforms.map((p) => ({
     ...p,
+    totalsOnly: p.campaigns.length === 1 && p.campaigns[0].name === p.label,
     comparison: input.previous
       ? compareValues(p.totals.investment, input.previous.summary[`platform.${p.platform}.investment`] ?? null, { direction: "neutral" })
       : null,
@@ -116,17 +135,19 @@ export function buildTrafficViewModel(data: TrafficData, input: Ctx): TrafficVie
         format: def.format,
         current: value,
         previous: prev,
-        comparison: input.previous ? compareValues(value, prev, { direction: def.direction, kind: def.comparison }) : null,
+        comparison: input.previous && (ctx.comparableResults || !RESULT_KEYS.has(key)) ? compareValues(value, prev, { direction: def.direction, kind: def.comparison }) : null,
       };
     });
 
   return {
-    headline: buildHeadline(data, t, resultsLabel),
+    unit: periodUnit(data.period.granularity),
+    headline: buildHeadline(data, t, resultsLabel, platforms.some((p) => !p.totalsOnly)),
     reference,
     kpis,
     secondary,
     totals: t,
     platforms,
+    campaignDetail: platforms.some((p) => !p.totalsOnly),
     comparisonRows,
     trend: buildTrend(input.history, resultsLabel),
   };
@@ -147,10 +168,18 @@ function buildTrend(history: ReportIndexEntry[], resultsLabel: string): TrafficV
   return series.length ? { points, series } : null;
 }
 
-function buildHeadline(data: TrafficData, t: TrafficTotals, resultsLabel: string): string {
+function buildHeadline(data: TrafficData, t: TrafficTotals, resultsLabel: string, campaignDetail: boolean): string {
   const period = formatPeriod(data.period);
+  if (!campaignDetail) {
+    // Só totais por plataforma: não fala em "campanhas ativas".
+    const invested = `${formatCurrency(t.investment, data.currency, { noCents: true })} investidos`;
+    if (t.results !== null) return `${period}: ${invested} e ${formatInteger(t.results)} ${lowerFirst(resultsLabel)}.`;
+    if (t.clicks !== null) return `${period}: ${invested} e ${formatInteger(t.clicks)} cliques.`;
+    return `${period}: ${invested} e ${formatInteger(t.impressions)} impressões.`;
+  }
   const campaigns = `${t.campaignCount} ${t.campaignCount === 1 ? "campanha ativa" : "campanhas ativas"}`;
-  if (t.results !== null) return `${period}: ${campaigns} geraram ${formatInteger(t.results)} ${lowerFirst(resultsLabel)}.`;
-  if (t.clicks !== null) return `${period}: ${campaigns} geraram ${formatInteger(t.clicks)} cliques.`;
+  const verb = t.campaignCount === 1 ? "gerou" : "geraram";
+  if (t.results !== null) return `${period}: ${campaigns} ${verb} ${formatInteger(t.results)} ${lowerFirst(resultsLabel)}.`;
+  if (t.clicks !== null) return `${period}: ${campaigns} ${verb} ${formatInteger(t.clicks)} cliques.`;
   return `${period}: ${campaigns} com ${formatInteger(t.impressions)} impressões.`;
 }

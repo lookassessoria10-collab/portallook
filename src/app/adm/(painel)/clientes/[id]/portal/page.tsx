@@ -22,6 +22,7 @@ export default async function PortalPreviewPage(props: PageProps<"/adm/clientes/
   const model = await loadPortalModel(client, { tab: one(search.aba), period: one(search.periodo), mode: "preview" });
   const tabParam = model.tab === "traffic" ? "trafego" : "comercial";
   const links: PortalLinks = {
+    overview: `${base}?aba=${tabParam}`,
     period: (key) => `${base}?aba=${tabParam}&periodo=${encodeURIComponent(key)}`,
     document: (reportId) => `/adm/clientes/${id}/relatorios/${reportId}`,
     file: (reportId, download) => `/api/adm/clientes/${id}/relatorios/${reportId}/arquivo${download ? "?download=1" : ""}`,

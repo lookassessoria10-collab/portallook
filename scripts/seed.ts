@@ -111,6 +111,7 @@ async function main() {
         stagingPath: paths.importOriginal(importId, err.format),
         status: "invalid",
         csvContent: null,
+        platform: null,
         csvDimensionLabel: null,
         requestedPeriod: null,
         title: null,

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Projeto de vídeo (Remotion) tem lint próprio.
+    "video/**",
   ]),
 ]);
 

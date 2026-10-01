@@ -161,7 +161,7 @@ export function buildCommercialViewModel(
   };
 }
 
-function orderByConfig(items: KpiView[], order: string[]): KpiView[] {
+export function orderByConfig(items: KpiView[], order: string[]): KpiView[] {
   if (!order.length) return items;
   return [...items].sort((a, b) => {
     const ia = order.indexOf(a.key);

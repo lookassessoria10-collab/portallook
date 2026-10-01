@@ -29,7 +29,7 @@ export const ParsedImportSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("dataset"),
     reportType: ReportTypeSchema,
-    sourceType: z.enum(["xlsx", "xls", "csv", "html_structured"]),
+    sourceType: z.enum(["xlsx", "xls", "csv", "md", "html_structured"]),
     partial: z.boolean().default(false),
     periods: z.array(ParsedPeriodSchema),
   }),

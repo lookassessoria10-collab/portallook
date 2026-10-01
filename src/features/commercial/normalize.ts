@@ -4,7 +4,7 @@ import { formatPeriod, periodKey, type Period } from "@/lib/dates/period";
 import { findColumn, numberCell, textCell } from "@/lib/parsers/cells";
 import type { RawSheet, RawWorkbook } from "@/lib/parsers/types";
 import type { IssueCollector } from "@/features/uploads/issues";
-import { resolveRowPeriod, type PeriodContext } from "@/features/uploads/row-period";
+import { isTotalLabel, resolveRowPeriod, type PeriodContext } from "@/features/uploads/row-period";
 import type { CommercialSection, ParsedInsight, ParsedPeriod } from "@/features/uploads/parsed";
 import { mapInsightType } from "@/features/uploads/insight-type";
 import type { ChannelKind, CommercialDataInput } from "./schema";
@@ -34,7 +34,7 @@ export function classifySheet(name: string): SheetRole | "ignored" {
   return "dimension";
 }
 
-const PERIOD = ["periodo", "mes", "mes de referencia", "competencia", "referencia", "period", "month", "data"];
+const PERIOD = ["periodo", "mes", "mes de referencia", "competencia", "referencia", "period", "month", "semana", "week", "data"];
 
 interface Acc {
   period: Period;
@@ -81,7 +81,14 @@ export function normalizeCommercial(
   };
 
   const sheets: CommercialNormalizeResult["sheets"] = [];
-  for (const sheet of workbook.sheets) {
+  let untitledTables = 0;
+  for (const [index, sheet] of workbook.sheets.entries()) {
+    // Dados colados: só a primeira tabela pode ficar sem título (vira Funil); as outras precisam dizer o que são.
+    if (sheet.untitled && untitledTables++ > 0) {
+      issues.error("untitled_table", `A ${index + 1}ª tabela colada não tem título. Escreva o nome da seção na linha de cima dela (ex.: ## Financeiro, ## Canais).`, { sheet: sheet.name });
+      sheets.push({ name: sheet.name, rows: sheet.rows.length, recognizedAs: null });
+      continue;
+    }
     const role = ctx.csvRole ?? classifySheet(sheet.name);
     if (role === "ignored" || sheet.rows.length === 0) {
       sheets.push({ name: sheet.name, rows: sheet.rows.length, recognizedAs: null });
@@ -102,7 +109,8 @@ export function normalizeCommercial(
   }
 
   const partial = Boolean(ctx.csvRole);
-  if (!partial && !workbook.sheets.some((s) => classifySheet(s.name) === "funnel")) {
+  const hasFunnelSheet = workbook.sheets.some((s) => classifySheet(s.name) === "funnel");
+  if (!partial && !hasFunnelSheet) {
     issues.error("missing_sheet", 'A aba "Funil" não foi encontrada. Ela é obrigatória para o relatório comercial (baixe o modelo para ver o formato).');
   }
 
@@ -111,7 +119,8 @@ export function normalizeCommercial(
     const label = formatPeriod(a.period);
     const funnel = [...a.funnel.entries()].map(([k, s]) => ({ key: k, label: s.label, order: s.order, value: s.value })).sort((x, y) => x.order - y.order);
     if (!partial && !funnel.length) {
-      issues.error("missing_funnel", `A aba Funil não tem dados para ${label}, mas outras abas têm. Inclua o funil desse período ou remova as linhas dele.`);
+      // Sem aba Funil, o erro acima já explica; aqui é só o período que ficou sem funil.
+      if (hasFunnelSheet) issues.error("missing_funnel", `A aba Funil não tem dados para ${label}, mas outras abas têm. Inclua o funil desse período ou remova as linhas dele.`);
       continue;
     }
     const data: CommercialDataInput = {
@@ -137,7 +146,7 @@ function readFunnel(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector,
   if (stageCol) {
     const orderCol = findColumn(h, ["ordem", "order", "posicao"]);
     const qtyCol = findColumn(h, ["quantidade", "qtd", "valor", "total", "quantity", "volume"], [periodCol, stageCol, orderCol]);
-    if (!qtyCol) return issues.error("missing_column", 'A coluna "Quantidade" não foi encontrada na aba Funil.', { sheet: sheet.name, column: "Quantidade" });
+    if (!qtyCol) return issues.error("missing_column", 'A coluna "Quantidade" não foi encontrada na aba Funil (formato com coluna Etapa). Nomes aceitos: Quantidade, Qtd, Valor, Total, Volume.', { sheet: sheet.name, column: "Quantidade" });
     const autoOrder = new Map<string, number>();
     for (const row of sheet.rows) {
       const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
@@ -160,7 +169,10 @@ function readFunnel(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector,
   // Formato "largo": Período | Leads | Agendamentos | Comparecimentos …
   // Colunas de texto ("Observações", "Responsável"…) não viram etapas; uma coluna única
   // com valores inválidos continua sendo etapa para o erro apontar a célula.
-  const candidates = h.filter((c) => c !== periodCol && !/^(obs|observa|nota|coment)/.test(normalizeText(c)));
+  // Taxas e totais ("Taxa de conversão (%)", "Total") são calculados pelo sistema: não são etapas.
+  const derived = h.filter((c) => c !== periodCol && (/^(taxa|conversao|percentual|total)\b/.test(normalizeText(c)) || c.includes("%")));
+  if (derived.length) issues.warn("funnel_rate_columns", `As colunas ${derived.map((c) => `"${c}"`).join(", ")} da aba Funil foram ignoradas: taxas e totais são calculados pelo portal.`, { sheet: sheet.name });
+  const candidates = h.filter((c) => c !== periodCol && !derived.includes(c) && !/^(obs|observa|nota|coment)/.test(normalizeText(c)));
   const numeric = candidates.filter((c) => sheet.rows.some((r) => numberCell(r.cells[c]).value !== null));
   const stageCols = numeric.length ? numeric : candidates;
   if (!stageCols.length) return issues.error("missing_column", "A aba Funil não tem colunas de etapas.", { sheet: sheet.name });
@@ -186,7 +198,7 @@ function readFinancial(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollect
   const salesCol = findColumn(h, ["vendas", "numero de vendas", "qtd vendas", "sales"]);
   const otherCol = findColumn(h, ["outros custos", "other costs"]);
   const ticketCol = findColumn(h, ["ticket medio", "ticket", "average ticket"]);
-  if (!revenueCol && !investCol) return issues.error("missing_column", 'A aba Financeiro precisa de pelo menos a coluna "Receita" ou "Investimento em mídia".', { sheet: sheet.name });
+  if (!revenueCol && !investCol) return issues.error("missing_column", 'A aba Financeiro precisa de pelo menos a coluna "Receita" (ou Receita total, Faturamento) ou "Investimento em mídia" (ou Investimento, Valor investido).', { sheet: sheet.name });
   for (const row of sheet.rows) {
     const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
     if (!period) continue;
@@ -235,15 +247,16 @@ function readChannels(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollecto
   const h = sheet.headers;
   const periodCol = findColumn(h, PERIOD);
   const nameCol = findColumn(h, ["canal", "origem", "fonte", "channel", "source", "nome"], [periodCol]);
-  if (!nameCol) return issues.error("missing_column", 'A coluna "Canal" não foi encontrada na aba Canais.', { sheet: sheet.name, column: "Canal" });
+  if (!nameCol) return issues.error("missing_column", 'A coluna "Canal" não foi encontrada na aba Canais. Nomes aceitos: Canal, Origem, Fonte, Nome.', { sheet: sheet.name, column: "Canal" });
   const kindCol = findColumn(h, ["tipo", "tipo de canal", "categoria", "kind"], [nameCol]);
   const leadsCol = findColumn(h, ["leads", "contatos", "oportunidades"]);
   const convCol = findColumn(h, ["conversoes", "conversao", "fechamentos", "vendas", "comparecimentos", "clientes", "conversions"]);
   const revenueCol = findColumn(h, ["receita", "faturamento", "revenue"]);
   const investCol = findColumn(h, ["investimento", "valor investido", "midia", "investment"]);
   for (const row of sheet.rows) {
-    const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
     const label = textCell(row.cells[nameCol]);
+    if (isTotalLabel(label)) continue;
+    const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
     if (!period || !label) continue;
     const read = (col: string | null) => {
       if (!col) return null;
@@ -286,8 +299,9 @@ function readDimensionRows(sheet: RawSheet, rows: RawSheet["rows"], dimLabel: st
   }
   const dimKey = slugify(dimLabel) || "dimensao";
   for (const row of rows) {
-    const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
     const label = textCell(row.cells[itemCol]);
+    if (isTotalLabel(label)) continue;
+    const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
     if (!period || !label) continue;
     const read = (col: string | null) => {
       if (!col) return null;
@@ -327,7 +341,7 @@ function readExtraMetrics(sheet: RawSheet, ctx: PeriodContext, issues: IssueColl
   const periodCol = findColumn(h, PERIOD);
   const nameCol = findColumn(h, ["indicador", "metrica", "nome", "indicator"], [periodCol]);
   const valueCol = findColumn(h, ["valor", "quantidade", "total", "value"], [nameCol]);
-  if (!nameCol || !valueCol) return issues.error("missing_column", 'A aba Indicadores precisa das colunas "Indicador" e "Valor".', { sheet: sheet.name });
+  if (!nameCol || !valueCol) return issues.error("missing_column", 'A aba Indicadores precisa das colunas "Indicador" (ou Métrica, Nome) e "Valor" (ou Quantidade, Total).', { sheet: sheet.name });
   const formatCol = findColumn(h, ["formato", "tipo", "format"], [nameCol, valueCol]);
   const dirCol = findColumn(h, ["direcao", "melhor quando", "direction"], [nameCol, valueCol]);
   for (const row of sheet.rows) {

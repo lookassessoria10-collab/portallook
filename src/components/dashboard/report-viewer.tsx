@@ -9,7 +9,7 @@ const PdfViewer = dynamic(() => import("./pdf-viewer"), {
   loading: () => <div className="skeleton h-[60svh] w-full" role="status" aria-label="Carregando visualizador" />,
 });
 
-export type ViewerSource = "pdf" | "html_legacy" | "html_structured" | "xlsx" | "xls" | "csv" | "seed";
+export type ViewerSource = "pdf" | "html_legacy" | "html_structured" | "xlsx" | "xls" | "csv" | "md" | "seed";
 
 /**
  * Escolhe o visualizador pelo formato do original. HTML legado roda em iframe

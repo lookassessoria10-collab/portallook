@@ -133,6 +133,36 @@ describe("controle de acesso do portal", () => {
     const model = await loadPortalModel(a, { mode: "client", period: "2026-08" });
     expect(model.previous?.periodKey).toBe("2026-07");
     expect(model.history.map((h) => h.periodKey)).toEqual(["2026-06", "2026-07", "2026-08"]);
-    expect(model.archive).toHaveLength(3);
+    expect(model.view).toBe("period");
+    expect(model.periods.map((p) => p.key)).toEqual(["2026-06", "2026-07", "2026-08"]);
+  });
+
+  it("sem período escolhido abre a visão geral com todos os períodos publicados", async () => {
+    const a = await createClient(input("Cliente A", "cliente-a"), null);
+    for (const m of [6, 7, 8]) {
+      const r = await dataset(a.id, m);
+      await publishReport(a.id, r.id, null);
+    }
+    await dataset(a.id, 9);
+
+    const model = await loadPortalModel(a, { mode: "client" });
+    expect(model.view).toBe("overview");
+    expect(model.periodKey).toBeNull();
+    expect(model.selection.dataset).toBeNull();
+    expect(model.overview?.map((e) => e.periodKey)).toEqual(["2026-06", "2026-07", "2026-08"]);
+
+    const preview = await loadPortalModel(a, { mode: "preview" });
+    expect(preview.overview?.map((e) => e.periodKey)).toEqual(["2026-06", "2026-07", "2026-08", "2026-09"]);
+    expect(preview.periods.at(-1)).toMatchObject({ key: "2026-09", draft: true });
+  });
+
+  it("com um único período não há visão geral: abre o próprio período", async () => {
+    const a = await createClient(input("Cliente A", "cliente-a"), null);
+    const r = await dataset(a.id, 8);
+    await publishReport(a.id, r.id, null);
+    const model = await loadPortalModel(a, { mode: "client" });
+    expect(model.overview).toBeNull();
+    expect(model.view).toBe("period");
+    expect(model.selection.dataset?.entry.id).toBe(r.id);
   });
 });

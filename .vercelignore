@@ -2,3 +2,5 @@
 .data
 .env*
 !.env.example
+# Projeto de vídeo (Remotion) não faz parte do deploy
+video

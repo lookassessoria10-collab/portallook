@@ -2,9 +2,10 @@
 
 import { useId, useState } from "react";
 import { formatValue } from "@/lib/format/number";
+import { sumMaybe } from "@/lib/metrics/safe-math";
 import { cn } from "@/lib/cn";
 import { LazyColumnsChart, LazyTrendChart } from "@/components/charts/lazy";
-import { SLOT_COLOR, type SeriesDef, type SeriesPoint } from "@/components/charts/types";
+import { seriesColor, type SeriesDef, type SeriesPoint } from "@/components/charts/types";
 
 /**
  * Evolução temporal com seletor de métrica (uma série por vez → um eixo só)
@@ -56,7 +57,7 @@ export function MetricTrend({ points, series, currency, initial }: { points: Ser
   );
 }
 
-export function ComparisonColumns({ points, series, currency, caption }: { points: SeriesPoint[]; series: SeriesDef[]; currency: string; caption?: string }) {
+export function ComparisonColumns({ points, series, currency, caption, stacked = false }: { points: SeriesPoint[]; series: SeriesDef[]; currency: string; caption?: string; stacked?: boolean }) {
   const [showTable, setShowTable] = useState(false);
   return (
     <div>
@@ -64,7 +65,7 @@ export function ComparisonColumns({ points, series, currency, caption }: { point
         <ul className="flex flex-wrap gap-x-4 gap-y-1" aria-label="Legenda">
           {series.map((s) => (
             <li key={s.key} className="flex items-center gap-1.5 text-[13px] text-text-2">
-              <span className="size-2.5 rounded-[3px]" style={{ background: SLOT_COLOR[s.slot ?? 1] }} aria-hidden />
+              <span className="size-2.5 rounded-[3px]" style={{ background: seriesColor(s) }} aria-hidden />
               {s.label}
             </li>
           ))}
@@ -75,10 +76,10 @@ export function ComparisonColumns({ points, series, currency, caption }: { point
       </div>
       <div className="mt-3">
         {showTable ? (
-          <SeriesTable points={points} series={series} currency={currency} />
+          <SeriesTable points={points} series={series} currency={currency} withTotal={stacked && series.length > 1} />
         ) : (
           <figure aria-label={caption ?? series.map((s) => s.label).join(" e ")}>
-            <LazyColumnsChart points={points} series={series} currency={currency} />
+            <LazyColumnsChart points={points} series={series} currency={currency} stacked={stacked} />
           </figure>
         )}
       </div>
@@ -86,7 +87,7 @@ export function ComparisonColumns({ points, series, currency, caption }: { point
   );
 }
 
-function SeriesTable({ id, points, series, currency }: { id?: string; points: SeriesPoint[]; series: SeriesDef[]; currency: string }) {
+function SeriesTable({ id, points, series, currency, withTotal = false }: { id?: string; points: SeriesPoint[]; series: SeriesDef[]; currency: string; withTotal?: boolean }) {
   return (
     <div id={id} className="max-h-[260px] overflow-auto rounded-xl border border-border">
       <table className="w-full text-sm">
@@ -100,6 +101,11 @@ function SeriesTable({ id, points, series, currency }: { id?: string; points: Se
                 {s.label}
               </th>
             ))}
+            {withTotal ? (
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
+                Total
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -113,6 +119,7 @@ function SeriesTable({ id, points, series, currency }: { id?: string; points: Se
                   {formatValue(p.values[s.key] ?? null, s.format, currency)}
                 </td>
               ))}
+              {withTotal ? <td className="tabular px-3 py-2 text-right font-bold text-text">{formatValue(sumMaybe(series.map((s) => p.values[s.key])), series[0].format, currency)}</td> : null}
             </tr>
           ))}
         </tbody>

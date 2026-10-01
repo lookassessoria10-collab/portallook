@@ -36,11 +36,13 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/adm/uploads
   if (!isValidId(importId, "im")) return new Response("Não encontrado.", { status: 404 });
   try {
     const record = await requireImport(importId);
-    if (record.format !== "pdf" && record.format !== "html") return new Response("Prévia disponível apenas para PDF e HTML.", { status: 415 });
+    // PDF/HTML para a prévia; dados colados (texto) para reabrir uma colagem com erro no assistente.
+    if (record.format !== "pdf" && record.format !== "html" && record.format !== "md") return new Response("Prévia disponível apenas para PDF, HTML e dados colados.", { status: 415 });
     const file = await getRepositories().imports.getFileStream(record.stagingPath);
     if (!file) return new Response("Arquivo não encontrado.", { status: 404 });
     const headers = new Headers({ "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" });
     if (record.format === "pdf") headers.set("Content-Type", "application/pdf");
+    else if (record.format === "md") headers.set("Content-Type", "text/plain; charset=utf-8");
     else {
       headers.set("Content-Type", "text/html; charset=utf-8");
       headers.set("Content-Security-Policy", LEGACY_HTML_CSP);

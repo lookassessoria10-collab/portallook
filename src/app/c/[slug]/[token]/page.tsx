@@ -27,6 +27,7 @@ export default async function ClientPortalPage(props: PageProps<"/c/[slug]/[toke
   const model = await loadPortalModel(client, { tab: one(search.aba), period: one(search.periodo), mode: "client" });
   const tabParam = model.tab === "traffic" ? "trafego" : "comercial";
   const links: PortalLinks = {
+    overview: `${base}?aba=${tabParam}`,
     period: (key) => `${base}?aba=${tabParam}&periodo=${encodeURIComponent(key)}`,
     document: (id) => `${base}/relatorio/${id}`,
     file: (id, download) => `${base}/arquivo/${id}${download ? "?download=1" : ""}`,

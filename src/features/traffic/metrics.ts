@@ -39,6 +39,8 @@ export function computeCampaignMetrics(c: Campaign): CampaignMetrics {
 export interface ResultGroup {
   type: ResultType;
   label: string;
+  /** Rótulo no plural, para títulos e para o índice ("Conversas no WhatsApp", "Contatos"). */
+  plural: string;
   count: number;
   investment: number;
   costPerResult: number | null;
@@ -55,6 +57,10 @@ export interface TrafficTotals {
   cpm: number | null;
   results: number | null;
   costPerResult: number | null;
+  /** Investimento só das campanhas com resultado (base do custo por resultado). */
+  resultInvestment: number | null;
+  /** Impressões só das campanhas com cliques (base do CTR). */
+  clickImpressions: number | null;
   resultGroups: ResultGroup[];
   conversions: number | null;
   attributedRevenue: number | null;
@@ -71,17 +77,24 @@ export function aggregateCampaigns(campaigns: readonly CampaignMetrics[]): Traff
   const clickImpressions = sumMaybe(clickCampaigns.map((c) => c.impressions));
 
   const groups = new Map<ResultType, ResultGroup>();
+  // Rótulo próprio ("Contatos") vale para o grupo quando todas as campanhas dele usam o mesmo.
+  const customLabels = new Map<ResultType, Set<string | null>>();
   for (const c of campaigns) {
     if (!isFiniteNumber(c.results)) continue;
     const type = c.resultType ?? "other";
-    const g = groups.get(type) ?? { type, label: "", count: 0, investment: 0, costPerResult: null, campaigns: 0 };
+    const g = groups.get(type) ?? { type, label: "", plural: "", count: 0, investment: 0, costPerResult: null, campaigns: 0 };
     g.count += c.results;
     g.investment += c.investment;
     g.campaigns += 1;
     groups.set(type, g);
+    customLabels.set(type, (customLabels.get(type) ?? new Set()).add(type === "other" ? c.resultLabel : null));
   }
   const resultGroups = [...groups.values()]
-    .map((g) => ({ ...g, label: resultTypeLabel(g.type, g.count), costPerResult: safeDivide(g.investment, g.count) }))
+    .map((g) => {
+      const custom = customLabels.get(g.type);
+      const label = custom?.size === 1 ? [...custom][0] : null;
+      return { ...g, label: resultTypeLabel(g.type, g.count, label), plural: resultTypeLabel(g.type, 2, label), costPerResult: safeDivide(g.investment, g.count) };
+    })
     .sort((a, b) => b.count - a.count);
 
   const results = resultGroups.length ? resultGroups.reduce((s, g) => s + g.count, 0) : null;
@@ -98,6 +111,8 @@ export function aggregateCampaigns(campaigns: readonly CampaignMetrics[]): Traff
     ctr: safeDivide(clicks, clickImpressions),
     cpc: safeDivide(clickInvestment, clicks),
     cpm: cpm === null ? null : cpm * 1000,
+    resultInvestment: resultGroups.length ? resultInvestment : null,
+    clickImpressions,
     results,
     costPerResult: safeDivide(resultInvestment, results),
     resultGroups,
@@ -152,6 +167,8 @@ export function trafficSummary(data: TrafficData): { summary: ReportSummary; lab
     cpm: totals.cpm,
     results: totals.results,
     costPerResult: totals.costPerResult,
+    resultInvestment: totals.resultInvestment,
+    clickImpressions: totals.clickImpressions,
     conversions: totals.conversions,
     attributedRevenue: totals.attributedRevenue,
     roas: totals.roas,
@@ -161,11 +178,12 @@ export function trafficSummary(data: TrafficData): { summary: ReportSummary; lab
   for (const g of totals.resultGroups) {
     summary[`result.${g.type}`] = g.count;
     summary[`result.${g.type}.cost`] = g.costPerResult;
-    labels[`result.${g.type}`] = g.label;
+    labels[`result.${g.type}`] = g.plural;
   }
   for (const p of platforms) {
     summary[`platform.${p.platform}.investment`] = p.totals.investment;
     summary[`platform.${p.platform}.results`] = p.totals.results;
+    summary[`platform.${p.platform}.costPerResult`] = p.totals.costPerResult;
     labels[`platform.${p.platform}`] = p.label;
   }
   return { summary, labels };

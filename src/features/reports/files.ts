@@ -30,7 +30,7 @@ function safeFileName(name: string): string {
   return cleaned || "relatorio";
 }
 
-const DOWNLOAD_EXT: Record<string, string> = { xlsx: "xlsx", xls: "xls", csv: "csv", pdf: "pdf", html_legacy: "html", html_structured: "html" };
+const DOWNLOAD_EXT: Record<string, string> = { xlsx: "xlsx", xls: "xls", csv: "csv", md: "md", pdf: "pdf", html_legacy: "html", html_structured: "html" };
 
 /** Resposta com o arquivo original do relatório, sempre privada e sem cache compartilhado. */
 export async function serveReportOriginal(manifest: ReportManifest, options: { download: boolean }): Promise<Response> {

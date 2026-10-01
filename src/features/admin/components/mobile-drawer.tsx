@@ -60,7 +60,8 @@ export function MobileDrawer({ children, label = "Menu" }: { children: ReactNode
     const sheet = sheetRef.current;
     const scroller = scrollerRef.current;
     if (!drawer || !sheet || !scroller) return;
-    const threshold = 1 / window.innerWidth;
+    // Janela oculta/minimizada pode reportar largura 0 — 1/0 derrubaria o IntersectionObserver.
+    const threshold = 1 / Math.max(window.innerWidth, 100);
     let seenOpen = false;
     const observer = new IntersectionObserver(
       (entries) => {

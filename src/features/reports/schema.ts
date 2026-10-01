@@ -31,13 +31,14 @@ export type ReportKind = z.infer<typeof ReportKindSchema>;
 export const ReportStatusSchema = z.enum(["draft", "published", "unpublished", "superseded", "archived"]);
 export type ReportStatus = z.infer<typeof ReportStatusSchema>;
 
-export const SourceTypeSchema = z.enum(["xlsx", "xls", "csv", "pdf", "html_structured", "html_legacy", "seed"]);
+export const SourceTypeSchema = z.enum(["xlsx", "xls", "csv", "md", "pdf", "html_structured", "html_legacy", "seed"]);
 export type SourceType = z.infer<typeof SourceTypeSchema>;
 
 export const SOURCE_TYPE_LABEL: Record<SourceType, string> = {
   xlsx: "Excel",
   xls: "Excel",
   csv: "CSV",
+  md: "Dados colados",
   pdf: "PDF",
   html_structured: "HTML estruturado",
   html_legacy: "HTML",

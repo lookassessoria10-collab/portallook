@@ -10,24 +10,25 @@ import { readJSON, writeJSON } from "@/lib/storage/json";
 import { EXTENSION_FORMAT, extensionOf, sanitizeDisplayName, sniffFormat } from "@/lib/parsers/sniff";
 import { readExcel } from "@/lib/parsers/xlsx";
 import { readCsv } from "@/lib/parsers/csv";
+import { readPastedData } from "@/lib/parsers/markdown";
 import { inspectPdf } from "@/lib/parsers/pdf";
 import { inspectHtml } from "@/lib/parsers/html";
 import { FileReadError, type RawWorkbook } from "@/lib/parsers/types";
 import { logEvent } from "@/features/events/service";
 import { getClient } from "@/features/clients/service";
-import { upsertImportEntry } from "@/features/reports/index-entry";
-import { createDraftReport, getReportData, getReportManifest, newInsightId, type ReportData } from "@/features/reports/service";
+import { removeImportEntry, upsertImportEntry } from "@/features/reports/index-entry";
+import { createDraftReport, getReportData, getReportManifest, newInsightId, PERIOD_WARNING_CODES, publishReport, type ReportData } from "@/features/reports/service";
 import type { ImportIndexEntry, Insight, ReportIndexEntry, ReportManifest, ReportType, SourceType } from "@/features/reports/schema";
 import { computeCommercialMetrics } from "@/features/commercial/metrics";
 import { normalizeCommercial, type SheetRole } from "@/features/commercial/normalize";
 import { CommercialDataSchema, type CommercialData } from "@/features/commercial/schema";
 import { buildTrafficView } from "@/features/traffic/metrics";
 import { normalizeTraffic } from "@/features/traffic/normalize";
-import { TrafficDataSchema } from "@/features/traffic/schema";
+import { TrafficDataSchema, platformLabel, type TrafficData } from "@/features/traffic/schema";
 import { getRepositories } from "@/server/repositories";
 import { IssueCollector } from "./issues";
 import { ParsedImportSchema, type ParsedImport, type ParsedPeriod } from "./parsed";
-import type { CsvContent, FileFormat, ImportPreview, ImportRecord, PreviewPeriod } from "./schema";
+import type { CsvContent, FileFormat, ImportPreview, ImportRecord, PreviewPeriod, UploadPlatform } from "./schema";
 
 const CONTENT_TYPES: Record<FileFormat, string> = {
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -35,6 +36,7 @@ const CONTENT_TYPES: Record<FileFormat, string> = {
   csv: "text/csv",
   pdf: "application/pdf",
   html: "text/html",
+  md: "text/markdown",
 };
 
 /** MIME declarado pelo navegador precisa ser compatível (quando informado). */
@@ -44,6 +46,7 @@ const ALLOWED_MIME: Record<FileFormat, RegExp> = {
   csv: /^(text\/csv|text\/plain|application\/vnd\.ms-excel|application\/csv|text\/x-csv|application\/octet-stream|)$/,
   pdf: /^(application\/pdf|application\/x-pdf|application\/octet-stream|)$/,
   html: /^(text\/html|application\/xhtml\+xml|text\/plain|application\/octet-stream|)$/,
+  md: /^(text\/markdown|text\/x-markdown|text\/plain|application\/octet-stream|)$/,
 };
 
 export function uploadLimits() {
@@ -92,6 +95,8 @@ export interface InitImportInput {
   contentType: string;
   csvContent?: CsvContent | null;
   csvDimensionLabel?: string | null;
+  /** Tráfego: arquivo de uma plataforma só (substitui só as campanhas dela em cada período). */
+  platform?: UploadPlatform | null;
   period?: Period | null;
   title?: string | null;
   allowDownload?: boolean;
@@ -113,7 +118,9 @@ export async function initImport(input: InitImportInput): Promise<InitImportResu
 
   const fileName = sanitizeDisplayName(input.fileName);
   const format = EXTENSION_FORMAT[extensionOf(fileName)];
-  if (!format) throw new UserFacingError("Formato não aceito. Envie XLSX, XLS, CSV, PDF ou HTML.");
+  if (!format) throw new UserFacingError("Formato não aceito. Envie XLSX, XLS, CSV, PDF ou HTML, ou cole os dados.");
+  if (input.platform && input.reportType !== "traffic") throw new UserFacingError("A plataforma só se aplica a relatórios de tráfego.");
+  if (input.platform && (format === "pdf" || format === "html")) throw new UserFacingError("O upload por plataforma aceita planilhas (XLSX, XLS, CSV) ou dados colados.");
   const mime = (input.contentType || "").toLowerCase().split(";")[0].trim();
   if (!ALLOWED_MIME[format].test(mime)) throw new UserFacingError("O tipo do arquivo não corresponde à extensão. Verifique se o arquivo está correto.");
 
@@ -148,9 +155,11 @@ export async function initImport(input: InitImportInput): Promise<InitImportResu
     status: "awaiting_file",
     csvContent: format === "csv" ? (input.csvContent ?? null) : null,
     csvDimensionLabel: input.csvContent === "dimension" ? (input.csvDimensionLabel?.trim().slice(0, 60) ?? null) : null,
+    platform: input.platform ?? null,
     requestedPeriod: input.period ?? null,
     title: input.title?.trim().slice(0, 160) || null,
-    allowDownload: input.allowDownload ?? client.modules[input.reportType].allowOriginalDownload,
+    // Dados colados não são um arquivo do cliente: nunca ficam disponíveis para download no portal.
+    allowDownload: format === "md" ? false : (input.allowDownload ?? client.modules[input.reportType].allowOriginalDownload),
     issues: [],
     preview: null,
     parsedPath: null,
@@ -207,9 +216,10 @@ export async function processImport(importId: string): Promise<ImportRecord> {
   try {
     const sniffed = sniffFormat(body);
     const expected = record.format;
-    const compatible = sniffed === expected || (expected === "csv" && sniffed === "csv") || (expected === "xls" && (sniffed === "xls" || sniffed === "xlsx"));
+    const compatible = sniffed === expected || (expected === "md" && sniffed === "csv") || (expected === "xls" && (sniffed === "xls" || sniffed === "xlsx"));
     if (!compatible) {
-      issues.error("content_mismatch", sniffed === "unknown" ? "O conteúdo do arquivo não pôde ser reconhecido. Ele pode estar corrompido." : `O arquivo tem extensão .${expected}, mas o conteúdo parece ser ${sniffed.toUpperCase()}. Salve no formato correto e envie novamente.`);
+      if (expected === "md") issues.error("content_mismatch", "Os dados colados não foram reconhecidos como tabela. Cole uma tabela em Markdown ou as células copiadas da planilha (não cole HTML nem imagens).");
+      else issues.error("content_mismatch", sniffed === "unknown" ? "O conteúdo do arquivo não pôde ser reconhecido. Ele pode estar corrompido." : `O arquivo tem extensão .${expected}, mas o conteúdo parece ser ${sniffed.toUpperCase()}. Salve no formato correto e envie novamente.`);
     } else {
       const granularity = client.modules[record.reportType].cadence === "weekly" ? "week" : "month";
       const periodCtx = { granularity, requestedPeriod: record.requestedPeriod } as const;
@@ -230,13 +240,20 @@ export async function processImport(importId: string): Promise<ImportRecord> {
           else parsed = { kind: "document", reportType: record.reportType, sourceType: "html_legacy", period: record.requestedPeriod, title: record.title ?? html.title, pages: null };
         }
       } else {
-        const workbook: RawWorkbook = expected === "csv" ? readCsv(body, CSV_SHEET_NAME[record.csvContent ?? "funnel"]) : readExcel(body, sniffed === "xlsx" ? "xlsx" : "xls");
+        const workbook: RawWorkbook =
+          expected === "csv"
+            ? readCsv(body, CSV_SHEET_NAME[record.csvContent ?? "funnel"])
+            : expected === "md"
+              ? readPastedData(body, record.reportType === "traffic" ? "Campanhas" : "Funil")
+              : readExcel(body, sniffed === "xlsx" ? "xlsx" : "xls");
         if (record.reportType === "commercial") {
           const result = normalizeCommercial(workbook, { ...periodCtx, csvRole: record.csvContent ? csvRole(record.csvContent) : undefined, csvDimensionLabel: record.csvDimensionLabel }, issues);
           sheets = result.sheets;
+          // Os valores do arquivo estão na moeda do cliente (é a que o portal exibe).
+          for (const p of result.periods) (p.data as { currency?: string }).currency = client.currency;
           parsed = { kind: "dataset", reportType: "commercial", sourceType: expected, partial: Boolean(record.csvContent), periods: result.periods };
         } else {
-          const result = normalizeTraffic(workbook, { ...periodCtx, clientNames: [client.name, client.shortName, client.slug], csv: expected === "csv" }, issues);
+          const result = normalizeTraffic(workbook, { ...periodCtx, clientNames: [client.name, client.shortName, client.slug], csv: expected === "csv", platform: record.platform, currency: client.currency }, issues);
           sheets = result.sheets;
           parsed = { kind: "dataset", reportType: "traffic", sourceType: expected, partial: false, periods: result.periods };
         }
@@ -271,11 +288,22 @@ export async function processImport(importId: string): Promise<ImportRecord> {
   }
 
   const status = issues.hasErrors ? "invalid" : "validated";
-  record = await saveRecord({ ...record, status, issues: issues.items, preview, parsedPath });
+  const items = record.format === "md" ? issues.items.map((i) => ({ ...i, message: pastedWording(i.message) })) : issues.items;
+  record = await saveRecord({ ...record, status, issues: items, preview, parsedPath });
   if (status === "invalid") {
     await logEvent("import.failed", { clientId: record.clientId, summary: `Erro ao importar ${record.fileName}: ${issues.errors[0]?.message ?? ""}`.slice(0, 280), meta: { importId } });
   }
   return record;
+}
+
+/** Dados colados não têm abas nem arquivo: as mensagens falam em "tabela" e "dados colados". */
+function pastedWording(message: string): string {
+  return message
+    .replace(/\babas\b/g, "tabelas")
+    .replace(/\baba\b/g, "tabela")
+    .replace(/\bAba\b/g, "Tabela")
+    .replace(/\bno arquivo\b/g, "nos dados colados")
+    .replace(/\bdo arquivo\b/g, "dos dados colados");
 }
 
 function parseStructuredHtml(payload: unknown, record: ImportRecord, clientNames: string[], issues: IssueCollector): ParsedImport | null {
@@ -368,28 +396,54 @@ function buildPreview(parsed: ParsedImport, existingReports: ReportIndexEntry[],
       periods: [{ periodKey: key, period: parsed.period, label: formatPeriod(parsed.period), existing: existingFor(key, "document"), metrics: [], details: parsed.pages ? [`${parsed.pages} página(s)`] : [] }],
       suggestedPeriodKeys: [key],
       documentPages,
+      periodMismatch: null,
     };
   }
   const periods: PreviewPeriod[] = parsed.periods.map((p) => ({ periodKey: p.periodKey, period: p.period, label: formatPeriod(p.period), existing: existingFor(p.periodKey, "dataset"), ...periodMetrics(parsed.reportType, p) }));
   const requested = record.requestedPeriod ? periodKey(record.requestedPeriod) : null;
   let suggested = requested && periods.some((p) => p.periodKey === requested) ? [requested] : [];
+  let periodMismatch: ImportPreview["periodMismatch"] = null;
   if (!suggested.length) {
     // Sem período pedido (ou não encontrado): sugere os que ainda não existem; senão o mais recente.
     const fresh = periods.filter((p) => p.existing === "none").map((p) => p.periodKey);
     suggested = fresh.length ? fresh : periods.slice(-1).map((p) => p.periodKey);
-    if (requested && periods.length) {
+    if (requested && periods.length === 1) {
+      // Um só período: provavelmente as datas da planilha estão erradas (ex.: modelo reaproveitado). O ADM decide na prévia.
+      const requestedLabel = formatPeriod(record.requestedPeriod!);
+      periodMismatch = { requestedKey: requested, requestedLabel, existing: existingFor(requested, "dataset") };
+      issues.warn("requested_period_missing", `O período selecionado (${requestedLabel}) não aparece no arquivo: as datas da planilha são de ${periods[0].label}. Na prévia, escolha em qual período o relatório deve entrar.`);
+    } else if (requested && periods.length) {
       issues.warn("requested_period_missing", `O período selecionado (${formatPeriod(record.requestedPeriod!)}) não aparece no arquivo. Períodos encontrados: ${periods.map((p) => p.label).join(", ")}.`);
     }
   }
+  if (record.platform) {
+    // Upload de uma plataforma: todos os períodos do arquivo entram, e a prévia diz o que é mantido de cada mês.
+    if (!periodMismatch && !(requested && periods.some((p) => p.periodKey === requested))) suggested = periods.map((p) => p.periodKey);
+    for (const p of periods) p.details = [...p.details, ...platformMergeDetails(existingReports, p.periodKey, record.platform)];
+  }
   // Aviso de comparação: sem período anterior publicado não há variação a exibir.
+  // Com divergência de período, ainda não se sabe qual será usado — o aviso seria enganoso.
   const published = sameType.filter((r) => r.kind === "dataset" && r.status === "published");
-  for (const key of suggested) {
+  for (const key of periodMismatch ? [] : suggested) {
     const p = periods.find((x) => x.periodKey === key);
     if (p && !published.some((r) => r.period.start < p.period.start) && !periods.some((x) => x.period.start < p.period.start)) {
       issues.warn("no_previous", `Não há período anterior a ${p.label} para comparação — o dashboard não mostrará variações.`);
     }
   }
-  return { kind: "dataset", sourceType: parsed.sourceType, sheets, periods, suggestedPeriodKeys: suggested, documentPages: null };
+  return { kind: "dataset", sourceType: parsed.sourceType, sheets, periods, suggestedPeriodKeys: suggested, documentPages: null, periodMismatch };
+}
+
+/** "Mantém do relatório atual: Google Ads (R$ 1.216,22)" — lido do resumo do índice, sem abrir o data.json. */
+function platformMergeDetails(reports: readonly ReportIndexEntry[], key: string, platform: UploadPlatform): string[] {
+  const base = pickBaseEntry(reports, "traffic", key);
+  if (!base) return [];
+  const others = Object.keys(base.summary)
+    .flatMap((k) => /^platform\.(.+)\.investment$/.exec(k)?.[1] ?? [])
+    .filter((x) => x !== platform);
+  const details: string[] = [];
+  if (others.length) details.push(`Mantém do relatório atual: ${others.map((x) => `${base.labels[`platform.${x}`] ?? platformLabel(x)} (${formatCurrency(base.summary[`platform.${x}.investment`])})`).join(", ")}`);
+  if (base.summary[`platform.${platform}.investment`] != null) details.push(`Substitui os dados de ${platformLabel(platform)} que já estavam no relatório`);
+  return details;
 }
 
 async function loadParsed(record: ImportRecord): Promise<ParsedImport> {
@@ -400,16 +454,35 @@ async function loadParsed(record: ImportRecord): Promise<ParsedImport> {
 }
 
 /**
+ * Relatório-base de um período para atualizações parciais: o rascunho mais
+ * recente ou, sem rascunho, o publicado. Assim, uploads seguidos (Meta e depois
+ * Google) se acumulam no mesmo rascunho antes da publicação.
+ */
+function pickBaseEntry(reports: readonly ReportIndexEntry[], type: ReportType, key: string): ReportIndexEntry | null {
+  const same = reports.filter((r) => r.type === type && r.kind === "dataset" && r.periodKey === key);
+  const published = same.find((r) => r.status === "published") ?? null;
+  // Rascunho só vale se foi criado DEPOIS da publicação atual — senão é uma versão esquecida.
+  const drafts = same
+    .filter((r) => r.status === "draft" && (!published || r.createdAt > (published.publishedAt ?? published.updatedAt)))
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  return drafts[0] ?? published;
+}
+
+/** Insights do relatório-base + os do arquivo, sem repetir (reenviar o mesmo arquivo não duplica). */
+function mergeInsights(base: Insight[], incoming: Insight[]): Insight[] {
+  const key = (i: Insight) => `${i.type}|${i.title.trim().toLowerCase()}|${i.description.trim().toLowerCase()}`;
+  const seen = new Set(base.map(key));
+  return [...base, ...incoming.filter((i) => !seen.has(key(i)) && seen.add(key(i)))].slice(0, 12);
+}
+
+/**
  * CSV parcial: parte do relatório mais recente do período (rascunho ou
  * publicado) e substitui apenas a seção enviada — gerando NOVO rascunho.
  */
 async function mergePartialCommercial(clientId: string, p: ParsedPeriod): Promise<{ data: CommercialData; base: ReportManifest | null }> {
   const repos = getRepositories();
   const index = await repos.reports.getIndex(clientId);
-  const candidates = index.reports
-    .filter((r) => r.type === "commercial" && r.kind === "dataset" && r.periodKey === p.periodKey && (r.status === "draft" || r.status === "published"))
-    .sort((a, b) => (a.status === b.status ? (a.updatedAt < b.updatedAt ? 1 : -1) : a.status === "draft" ? -1 : 1));
-  const baseEntry = candidates[0];
+  const baseEntry = pickBaseEntry(index.reports, "commercial", p.periodKey);
   const baseManifest = baseEntry ? await getReportManifest(clientId, baseEntry.id) : null;
   const baseData = baseManifest ? await getReportData(baseManifest) : null;
   const incoming = p.data as Partial<CommercialData>;
@@ -433,17 +506,59 @@ async function mergePartialCommercial(clientId: string, p: ParsedPeriod): Promis
   return { data: check.data, base: baseManifest };
 }
 
-const SOURCE_BY_FORMAT: Record<string, SourceType> = { xlsx: "xlsx", xls: "xls", csv: "csv", html_structured: "html_structured", pdf: "pdf", html_legacy: "html_legacy" };
+/**
+ * Upload de uma plataforma: mantém as campanhas das OUTRAS plataformas do
+ * relatório-base do período e troca só as da plataforma enviada — NOVO rascunho.
+ */
+async function mergePlatformTraffic(clientId: string, p: ParsedPeriod, platform: UploadPlatform): Promise<{ data: TrafficData; base: ReportManifest | null }> {
+  const index = await getRepositories().reports.getIndex(clientId);
+  const baseEntry = pickBaseEntry(index.reports, "traffic", p.periodKey);
+  const baseManifest = baseEntry ? await getReportManifest(clientId, baseEntry.id) : null;
+  const baseData = baseManifest ? await getReportData(baseManifest) : null;
+  const incoming = TrafficDataSchema.parse(p.data);
+  const kept = baseData?.type === "traffic" ? baseData.data.campaigns.filter((c) => c.platform !== platform) : [];
+  const ids = new Set(kept.map((c) => c.id));
+  const added = incoming.campaigns.map((c) => {
+    let id = c.id;
+    while (ids.has(id)) id = `${id}-2`;
+    ids.add(id);
+    return { ...c, id };
+  });
+  const currency = baseData?.type === "traffic" ? baseData.data.currency : incoming.currency;
+  return { data: TrafficDataSchema.parse({ ...incoming, currency, campaigns: [...kept, ...added] }), base: baseManifest };
+}
 
-/** Etapa 3: cria rascunho(s) para os períodos escolhidos. Nunca publica. */
-export async function confirmImport(importId: string, options: { periodKeys: string[] }): Promise<ImportRecord> {
+const SOURCE_BY_FORMAT: Record<string, SourceType> = { xlsx: "xlsx", xls: "xls", csv: "csv", md: "md", html_structured: "html_structured", pdf: "pdf", html_legacy: "html_legacy" };
+
+/** Move os dados de um período do arquivo para outro (as datas da planilha estavam erradas). */
+function retargetPeriod(p: ParsedPeriod, period: Period): ParsedPeriod {
+  return { ...p, period, periodKey: periodKey(period), data: { ...(p.data as Record<string, unknown>), period } };
+}
+
+/**
+ * Etapa 3: cria rascunho(s) para os períodos escolhidos. Nunca publica.
+ * `useRequestedPeriod`: quando o arquivo tem um único período diferente do
+ * escolhido no assistente, importa os dados no período escolhido.
+ */
+export async function confirmImport(importId: string, options: { periodKeys: string[]; useRequestedPeriod?: boolean }): Promise<ImportRecord> {
   const record = await requireImport(importId);
   if (record.status !== "validated") throw new UserFacingError(record.status === "imported" ? "Esta importação já foi concluída." : "Corrija os erros e envie o arquivo novamente antes de confirmar.");
   const parsed = await loadParsed(record);
   const repos = getRepositories();
   const reportIds: string[] = [];
-  const warnings = record.issues.filter((i) => i.level === "warning");
+  let warnings = record.issues.filter((i) => i.level === "warning");
   const ext = record.format === "html" ? "html" : record.format;
+
+  let periods = parsed.kind === "dataset" ? parsed.periods : [];
+  let periodKeys = options.periodKeys;
+  if (options.useRequestedPeriod) {
+    if (parsed.kind !== "dataset" || !record.requestedPeriod || !record.preview?.periodMismatch || periods.length !== 1) {
+      throw new UserFacingError("Não é possível trocar o período desta importação. Envie o arquivo novamente.");
+    }
+    periods = [retargetPeriod(periods[0], record.requestedPeriod)];
+    periodKeys = [periods[0].periodKey];
+    warnings = warnings.filter((w) => !PERIOD_WARNING_CODES.has(w.code));
+  }
 
   if (parsed.kind === "document") {
     const report = await createDraftReport({
@@ -461,31 +576,37 @@ export async function confirmImport(importId: string, options: { periodKeys: str
     });
     reportIds.push(report.id);
   } else {
-    const selected = parsed.periods.filter((p) => options.periodKeys.includes(p.periodKey));
+    const selected = periods.filter((p) => periodKeys.includes(p.periodKey));
     if (!selected.length) throw new UserFacingError("Selecione pelo menos um período para importar.");
     for (const p of selected) {
       let data: ReportData;
       let insights: Insight[] = p.insights.map((i) => ({ ...i, id: newInsightId(), source: "import" as const }));
+      let base: ReportManifest | null = null;
       if (parsed.reportType === "commercial") {
         if (parsed.partial) {
           const merged = await mergePartialCommercial(record.clientId, p);
           data = { type: "commercial", data: merged.data };
-          // Mantém os insights já escritos no relatório-base e acrescenta os do CSV.
-          if (merged.base) insights = [...merged.base.insights, ...insights];
+          base = merged.base;
         } else data = { type: "commercial", data: CommercialDataSchema.parse(p.data) };
+      } else if (record.platform) {
+        const merged = await mergePlatformTraffic(record.clientId, p, record.platform);
+        data = { type: "traffic", data: merged.data };
+        base = merged.base;
       } else data = { type: "traffic", data: TrafficDataSchema.parse(p.data) };
+      // Atualização parcial: mantém os insights já escritos no relatório-base e acrescenta os do arquivo.
+      if (base) insights = mergeInsights(base.insights, insights);
 
       const report = await createDraftReport({
         clientId: record.clientId,
         type: record.reportType,
         kind: "dataset",
         period: p.period,
-        title: record.title,
+        title: record.title ?? base?.title ?? null,
         source: { type: SOURCE_BY_FORMAT[parsed.sourceType], fileName: record.fileName, size: record.size, contentType: record.contentType },
         original: { copyFrom: record.stagingPath },
         originalExtension: ext,
         data,
-        insights: insights.slice(0, 12),
+        insights: mergeInsights([], insights),
         warnings,
         allowDownload: record.allowDownload,
         importId,
@@ -501,6 +622,29 @@ export async function confirmImport(importId: string, options: { periodKeys: str
   return done;
 }
 
+/**
+ * Publica de uma vez os rascunhos criados por uma importação (ex.: todos os meses
+ * de uma exportação do Meta Ads). Relatórios que já saíram de rascunho são ignorados.
+ */
+export async function publishImportDrafts(importId: string, actor: string | null): Promise<number> {
+  const record = await requireImport(importId);
+  if (record.status !== "imported") throw new UserFacingError("Esta importação ainda não criou rascunhos.");
+  let published = 0;
+  for (const reportId of record.reportIds) {
+    const manifest = await getReportManifest(record.clientId, reportId);
+    if (manifest?.status !== "draft") continue;
+    // Uma versão mais nova do mesmo período (rascunho ou publicada) tem prioridade: não publica por cima.
+    const index = await getRepositories().reports.getIndex(record.clientId);
+    const newer = index.reports.some(
+      (r) => r.id !== reportId && r.type === manifest.type && r.kind === manifest.kind && r.periodKey === manifest.periodKey && (r.status === "draft" || r.status === "published") && r.createdAt > manifest.createdAt,
+    );
+    if (newer) continue;
+    await publishReport(record.clientId, reportId, actor);
+    published++;
+  }
+  return published;
+}
+
 export async function discardImport(importId: string): Promise<ImportRecord> {
   const record = await requireImport(importId);
   if (record.status === "imported") throw new UserFacingError("Esta importação já gerou relatórios. Arquive o relatório, se necessário.");
@@ -508,4 +652,22 @@ export async function discardImport(importId: string): Promise<ImportRecord> {
   const saved = await saveRecord({ ...record, status: "discarded", parsedPath: null, completedAt: new Date().toISOString() });
   await logEvent("import.discarded", { clientId: record.clientId, summary: `Upload ${record.fileName} descartado.`, meta: { importId } });
   return saved;
+}
+
+/**
+ * Exclui o upload de vez: registro, arquivo enviado e entrada na lista. Relatórios
+ * criados a partir dele continuam intactos — cada um guarda a própria cópia do original.
+ * Funciona mesmo se o registro já tiver sumido (entrada órfã no índice).
+ */
+export async function deleteImport(clientId: string, importId: string, actor: string | null): Promise<void> {
+  const repos = getRepositories();
+  const record = await repos.imports.get(importId);
+  if (record && record.clientId !== clientId) throw new NotFoundError("Importação não encontrada.");
+  const index = await repos.reports.getIndex(clientId);
+  const entry = index.imports.find((i) => i.id === importId);
+  if (!record && !entry) throw new NotFoundError("Importação não encontrada.");
+  await repos.imports.deleteImport(importId);
+  await repos.reports.updateIndex(clientId, (i) => removeImportEntry(i, importId, new Date().toISOString()));
+  const fileName = record?.fileName ?? entry?.fileName ?? importId;
+  await logEvent("import.deleted", { clientId, actor, summary: `Upload ${fileName} excluído.`, meta: { importId } });
 }

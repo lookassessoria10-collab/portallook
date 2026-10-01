@@ -4,7 +4,7 @@ import { FileSpreadsheet, FileText, FileCode, UploadCloud, X } from "lucide-reac
 import { useId, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 
-export const ACCEPT = ".xlsx,.xls,.csv,.pdf,.html,.htm";
+export const ACCEPT = ".xlsx,.xls,.csv,.md,.txt,.pdf,.html,.htm";
 
 function FileIcon({ name }: { name: string }) {
   const ext = name.split(".").pop()?.toLowerCase();
@@ -67,7 +67,7 @@ export function UploadDropzone({ file, onFile, disabled, maxMb }: { file: File |
       <div>
         <p className="text-[15px] font-bold text-text">Arraste o arquivo aqui</p>
         <p id={hintId} className="mt-1 text-[13px] text-text-3">
-          XLSX, XLS, CSV, PDF ou HTML · até {maxMb} MB
+          XLSX, XLS, CSV, PDF, HTML ou .md/.txt com tabela · até {maxMb} MB
         </p>
       </div>
       <button type="button" disabled={disabled} onClick={() => input.current?.click()} aria-describedby={hintId} className="h-10 rounded-[10px] bg-surface-3 px-4 text-sm font-semibold text-text hover:bg-[#1b3358]">

@@ -20,7 +20,7 @@ export default async function UploadsPage(props: PageProps<"/adm/uploads">) {
   const overviews = await listClientOverviews();
   const tipo = one(search.tipo);
   const recent = overviews
-    .flatMap((o) => o.index.imports.map((i) => ({ ...i, clientName: o.client.name })))
+    .flatMap((o) => o.index.imports.map((i) => ({ ...i, clientId: o.client.id, clientName: o.client.name })))
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     .slice(0, 15);
 

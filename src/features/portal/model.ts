@@ -1,5 +1,5 @@
 import "server-only";
-import { comparePeriods, formatPeriod, previousPeriod, periodKey as keyOf } from "@/lib/dates/period";
+import { comparePeriods, formatPeriod, periodSeriesLabels, previousPeriod, periodKey as keyOf } from "@/lib/dates/period";
 import type { Client } from "@/features/clients/schema";
 import { getClientIndex } from "@/features/clients/service";
 import { getReportData, getReportManifest, type ReportData } from "@/features/reports/service";
@@ -7,10 +7,17 @@ import type { Insight, ReportIndexEntry, ReportManifest, ReportStatus, ReportTyp
 
 export type PortalTab = ReportType;
 
+/** "overview": todos os períodos juntos; "period": um período específico. */
+export type PortalView = "overview" | "period";
+
 export interface PortalPeriodOption {
   key: string;
+  /** Por extenso: "Agosto de 2026". */
   label: string;
+  /** Aba: "Ago", "Ago/26", "21/09". */
   short: string;
+  /** Só aparece na prévia do ADM: o período ainda está em rascunho. */
+  draft: boolean;
 }
 
 export interface PortalSelection {
@@ -26,13 +33,18 @@ export interface PortalModel {
   client: Client;
   tabs: PortalTab[];
   tab: PortalTab;
+  view: PortalView;
+  /** Períodos com relatório, em ordem cronológica (abas de período). */
   periods: PortalPeriodOption[];
+  /** Período aberto (null na visão geral). */
   periodKey: string | null;
+  /** Relatórios de dados da visão geral (ordem cronológica); null quando há menos de 2 períodos. */
+  overview: ReportIndexEntry[] | null;
+  /** Período mais recente que só tem documento (PDF/HTML) e por isso fica fora da visão geral. */
+  latestDocumentOnly: PortalPeriodOption | null;
   selection: PortalSelection;
   /** Período anterior com dados, para comparações (só usa o resumo do índice). */
   previous: ReportIndexEntry | null;
-  /** Um relatório de referência por período (mais recente primeiro) — lista "Histórico". */
-  archive: ReportIndexEntry[];
   /** Série histórica (ordem cronológica) até o período selecionado. */
   history: ReportIndexEntry[];
   lastUpdatedAt: string | null;
@@ -40,6 +52,8 @@ export interface PortalModel {
 }
 
 const HISTORY_POINTS: Record<ReportType, number> = { commercial: 12, traffic: 8 };
+/** A visão geral reúne até 12 períodos (um ano, para relatórios mensais). */
+const OVERVIEW_POINTS = 12;
 
 export interface LoadPortalOptions {
   tab?: string | null;
@@ -63,16 +77,44 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
   const byPeriod = new Map<string, ReportIndexEntry[]>();
   for (const e of entries) byPeriod.set(e.periodKey, [...(byPeriod.get(e.periodKey) ?? []), e]);
 
-  const periodEntries = [...byPeriod.values()].map((list) => list[0]).sort((a, b) => -comparePeriods(a.period, b.period));
-  const periods: PortalPeriodOption[] = periodEntries.map((e) => ({ key: e.periodKey, label: formatPeriod(e.period), short: formatPeriod(e.period, "short") }));
-
-  const selectedKey = focus?.periodKey ?? (options.period && byPeriod.has(options.period) ? options.period : (periods[0]?.key ?? null));
-  const inPeriod = selectedKey ? (byPeriod.get(selectedKey) ?? []) : [];
-
   const pickDataset = (list: ReportIndexEntry[]) => {
     if (focus?.kind === "dataset" && list.some((r) => r.id === focus.id)) return focus;
-    return list.filter((r) => r.kind === "dataset").sort((a, b) => statusRank(a.status) - statusRank(b.status) || (a.updatedAt < b.updatedAt ? 1 : -1))[0] ?? null;
+    const datasets = list.filter((r) => r.kind === "dataset");
+    // Prévia do ADM: a versão mais nova do período (o rascunho que vai ser publicado), mesmo que já exista uma publicada.
+    if (options.mode === "preview") return datasets.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0] ?? null;
+    return datasets.sort((a, b) => statusRank(a.status) - statusRank(b.status) || (a.updatedAt < b.updatedAt ? 1 : -1))[0] ?? null;
   };
+
+  const periodEntries = [...byPeriod.values()].map((list) => pickDataset(list) ?? list[0]).sort((a, b) => comparePeriods(a.period, b.period));
+  const shortLabels = periodSeriesLabels(periodEntries.map((e) => e.period));
+  const periods: PortalPeriodOption[] = periodEntries.map((e, i) => ({
+    key: e.periodKey,
+    label: formatPeriod(e.period),
+    short: shortLabels[i].axis,
+    draft: (byPeriod.get(e.periodKey) ?? []).every((r) => r.status === "draft"),
+  }));
+
+  // Série histórica, comparação e visão geral usam apenas o índice (sem abrir outros data.json).
+  const datasetSeries = [...byPeriod.values()]
+    .map((list) => pickDataset(list))
+    .filter((e): e is ReportIndexEntry => e !== null)
+    .sort((a, b) => comparePeriods(a.period, b.period));
+  // Visão geral e comparações nunca misturam meses com semanas: vale a periodicidade do cliente
+  // (ou, se não houver relatórios nela, a do relatório mais recente).
+  const cadenceGranularity = client.modules[tab].cadence === "weekly" ? "week" : "month";
+  const overviewGranularity = datasetSeries.some((e) => e.period.granularity === cadenceGranularity) ? cadenceGranularity : datasetSeries.at(-1)?.period.granularity;
+  const overviewSeries = datasetSeries.filter((e) => e.period.granularity === overviewGranularity);
+  const overview = !focus && overviewSeries.length >= 2 ? overviewSeries.slice(-OVERVIEW_POINTS) : null;
+  const lastPeriod = periodEntries.at(-1) ?? null;
+  const latestDocumentOnly =
+    overview && lastPeriod && !(byPeriod.get(lastPeriod.periodKey) ?? []).some((r) => r.kind === "dataset") && lastPeriod.period.start > overview[overview.length - 1].period.start ? (periods.at(-1) ?? null) : null;
+
+  // Sem período pedido, abre a visão geral — ou o período mais recente, quando não há visão geral.
+  const requestedKey = options.period && byPeriod.has(options.period) ? options.period : null;
+  const view: PortalView = focus || requestedKey || !overview ? "period" : "overview";
+  const selectedKey = view === "overview" ? null : (focus?.periodKey ?? requestedKey ?? periods.at(-1)?.key ?? null);
+  const inPeriod = selectedKey ? (byPeriod.get(selectedKey) ?? []) : [];
+
   const datasetEntry = pickDataset(inPeriod);
   const documents = inPeriod.filter((r) => r.kind === "document").sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 
@@ -94,18 +136,15 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
     insights = docManifests.flatMap((m) => m?.insights ?? []);
   }
 
-  // Série histórica e comparação usam apenas o índice (sem abrir outros data.json).
-  const datasetSeries = [...byPeriod.values()]
-    .map((list) => pickDataset(list))
-    .filter((e): e is ReportIndexEntry => e !== null)
-    .sort((a, b) => comparePeriods(a.period, b.period));
-  const selectedIdx = datasetEntry ? datasetSeries.findIndex((e) => e.periodKey === datasetEntry.periodKey) : -1;
-  const history = selectedIdx >= 0 ? datasetSeries.slice(Math.max(0, selectedIdx - HISTORY_POINTS[tab] + 1), selectedIdx + 1) : [];
+  // Histórico e comparação só com períodos do mesmo tipo do aberto (mês com mês, semana com semana).
+  const sameKind = datasetEntry ? datasetSeries.filter((e) => e.period.granularity === datasetEntry.period.granularity) : [];
+  const selectedIdx = datasetEntry ? sameKind.findIndex((e) => e.periodKey === datasetEntry.periodKey) : -1;
+  const history = selectedIdx >= 0 ? sameKind.slice(Math.max(0, selectedIdx - HISTORY_POINTS[tab] + 1), selectedIdx + 1) : [];
 
   let previous: ReportIndexEntry | null = null;
   if (datasetEntry && selectedIdx > 0) {
     const expectedPrev = keyOf(previousPeriod(datasetEntry.period));
-    previous = datasetSeries.find((e) => e.periodKey === expectedPrev) ?? datasetSeries[selectedIdx - 1];
+    previous = sameKind.find((e) => e.periodKey === expectedPrev) ?? sameKind[selectedIdx - 1];
   }
 
   const publishedTimes = index.reports
@@ -117,11 +156,13 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
     client,
     tabs,
     tab,
+    view,
     periods,
     periodKey: selectedKey,
+    overview,
+    latestDocumentOnly,
     selection: { dataset, documents, insights, primary, primaryManifest },
     previous,
-    archive: [...byPeriod.values()].map((list) => pickDataset(list) ?? list[0]).sort((a, b) => -comparePeriods(a.period, b.period)),
     history,
     lastUpdatedAt: publishedTimes.at(-1) ?? null,
     mode: options.mode,

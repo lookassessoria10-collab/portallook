@@ -8,8 +8,16 @@ export interface PeriodContext {
   requestedPeriod: Period | null;
 }
 
-/** Período de uma linha a partir da coluna "Período" (mês ou data da semana). */
+const RANGE = /^\s*(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\s*(?:a|até|ate|-|–)\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\s*$/i;
+
+/** Rótulo de linha de totais ("Total", "Totais", "Total geral", "Total: conta"): não é dado de um período. */
+export function isTotalLabel(value: string | null | undefined): boolean {
+  return Boolean(value) && /^(total|totais|total geral)\s*(:.*)?$/i.test(value!.replace(/\*/g, "").trim());
+}
+
+/** Período de uma linha a partir da coluna "Período" (mês ou data da semana). Linhas de totais são puladas sem erro. */
 export function resolveRowPeriod(value: CellValue | undefined, ctx: PeriodContext, issues: IssueCollector, where: { sheet: string; line: number; column: string | null }): Period | null {
+  if (typeof value === "string" && isTotalLabel(value)) return null;
   if (where.column === null) {
     if (ctx.requestedPeriod) return ctx.requestedPeriod;
     issues.error("missing_period", `A aba ${where.sheet} não tem coluna de período. Selecione o período no passo anterior ou inclua a coluna "Período".`, { sheet: where.sheet });
@@ -20,14 +28,17 @@ export function resolveRowPeriod(value: CellValue | undefined, ctx: PeriodContex
     issues.error("invalid_period", `A coluna Período precisa ser preenchida (aba ${where.sheet}, linha ${where.line}).`, { sheet: where.sheet, row: where.line, column: where.column });
     return null;
   }
+  // Intervalo "21/09/2026 a 27/09/2026": vale a data de início (a semana ou o mês dela).
+  const range = typeof value === "string" ? RANGE.exec(value) : null;
+  const cell: CellValue = range ? range[1] : value;
   if (ctx.granularity === "month") {
-    const m = monthCell(value);
+    const m = monthCell(cell);
     if (m) return monthPeriod(m.year, m.month);
   } else {
-    const d = dateCell(value);
+    const d = dateCell(cell);
     if (d) return weekPeriod(d);
   }
-  issues.error("invalid_period", `O período "${describeCell(value)}" na aba ${where.sheet}, linha ${where.line}, não é válido. Use, por exemplo, ${ctx.granularity === "month" ? '"09/2026" ou "setembro/2026"' : '"21/09/2026"'}.`, {
+  issues.error("invalid_period", `O período "${describeCell(value)}" na aba ${where.sheet}, linha ${where.line}, não é válido. Use, por exemplo, ${ctx.granularity === "month" ? '"09/2026" ou "setembro/2026"' : '"21/09/2026" ou "21/09/2026 a 27/09/2026"'}.`, {
     sheet: where.sheet,
     row: where.line,
     column: where.column,

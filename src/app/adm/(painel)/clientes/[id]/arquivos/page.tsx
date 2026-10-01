@@ -33,7 +33,7 @@ export default async function ClientFilesPage(props: PageProps<"/adm/clientes/[i
             </Link>
           }
         />
-        <CardBody>{o.index.imports.length ? <ImportList imports={o.index.imports} timeZone={tz} /> : <EmptyState compact icon={<UploadCloud />} title="Nenhum upload registrado" />}</CardBody>
+        <CardBody>{o.index.imports.length ? <ImportList imports={o.index.imports.map((i) => ({ ...i, clientId: id }))} timeZone={tz} /> : <EmptyState compact icon={<UploadCloud />} title="Nenhum upload registrado" />}</CardBody>
       </Card>
       <Card>
         <CardHeader title="Arquivos originais" subtitle="Preservados junto de cada relatório" />

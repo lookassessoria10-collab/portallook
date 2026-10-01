@@ -8,15 +8,32 @@ import { MetricTrend } from "@/components/dashboard/metric-trend";
 import { InsightList } from "@/components/dashboard/insight-list";
 import { Delta } from "@/components/dashboard/delta";
 import type { Insight } from "@/features/reports/schema";
+import type { PeriodUnit } from "@/lib/dates/period";
 import type { TrafficViewModel } from "@/features/traffic/view-model";
 import { CampaignCard } from "./campaign-card";
+
+/** Textos que dependem da unidade do período (mês, semana…) e do gênero dela. */
+function unitText(u: PeriodUnit) {
+  const the = u.feminine ? "a" : "o";
+  const of = u.feminine ? "da" : "do";
+  return {
+    summary: `Resumo ${of} ${u.singular}`,
+    current: `${u.singular.charAt(0).toUpperCase()}${u.singular.slice(1)} atual`,
+    comparison: `Comparação com ${the} ${u.singular} anterior`,
+    last: (n: number) => `${u.feminine ? "Últimas" : "Últimos"} ${n} ${u.plural}`,
+    historyHint: `O histórico aparece a partir ${of} ${u.feminine ? "segunda" : "segundo"} ${u.singular} ${u.feminine ? "publicada" : "publicado"}.`,
+    empty: `Ainda não há ${u.plural} anteriores para comparar.`,
+    insights: `Leitura da equipe sobre ${the} ${u.singular}`,
+  };
+}
 
 export function TrafficDashboard({ vm, insights, currency }: { vm: TrafficViewModel; insights: Insight[]; currency: string }) {
   const t = vm.totals;
   const multiPlatform = vm.platforms.length > 1;
+  const text = unitText(vm.unit);
   return (
     <div className="space-y-8 sm:space-y-10">
-      <DashboardSection id="resumo" title="Resumo da semana" description={vm.headline}>
+      <DashboardSection id="resumo" title={text.summary} description={vm.headline}>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {vm.kpis.map((k) => (
             <MetricCard key={k.key} label={k.label} value={k.value} format={k.format} currency={currency} comparison={k.comparison} reference={vm.reference} trend={k.trend} icon={<KpiIcon name={k.icon} />} description={k.description} footnote={k.footnote} />
@@ -41,7 +58,11 @@ export function TrafficDashboard({ vm, insights, currency }: { vm: TrafficViewMo
         ) : null}
       </DashboardSection>
 
-      <DashboardSection id="plataformas" title={multiPlatform ? "Plataformas e campanhas" : "Campanhas"} description={`${t.campaignCount} ${t.campaignCount === 1 ? "campanha" : "campanhas"} no período`}>
+      <DashboardSection
+        id="plataformas"
+        title={vm.campaignDetail ? (multiPlatform ? "Plataformas e campanhas" : "Campanhas") : multiPlatform ? "Plataformas" : "Plataforma"}
+        description={vm.campaignDetail ? `${t.campaignCount} ${t.campaignCount === 1 ? "campanha" : "campanhas"} no período` : "Totais de cada plataforma no período"}
+      >
         <div className="space-y-4">
           {vm.platforms.map((p) => (
             <Card key={p.platform}>
@@ -57,7 +78,7 @@ export function TrafficDashboard({ vm, insights, currency }: { vm: TrafficViewMo
                 actions={<Delta comparison={p.comparison} reference={vm.reference} showReference={false} className="justify-end" />}
               />
               <CardBody>
-                <dl className="mb-4 grid grid-cols-2 gap-3 rounded-xl border border-border px-3.5 py-3 sm:grid-cols-4">
+                <dl className={`${p.totalsOnly ? "" : "mb-4 "}grid grid-cols-2 gap-3 rounded-xl border border-border px-3.5 py-3 sm:grid-cols-4`}>
                   <PlatformStat label="Impressões" value={formatInteger(p.totals.impressions)} />
                   {p.totals.reach !== null ? <PlatformStat label="Alcance" value={formatInteger(p.totals.reach)} /> : null}
                   {p.totals.clicks !== null ? <PlatformStat label="Cliques" value={formatInteger(p.totals.clicks)} /> : null}
@@ -72,11 +93,13 @@ export function TrafficDashboard({ vm, insights, currency }: { vm: TrafficViewMo
                   ) : null}
                   {p.totals.ctr !== null ? <PlatformStat label="CTR" value={formatPercent(p.totals.ctr, 2)} /> : null}
                 </dl>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {p.campaigns.map((c) => (
-                    <CampaignCard key={c.id} campaign={c} currency={currency} />
-                  ))}
-                </div>
+                {p.totalsOnly ? null : (
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {p.campaigns.map((c) => (
+                      <CampaignCard key={c.id} campaign={c} currency={currency} />
+                    ))}
+                  </div>
+                )}
               </CardBody>
             </Card>
           ))}
@@ -86,10 +109,10 @@ export function TrafficDashboard({ vm, insights, currency }: { vm: TrafficViewMo
       <div className="grid gap-4 lg:grid-cols-12">
         {vm.reference ? (
           <Card className="lg:col-span-5">
-            <CardHeader title="Comparativo" subtitle={`Semana atual vs. ${vm.reference}`} />
+            <CardHeader title="Comparativo" subtitle={`${text.current} vs. ${vm.reference}`} />
             <CardBody>
               <table className="w-full text-sm">
-                <caption className="sr-only">Comparação com a semana anterior</caption>
+                <caption className="sr-only">{text.comparison}</caption>
                 <thead>
                   <tr className="border-b border-border text-xs text-text-3">
                     <th scope="col" className="py-2 text-left font-semibold">
@@ -124,15 +147,15 @@ export function TrafficDashboard({ vm, insights, currency }: { vm: TrafficViewMo
           </Card>
         ) : null}
         <Card className={vm.reference ? "lg:col-span-7" : "lg:col-span-12"}>
-          <CardHeader title="Evolução" subtitle={vm.trend ? `Últimas ${vm.trend.points.length} semanas` : "O histórico aparece a partir da segunda semana publicada."} />
+          <CardHeader title="Evolução" subtitle={vm.trend ? text.last(vm.trend.points.length) : text.historyHint} />
           <CardBody>
-            {vm.trend ? <MetricTrend points={vm.trend.points} series={vm.trend.series} currency={currency} /> : <p className="py-10 text-center text-sm text-text-3">Ainda não há semanas anteriores para comparar.</p>}
+            {vm.trend ? <MetricTrend points={vm.trend.points} series={vm.trend.series} currency={currency} /> : <p className="py-10 text-center text-sm text-text-3">{text.empty}</p>}
           </CardBody>
         </Card>
       </div>
 
       {insights.length ? (
-        <DashboardSection id="insights" title="Insights da Look" description="Leitura da equipe sobre a semana">
+        <DashboardSection id="insights" title="Insights da Look" description={text.insights}>
           <InsightList insights={insights} />
         </DashboardSection>
       ) : null}
