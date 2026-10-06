@@ -11,7 +11,8 @@ import { ActionButton } from "@/components/ui/confirm-action";
 import { Badge } from "@/components/ui/badge";
 import { ReportViewer } from "@/components/dashboard/report-viewer";
 import { extensionOf } from "@/lib/parsers/sniff";
-import { CSV_CONTENT_OPTIONS, UPLOAD_PLATFORM_OPTIONS, type CsvContent, type ImportRecord, type PreviewPeriod, type UploadPlatform } from "@/features/uploads/schema";
+import { CSV_CONTENT_OPTIONS, UPLOAD_PLATFORM_OPTIONS, type CsvContent, type ImportMode, type ImportRecord, type PreviewPeriod, type UploadPlatform } from "@/features/uploads/schema";
+import { REPORT_TYPE_LABEL, REPORT_TYPES, type ReportType } from "@/features/reports/schema";
 import { confirmImportAction, discardImportAction, initImportAction, processImportAction, publishImportAction } from "@/features/uploads/actions";
 import { periodOptions } from "@/features/uploads/period-options";
 import { UploadDropzone } from "./upload-dropzone";
@@ -22,15 +23,21 @@ import { sendFile } from "./transport";
 export interface WizardClient {
   id: string;
   name: string;
-  modules: Record<"commercial" | "traffic", { enabled: boolean; cadence: "monthly" | "weekly"; allowOriginalDownload: boolean; expectedKey: string | null }>;
+  modules: Record<ReportType, { enabled: boolean; cadence: "monthly" | "weekly"; allowOriginalDownload: boolean; expectedKey: string | null }>;
 }
-
-type ReportType = "commercial" | "traffic";
 
 const STEPS = ["Cliente", "Tipo", "Período", "Arquivo", "Validação", "Prévia", "Confirmação", "Rascunho"] as const;
 type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
-const TYPE_LABEL: Record<ReportType, string> = { commercial: "Comercial", traffic: "Tráfego" };
+const TYPE_LABEL: Record<ReportType, string> = REPORT_TYPE_LABEL;
+
+/** Opções do passo Tipo: o tráfego retroativo é um tipo de envio à parte (meses anteriores, sempre mensais). */
+const TYPE_CHOICES: Array<{ type: ReportType; mode: ImportMode; label: string; hint?: string }> = [
+  { type: "commercial", mode: "regular", label: "Comercial" },
+  { type: "traffic", mode: "regular", label: "Tráfego" },
+  { type: "traffic", mode: "retroactive", label: "Tráfego · meses anteriores", hint: "Retroativo: vários meses de uma vez, para comparação" },
+  { type: "media_plan", mode: "regular", label: "Plano de mídia" },
+];
 const PLATFORM_SHORT: Record<UploadPlatform, string> = { meta_ads: "Meta Ads", google_ads: "Google Ads" };
 const EXISTING_LABEL = { none: "Novo", draft: "Já existe rascunho", published: "Já publicado — criará nova versão", other: "Existe versão anterior" } as const;
 
@@ -44,16 +51,21 @@ export function UploadWizard({
   clients: WizardClient[];
   today: string;
   maxMb: number;
-  initial?: { clientId?: string | null; type?: ReportType | null; periodKey?: string | null };
+  initial?: { clientId?: string | null; type?: ReportType | null; periodKey?: string | null; mode?: ImportMode | null };
   resume?: ImportRecord | null;
 }) {
   const firstClient = clients.find((c) => c.id === (resume?.clientId ?? initial?.clientId)) ?? null;
-  const firstType: ReportType | null = resume?.reportType ?? (initial?.type && firstClient?.modules[initial.type].enabled ? initial.type : firstClient ? (["commercial", "traffic"] as const).find((t) => firstClient.modules[t].enabled) ?? null : null);
+  const firstType: ReportType | null = resume?.reportType ?? (initial?.type && firstClient?.modules[initial.type].enabled ? initial.type : firstClient ? REPORT_TYPES.find((t) => firstClient.modules[t].enabled) ?? null : null);
+  const firstMode: ImportMode = resume?.mode ?? (firstType === "traffic" && initial?.mode === "retroactive" ? "retroactive" : "regular");
 
-  const [step, setStep] = useState<Step>(resume ? (resume.status === "imported" ? 7 : 4) : firstClient && firstType ? (initial?.periodKey !== undefined && initial?.periodKey !== null ? 3 : 2) : firstClient ? 1 : 0);
+  const [step, setStep] = useState<Step>(
+    resume ? (resume.status === "imported" ? 7 : 4) : firstClient && firstType ? (firstMode === "retroactive" || (initial?.periodKey !== undefined && initial?.periodKey !== null) ? 3 : 2) : firstClient ? 1 : 0,
+  );
   const [clientId, setClientId] = useState<string | null>(firstClient?.id ?? null);
   const [type, setType] = useState<ReportType | null>(firstType);
-  const [periodKey, setPeriodKey] = useState<string>(resume?.requestedPeriod ? keyFromRecord(resume) : (initial?.periodKey ?? (firstClient && firstType ? (firstClient.modules[firstType].expectedKey ?? "") : "")));
+  /** "retroactive": meses anteriores de tráfego (sem passo de período; os meses vêm dos dados). */
+  const [mode, setMode] = useState<ImportMode>(firstMode);
+  const [periodKey, setPeriodKey] = useState<string>(resume?.requestedPeriod ? keyFromRecord(resume) : firstMode === "retroactive" ? "" : (initial?.periodKey ?? (firstClient && firstType ? (firstClient.modules[firstType].expectedKey ?? "") : "")));
   const [file, setFile] = useState<File | null>(null);
   /** Enviar um arquivo ou colar os dados (tabela Markdown ou células copiadas da planilha). */
   const [source, setSource] = useState<"file" | "paste">(resume?.format === "md" ? "paste" : "file");
@@ -91,7 +103,9 @@ export function UploadWizard({
 
   const client = clients.find((c) => c.id === clientId) ?? null;
   const mod = client && type ? client.modules[type] : null;
-  const options = useMemo(() => (mod ? periodOptions(mod.cadence, today) : []), [mod, today]);
+  const retro = type === "traffic" && mode === "retroactive";
+  // Plano de mídia: os próximos meses aparecem primeiro (o plano é enviado antes do mês começar).
+  const options = useMemo(() => (mod ? periodOptions(mod.cadence, today, undefined, type === "media_plan" ? 3 : 0) : []), [mod, today, type]);
   const ext = source === "file" && file ? extensionOf(file.name) : "";
   const isCsv = ext === "csv";
   const isDocument = ext === "pdf" || ext === "html" || ext === "htm";
@@ -100,20 +114,22 @@ export function UploadWizard({
   const selectClient = (id: string) => {
     const c = clients.find((x) => x.id === id);
     setClientId(id);
-    const t = c ? ((type && c.modules[type].enabled ? type : null) ?? (["commercial", "traffic"] as const).find((m) => c.modules[m].enabled) ?? null) : null;
+    const t = c ? ((type && c.modules[type].enabled ? type : null) ?? REPORT_TYPES.find((m) => c.modules[m].enabled) ?? null) : null;
     setType(t);
+    if (t !== "traffic") setMode("regular");
     if (c && t) {
-      setPeriodKey(c.modules[t].expectedKey ?? "");
+      setPeriodKey(t === "traffic" && mode === "retroactive" ? "" : (c.modules[t].expectedKey ?? ""));
       setAllowDownload(c.modules[t].allowOriginalDownload);
     }
   };
 
-  const selectType = (t: ReportType) => {
+  const selectType = (t: ReportType, m: ImportMode = "regular") => {
     setType(t);
+    setMode(m);
     setCsvContent("");
     if (t !== "traffic") setPlatform("");
     if (client) {
-      setPeriodKey(client.modules[t].expectedKey ?? "");
+      setPeriodKey(m === "retroactive" ? "" : (client.modules[t].expectedKey ?? ""));
       setAllowDownload(client.modules[t].allowOriginalDownload);
     }
   };
@@ -142,6 +158,7 @@ export function UploadWizard({
     const upload = source === "paste" ? new File([pasted], `dados-colados${platformChoice ? `-${platformChoice === "meta_ads" ? "meta" : "google"}` : ""}.md`, { type: "text/markdown" }) : file;
     if (!upload) return;
     if (platformChoice && isDocument) return setError("O upload por plataforma aceita planilhas (XLSX, XLS, CSV) ou dados colados, não PDF/HTML.");
+    if (retro && isDocument) return setError("Dados retroativos precisam ser planilha (XLSX, XLS, CSV) ou dados colados, para entrar na comparação mês a mês.");
     if (ext === "pdf" && !periodKey) return setError("Para PDF, selecione o período no passo Período.");
     if (isCsv && !csvContent) return setError("Informe o tipo de conteúdo do CSV.");
     if (isCsv && csvContent === "dimension" && !dimensionLabel.trim()) return setError("Informe o nome da dimensão.");
@@ -157,7 +174,8 @@ export function UploadWizard({
         csvContent: isCsv ? csvContent || null : null,
         csvDimensionLabel: isCsv && csvContent === "dimension" ? dimensionLabel : null,
         platform: platformChoice,
-        periodKey: periodKey || null,
+        mode: retro ? "retroactive" : "regular",
+        periodKey: retro ? null : periodKey || null,
         title: title || null,
         allowDownload,
       });
@@ -214,7 +232,7 @@ export function UploadWizard({
       : mismatch
         ? [target === "requested" ? mismatch.requestedLabel : (filePeriod?.label ?? "")]
         : record.preview.periods.filter((p) => selected.includes(p.periodKey)).map((p) => p.label);
-  const canGoTo = (s: Step) => s < step && s <= 3 && !record;
+  const canGoTo = (s: Step) => s < step && s <= 3 && !record && !(retro && s === 2);
 
   return (
     <div className="space-y-6">
@@ -239,36 +257,48 @@ export function UploadWizard({
         ) : null}
 
         {step === 1 && client ? (
-          <StepFrame title="Qual o tipo de relatório?" onBack={() => setStep(0)} onNext={() => setStep(2)} nextDisabled={!type}>
+          <StepFrame title="Qual o tipo de relatório?" onBack={() => setStep(0)} onNext={() => setStep(retro ? 3 : 2)} nextDisabled={!type}>
             <div role="radiogroup" aria-label="Tipo de relatório" className="grid gap-3 sm:grid-cols-2">
-              {(["commercial", "traffic"] as const).map((t) => {
-                const enabled = client.modules[t].enabled;
+              {TYPE_CHOICES.map((choice) => {
+                const enabled = client.modules[choice.type].enabled;
+                const checked = type === choice.type && (choice.type !== "traffic" || mode === choice.mode);
                 return (
                   <button
-                    key={t}
+                    key={`${choice.type}-${choice.mode}`}
                     type="button"
                     role="radio"
-                    aria-checked={type === t}
+                    aria-checked={checked}
                     disabled={!enabled}
-                    onClick={() => selectType(t)}
+                    onClick={() => selectType(choice.type, choice.mode)}
                     className={cn(
                       "rounded-[var(--radius-lg)] border p-4 text-left transition-colors disabled:opacity-40",
-                      type === t ? "border-primary bg-primary-soft" : "border-border-strong hover:bg-surface-2",
+                      checked ? "border-primary bg-primary-soft" : "border-border-strong hover:bg-surface-2",
                     )}
                   >
-                    <span className="block font-bold text-text">{TYPE_LABEL[t]}</span>
+                    <span className="block font-bold text-text">{choice.label}</span>
                     <span className="mt-0.5 block text-[13px] text-text-3">
-                      {enabled ? (client.modules[t].cadence === "weekly" ? "Entrega semanal" : "Entrega mensal") : "Módulo não contratado"}
+                      {!enabled ? "Módulo não contratado" : choice.hint ? choice.hint : choice.type === "media_plan" ? "Um plano por mês" : client.modules[choice.type].cadence === "weekly" ? "Entrega semanal" : "Entrega mensal"}
                     </span>
                   </button>
                 );
               })}
             </div>
+            {retro ? (
+              <p className="mt-4 rounded-xl bg-info-soft px-4 py-3 text-[13px] leading-relaxed text-text-2">
+                Envie os meses anteriores de uma vez (ex.: a exportação do Meta ou do Google dividida por mês). Os meses que <strong>ainda não estão no portal</strong> entram como rascunho; os que já existem ficam desmarcados e não são alterados, a menos que você marque. O cliente vê esses meses na mesma aba de Tráfego, com comparação mês a mês
+                {client.modules.traffic.cadence === "weekly" ? " — como o tráfego dele é semanal, os meses aparecem na escala “Meses”, ao lado das semanas" : ""}.
+              </p>
+            ) : null}
           </StepFrame>
         ) : null}
 
         {step === 2 && mod ? (
-          <StepFrame title="Qual o período?" description="Para planilhas, você pode deixar o sistema detectar os períodos pelo arquivo." onBack={() => setStep(1)} onNext={() => setStep(3)}>
+          <StepFrame
+            title={type === "media_plan" ? "Para qual mês é o plano?" : "Qual o período?"}
+            description={type === "media_plan" ? "O plano pode ser enviado antes do mês começar. Com a coluna Mês no arquivo, dá para enviar vários meses de uma vez." : "Para planilhas, você pode deixar o sistema detectar os períodos pelo arquivo."}
+            onBack={() => setStep(1)}
+            onNext={() => setStep(3)}
+          >
             <Field label="Período" htmlFor="wiz-period" hint={mod.expectedKey ? "Sugerimos o período pendente mais recente." : undefined}>
               <Select id="wiz-period" value={periodKey} onChange={(e) => setPeriodKey(e.target.value)}>
                 <option value="">Detectar pelos dados (planilha ou tabela colada)</option>
@@ -286,8 +316,8 @@ export function UploadWizard({
         {step === 3 && mod && type ? (
           <StepFrame
             title={source === "paste" ? "Cole os dados" : "Envie o arquivo"}
-            description={`${client?.name} · ${TYPE_LABEL[type]}${platformName ? ` · só ${platformName}` : ""} · ${periodKey ? (options.find((o) => o.key === periodKey)?.label ?? periodKey) : "período detectado pelos dados"}`}
-            onBack={() => setStep(2)}
+            description={`${client?.name} · ${retro ? "Tráfego · meses anteriores" : TYPE_LABEL[type]}${platformName ? ` · só ${platformName}` : ""} · ${retro ? "meses detectados pelos dados" : periodKey ? (options.find((o) => o.key === periodKey)?.label ?? periodKey) : "período detectado pelos dados"}`}
+            onBack={() => setStep(retro ? 1 : 2)}
             nextLabel={phase === "uploading" ? `Enviando ${progress ?? 0}%` : phase === "validating" ? "Validando…" : "Enviar e validar"}
             onNext={submitFile}
             nextDisabled={(source === "paste" ? !pasted.trim() : !file) || pending}
@@ -358,7 +388,7 @@ export function UploadWizard({
                     disabled={pending}
                     rows={12}
                     spellCheck={false}
-                    placeholder={pasteExample(type, mod.cadence, platformChoice)}
+                    placeholder={pasteExample(type, retro ? "monthly" : mod.cadence, platformChoice)}
                     className="font-mono text-[13px] leading-relaxed"
                   />
                 </Field>
@@ -366,12 +396,13 @@ export function UploadWizard({
               {source === "paste" || !isDocument ? (
                 <FormatGuide
                   type={type}
-                  cadence={mod.cadence}
+                  cadence={retro ? "monthly" : mod.cadence}
                   platform={platformChoice}
                   source={source}
                   periodChosen={Boolean(periodKey)}
+                  retroactive={retro}
                   onUseExample={() => {
-                    setPasted(pasteExample(type, mod.cadence, platformChoice));
+                    setPasted(pasteExample(type, retro ? "monthly" : mod.cadence, platformChoice));
                     setError(null);
                   }}
                 />
@@ -418,6 +449,9 @@ export function UploadWizard({
                 </a>
                 <a className="inline-flex items-center gap-1 font-semibold text-primary hover:underline" href="/modelos/modelo-trafego.xlsx" download>
                   <Download className="size-3.5" aria-hidden /> Tráfego (XLSX)
+                </a>
+                <a className="inline-flex items-center gap-1 font-semibold text-primary hover:underline" href="/modelos/modelo-plano-de-midia.xlsx" download>
+                  <Download className="size-3.5" aria-hidden /> Plano de mídia (XLSX)
                 </a>
                 <a className="inline-flex items-center gap-1 font-semibold text-primary hover:underline" href="/modelos/exemplo-html-estruturado.html" download>
                   <Download className="size-3.5" aria-hidden /> HTML estruturado
@@ -559,7 +593,8 @@ export function UploadWizard({
               <ul className="list-inside list-disc space-y-1 text-text">
                 {importLabels.map((label) => (
                   <li key={label}>
-                    {TYPE_LABEL[record.reportType]} · {label}
+                    {TYPE_LABEL[record.reportType]}
+                    {record.mode === "retroactive" ? " (retroativo)" : ""} · {label}
                   </li>
                 ))}
               </ul>
@@ -569,6 +604,11 @@ export function UploadWizard({
                 </p>
               ) : null}
               <p className="rounded-xl bg-surface-2 px-4 py-3 text-[13px] text-text-3">Nada será publicado agora. O cliente só verá o relatório depois que você revisar e clicar em Publicar. O arquivo original fica guardado junto do relatório.</p>
+              {record.mode === "retroactive" ? (
+                <p className="rounded-xl bg-info-soft px-4 py-3 text-[13px] text-text-2">
+                  Envio retroativo: só os meses marcados viram rascunho. Os meses que já estão no portal e não foram marcados continuam exatamente como estão.
+                </p>
+              ) : null}
               {record.format === "csv" && record.reportType === "commercial" && record.csvContent !== "funnel" ? (
                 <p className="rounded-xl bg-info-soft px-4 py-3 text-[13px] text-text-2">Este CSV atualiza apenas a seção enviada: os dados das outras seções serão copiados do relatório mais recente do período.</p>
               ) : null}

@@ -29,7 +29,7 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
 ];
 
 function matches(row: ClientRow, filter: Filter): boolean {
-  const states = (["commercial", "traffic"] as const).filter((t) => row.modules[t].enabled).map((t) => row.modules[t].state);
+  const states = (["commercial", "traffic", "media_plan"] as const).filter((t) => row.modules[t].enabled).map((t) => row.modules[t].state);
   switch (filter) {
     case "all":
       return row.status !== "archived";
@@ -48,6 +48,8 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
   const [toDelete, setToDelete] = useState<ClientRow | null>(null);
   const router = useRouter();
   const counts = useMemo(() => Object.fromEntries(FILTERS.map((f) => [f.key, rows.filter((r) => matches(r, f.key)).length])) as Record<Filter, number>, [rows]);
+  // A coluna de plano de mídia só aparece quando algum cliente tem o módulo.
+  const showPlan = rows.some((r) => r.modules.media_plan.enabled);
   const visible = useMemo(() => {
     const q = normalizeText(query);
     return rows.filter((r) => matches(r, filter) && (!q || normalizeText(`${r.name} ${r.slug} ${r.segment}`).includes(q)));
@@ -127,6 +129,7 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
                   <th scope="col" className="px-5 py-3 font-semibold">Cliente</th>
                   <th scope="col" className="px-3 py-3 font-semibold">Comercial</th>
                   <th scope="col" className="px-3 py-3 font-semibold">Tráfego</th>
+                  {showPlan ? <th scope="col" className="px-3 py-3 font-semibold">Plano de mídia</th> : null}
                   <th scope="col" className="px-3 py-3 font-semibold">Última atualização</th>
                   <th scope="col" className="px-3 py-3 font-semibold">Próxima entrega</th>
                   <th scope="col" className="px-5 py-3 text-right font-semibold">Ações</th>
@@ -153,6 +156,11 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
                     <td className="px-3 py-3.5">
                       <ModuleStatus cell={r.modules.traffic} />
                     </td>
+                    {showPlan ? (
+                      <td className="px-3 py-3.5">
+                        <ModuleStatus cell={r.modules.media_plan} />
+                      </td>
+                    ) : null}
                     <td className="tabular px-3 py-3.5 text-text-2">{r.lastUpdatedAt ? formatTimestampDate(r.lastUpdatedAt, timeZone) : "—"}</td>
                     <td className="tabular px-3 py-3.5 text-text-2">{r.nextDueDate ? formatDate(r.nextDueDate) : "—"}</td>
                     <td className="px-5 py-3.5">
@@ -194,6 +202,14 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
                       <ModuleStatus cell={r.modules.traffic} />
                     </dd>
                   </div>
+                  {r.modules.media_plan.enabled ? (
+                    <div>
+                      <dt className="mb-1 text-xs font-semibold text-text-3">Plano de mídia</dt>
+                      <dd>
+                        <ModuleStatus cell={r.modules.media_plan} />
+                      </dd>
+                    </div>
+                  ) : null}
                 </dl>
                 <p className="mt-3 border-t border-border pt-3 text-xs text-text-3">
                   Atualizado {r.lastUpdatedAt ? `em ${formatTimestampDate(r.lastUpdatedAt, timeZone)}` : "—"} · Próxima entrega {r.nextDueDate ? formatDate(r.nextDueDate) : "—"}

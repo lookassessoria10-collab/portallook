@@ -6,10 +6,10 @@ import { NotFoundError, UserFacingError } from "@/lib/errors";
 import { todayISO } from "@/lib/dates/period";
 import { logEvent } from "@/features/events/service";
 import { computeDelivery, type DeliveryStatus } from "@/features/reports/delivery";
-import type { ClientIndex, ReportType } from "@/features/reports/schema";
+import { REPORT_TYPES, type ClientIndex, type ReportType } from "@/features/reports/schema";
 import { getRepositories } from "@/server/repositories";
 import type { ClientInput } from "./input";
-import type { Client, ClientStatus } from "./schema";
+import { MEDIA_PLAN_MODULE_DEFAULT, type Client, type ClientStatus } from "./schema";
 import { ensureAccessToken } from "./access";
 
 export const getClient = cache(async (clientId: string): Promise<Client | null> => getRepositories().clients.get(clientId));
@@ -24,14 +24,18 @@ export const listClients = cache(async () => getRepositories().clients.list());
 
 export const getClientIndex = cache(async (clientId: string): Promise<ClientIndex> => getRepositories().reports.getIndex(clientId));
 
-function modulesFromInput(input: ClientInput): Client["modules"] {
-  return { commercial: input.commercial, traffic: input.traffic };
+function modulesFromInput(input: ClientInput, current?: Client["modules"]): Client["modules"] {
+  return { commercial: input.commercial, traffic: input.traffic, media_plan: input.media_plan ?? current?.media_plan ?? MEDIA_PLAN_MODULE_DEFAULT };
+}
+
+function requireSomeModule(input: ClientInput) {
+  if (!input.commercial.enabled && !input.traffic.enabled && !input.media_plan?.enabled) {
+    throw new UserFacingError("Ative pelo menos um módulo (Comercial, Tráfego ou Plano de mídia).");
+  }
 }
 
 export async function createClient(input: ClientInput, actor: string | null): Promise<Client> {
-  if (!input.commercial.enabled && !input.traffic.enabled) {
-    throw new UserFacingError("Ative pelo menos um módulo (Comercial ou Tráfego).");
-  }
+  requireSomeModule(input);
   const now = new Date().toISOString();
   const client: Client = {
     id: createId("cl"),
@@ -57,9 +61,7 @@ export async function createClient(input: ClientInput, actor: string | null): Pr
 }
 
 export async function updateClient(clientId: string, input: ClientInput, actor: string | null): Promise<Client> {
-  if (!input.commercial.enabled && !input.traffic.enabled) {
-    throw new UserFacingError("Ative pelo menos um módulo (Comercial ou Tráfego).");
-  }
+  requireSomeModule(input);
   const updated = await getRepositories().clients.update(clientId, (c) => ({
     ...c,
     slug: input.slug,
@@ -69,7 +71,7 @@ export async function updateClient(clientId: string, input: ClientInput, actor: 
     segment: input.segment,
     currency: input.currency,
     notes: input.notes,
-    modules: modulesFromInput(input),
+    modules: modulesFromInput(input, c.modules),
     dashboard: { ...c.dashboard, roiMetric: input.roiMetric },
   }));
   await logEvent("client.updated", { clientId, actor, summary: `Dados de ${updated.name} atualizados.` });
@@ -122,13 +124,14 @@ export function today(): string {
 
 export function buildOverview(client: Client, index: ClientIndex, date: string): ClientOverview {
   const delivery = {} as Record<ReportType, DeliveryStatus>;
-  for (const type of ["commercial", "traffic"] as const) {
+  for (const type of REPORT_TYPES) {
     delivery[type] = computeDelivery({
       module: client.modules[type],
       reports: index.reports.filter((r) => r.type === type),
       imports: index.imports.filter((i) => i.reportType === type),
       today: date,
       clientSince: client.createdAt,
+      planning: type === "media_plan",
     });
   }
   const timestamps = index.reports.map((r) => r.publishedAt).filter((t): t is string => Boolean(t));

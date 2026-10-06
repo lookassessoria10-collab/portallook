@@ -18,6 +18,7 @@ function entry(period: Period, status: ReportStatus, id = `rp_${period.start.rep
     summary: {},
     labels: {},
     allowDownload: false,
+    retroactive: false,
     updatedAt: "2026-09-10T12:00:00.000Z",
     publishedAt: status === "published" ? "2026-09-10T12:00:00.000Z" : null,
     createdAt: "2026-09-10T12:00:00.000Z",

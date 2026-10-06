@@ -12,6 +12,7 @@ export function toIndexEntry(m: ReportManifest): ReportIndexEntry {
     summary: m.summary,
     labels: m.labels,
     allowDownload: m.allowDownload,
+    retroactive: m.retroactive,
     updatedAt: m.updatedAt,
     publishedAt: m.publishedAt,
     createdAt: m.createdAt,

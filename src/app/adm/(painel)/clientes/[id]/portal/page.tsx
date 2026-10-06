@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Eye } from "lucide-react";
 import { getClient } from "@/features/clients/service";
-import { loadPortalModel } from "@/features/portal/model";
+import { loadPortalModel, SCALE_PARAM } from "@/features/portal/model";
+import { REPORT_TYPE_PATH } from "@/features/reports/schema";
 import { PortalView } from "@/features/portal/components/portal-view";
 import type { PortalLinks } from "@/features/portal/components/portal-sections";
 
@@ -19,10 +20,12 @@ export default async function PortalPreviewPage(props: PageProps<"/adm/clientes/
   const client = await getClient(id);
   if (!client) notFound();
   const base = `/adm/clientes/${id}/portal`;
-  const model = await loadPortalModel(client, { tab: one(search.aba), period: one(search.periodo), mode: "preview" });
-  const tabParam = model.tab === "traffic" ? "trafego" : "comercial";
+  const model = await loadPortalModel(client, { tab: one(search.aba), period: one(search.periodo), scale: one(search.escala), mode: "preview" });
+  const tabParam = REPORT_TYPE_PATH[model.tab];
+  const scaleParam = model.scales ? `&escala=${SCALE_PARAM[model.scale]}` : "";
   const links: PortalLinks = {
-    overview: `${base}?aba=${tabParam}`,
+    overview: `${base}?aba=${tabParam}${scaleParam}`,
+    scale: (scale) => `${base}?aba=${tabParam}&escala=${SCALE_PARAM[scale]}`,
     period: (key) => `${base}?aba=${tabParam}&periodo=${encodeURIComponent(key)}`,
     document: (reportId) => `/adm/clientes/${id}/relatorios/${reportId}`,
     file: (reportId, download) => `/api/adm/clientes/${id}/relatorios/${reportId}/arquivo${download ? "?download=1" : ""}`,

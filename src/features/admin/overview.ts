@@ -2,7 +2,7 @@ import "server-only";
 import { periodKey } from "@/lib/dates/period";
 import type { ClientOverview } from "@/features/clients/service";
 import type { DeliveryState, DeliveryStatus } from "@/features/reports/delivery";
-import type { ImportIndexEntry, ReportIndexEntry, ReportType } from "@/features/reports/schema";
+import { REPORT_TYPES, type ImportIndexEntry, type ReportIndexEntry, type ReportType } from "@/features/reports/schema";
 
 export interface ModuleCounts {
   updated: number;
@@ -36,11 +36,11 @@ const emptyCounts = (): ModuleCounts => ({ updated: 0, pending: 0, draft: 0, err
 
 export function buildAdminOverview(overviews: ClientOverview[]): AdminOverview {
   const active = overviews.filter((o) => o.client.status === "active");
-  const modules: Record<ReportType, ModuleCounts> = { commercial: emptyCounts(), traffic: emptyCounts() };
+  const modules: Record<ReportType, ModuleCounts> = { commercial: emptyCounts(), traffic: emptyCounts(), media_plan: emptyCounts() };
   const attention: AttentionItem[] = [];
 
   for (const o of active) {
-    for (const type of ["commercial", "traffic"] as const) {
+    for (const type of REPORT_TYPES) {
       const d = o.delivery[type];
       if (d.state === "not_applicable") continue;
       const c = modules[type];
@@ -82,4 +82,9 @@ export function uploadHref(clientId: string, type: ReportType, delivery?: Delive
   const params = new URLSearchParams({ cliente: clientId, tipo: type });
   if (delivery?.expectedPeriod) params.set("periodo", periodKey(delivery.expectedPeriod));
   return `/adm/uploads?${params.toString()}`;
+}
+
+/** Envio de meses anteriores de tráfego (retroativo), já com o cliente escolhido. */
+export function retroactiveUploadHref(clientId: string): string {
+  return `/adm/uploads?${new URLSearchParams({ cliente: clientId, tipo: "traffic", modo: "retroativo" }).toString()}`;
 }

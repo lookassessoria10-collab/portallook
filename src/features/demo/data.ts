@@ -6,15 +6,17 @@
 import { addDays, monthPeriod, weekPeriod, type Period } from "@/lib/dates/period";
 import type { CommercialDataInput } from "@/features/commercial/schema";
 import type { TrafficDataInput } from "@/features/traffic/schema";
+import type { MediaPlanDataInput } from "@/features/media-plan/schema";
 import type { Insight, ReportStatus } from "@/features/reports/schema";
 import type { Client } from "@/features/clients/schema";
 
 export interface DemoReport {
-  type: "commercial" | "traffic";
+  type: "commercial" | "traffic" | "media_plan";
   period: Period;
   status: ReportStatus;
   commercial?: CommercialDataInput;
   traffic?: TrafficDataInput;
+  mediaPlan?: MediaPlanDataInput;
   insights?: Array<Omit<Insight, "id" | "source">>;
   document?: { kind: "pdf" | "html_legacy"; title: string; allowDownload: boolean };
 }
@@ -154,6 +156,44 @@ function isaborTraffic(): DemoReport[] {
     });
   }
   return reports;
+}
+
+/** Plano de mídia de outubro: verba por plataforma, cronograma e metas (valores fictícios). */
+function isaborMediaPlan(): DemoReport[] {
+  const period = monthPeriod(2026, 10);
+  return [
+    {
+      type: "media_plan",
+      period,
+      status: "published",
+      mediaPlan: {
+        schemaVersion: 1,
+        period,
+        items: [
+          { id: "meta-captacao", platform: "meta_ads", name: "Captação | Consulta particular", objective: "Mensagens", audience: "Mulheres 30–60, raio de 8 km", format: "Reels e carrossel", start: "2026-10-01", end: "2026-10-31", budget: 750, resultType: "whatsapp", resultTarget: 110 },
+          { id: "meta-remarketing", platform: "meta_ads", name: "Remarketing | Quem conversou e não agendou", objective: "Mensagens", audience: "Envolvidos nos últimos 30 dias", format: "Stories", start: "2026-10-12", end: "2026-10-31", budget: 150, resultType: "whatsapp", resultTarget: 25 },
+          { id: "google-pesquisa", platform: "google_ads", name: "Pesquisa | Gastroenterologista", objective: "Leads", audience: "Buscas por gastro e endoscopia na região", format: "Anúncios de pesquisa", start: "2026-10-01", end: "2026-10-31", budget: 400, resultType: "lead", resultTarget: 30 },
+        ],
+        header: { title: "Estratégia de Mídia — Outubro", tagline: "Captação de consulta particular", summary: "Outubro concentra a verba no Meta Ads, que trouxe o melhor retorno em setembro, e mantém o Google Ads em observação.", tags: ["Meta Ads · WhatsApp", "Google Ads · Pesquisa"] },
+        goals: [
+          { key: "agendamentos", label: "Agendamentos", value: 25, format: "integer" },
+          { key: "custo-por-agendamento", label: "Custo por agendamento", value: null, display: "R$ 45–55", format: "currency" },
+        ],
+        sections: [
+          {
+            key: "direcao",
+            title: "Direção executiva",
+            placement: "top",
+            blocks: [
+              { kind: "text", text: "A captação contínua no Instagram segue como prioridade; o remarketing entra na segunda quinzena para recuperar quem conversou e não agendou." },
+              { kind: "callout", title: "Atendimento", text: "Responder as conversas em até 15 minutos no horário comercial." },
+            ],
+          },
+        ],
+      },
+      insights: [{ type: "recommendation", title: "Responder em até 15 minutos", description: "A meta de agendamentos depende de resposta rápida às conversas que o Meta Ads vai gerar." }],
+    },
+  ];
 }
 
 // ————————————————————————————————————————————————————————————————————————
@@ -479,6 +519,7 @@ function landimCommercial(): DemoReport[] {
 
 const commercialModule = (enabled: boolean) => ({ enabled, cadence: "monthly" as const, dueDay: 5, allowOriginalDownload: true });
 const trafficModule = (enabled: boolean) => ({ enabled, cadence: "weekly" as const, dueDay: 1, allowOriginalDownload: false });
+const mediaPlanModule = (enabled: boolean) => ({ enabled, cadence: "monthly" as const, dueDay: 1, allowOriginalDownload: false });
 
 export function buildDemoClients(): DemoClient[] {
   return [
@@ -492,13 +533,14 @@ export function buildDemoClients(): DemoClient[] {
         segment: "Gastroenterologia",
         status: "active",
         currency: "BRL",
-        modules: { commercial: commercialModule(true), traffic: trafficModule(true) },
+        modules: { commercial: commercialModule(true), traffic: trafficModule(true), media_plan: mediaPlanModule(true) },
         dashboard: { roiMetric: "roas", highlightMetrics: [] },
         notes: "Relatório comercial consolidado pela secretária até o dia 3. Tráfego: Meta + Google.",
       },
       reports: [
         ...isaborCommercial(),
         ...isaborTraffic(),
+        ...isaborMediaPlan(),
         {
           type: "commercial",
           period: monthPeriod(2026, 8),
@@ -523,7 +565,7 @@ export function buildDemoClients(): DemoClient[] {
         segment: "Terapias e bem-estar",
         status: "active",
         currency: "BRL",
-        modules: { commercial: commercialModule(true), traffic: trafficModule(false) },
+        modules: { commercial: commercialModule(true), traffic: trafficModule(false), media_plan: mediaPlanModule(false) },
         dashboard: { roiMetric: "roiPercent", highlightMetrics: [] },
         notes: "Receita por terapeuta vem da planilha interna do espaço.",
       },
@@ -539,7 +581,7 @@ export function buildDemoClients(): DemoClient[] {
         segment: "Móveis planejados",
         status: "active",
         currency: "BRL",
-        modules: { commercial: commercialModule(true), traffic: trafficModule(true) },
+        modules: { commercial: commercialModule(true), traffic: trafficModule(true), media_plan: mediaPlanModule(false) },
         dashboard: { roiMetric: "roas", highlightMetrics: [] },
         notes: "Fonte: CRM da landing page. Etapas intermediárias nem sempre são registradas.",
       },
@@ -566,7 +608,7 @@ export function buildDemoClients(): DemoClient[] {
         segment: "Distribuição",
         status: "active",
         currency: "BRL",
-        modules: { commercial: commercialModule(false), traffic: trafficModule(true) },
+        modules: { commercial: commercialModule(false), traffic: trafficModule(true), media_plan: mediaPlanModule(false) },
         dashboard: { roiMetric: "roas", highlightMetrics: [] },
         notes: "Campanhas com objetivo de conversas no WhatsApp por unidade.",
       },
@@ -582,7 +624,7 @@ export function buildDemoClients(): DemoClient[] {
         segment: "Clínica médica",
         status: "active",
         currency: "BRL",
-        modules: { commercial: commercialModule(true), traffic: trafficModule(false) },
+        modules: { commercial: commercialModule(true), traffic: trafficModule(false), media_plan: mediaPlanModule(false) },
         dashboard: { roiMetric: "roas", highlightMetrics: [] },
         notes: "Conversões podem acontecer em clínicas parceiras (indiretas).",
       },

@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
-export function ClientTabs({ clientId, modules }: { clientId: string; modules: { commercial: boolean; traffic: boolean } }) {
+export function ClientTabs({ clientId, modules }: { clientId: string; modules: { commercial: boolean; traffic: boolean; media_plan: boolean } }) {
   const pathname = usePathname();
   const base = `/adm/clientes/${clientId}`;
   const tabs = [
     { href: base, label: "Visão geral", exact: true },
     ...(modules.commercial ? [{ href: `${base}/comercial`, label: "Comercial" }] : []),
     ...(modules.traffic ? [{ href: `${base}/trafego`, label: "Tráfego" }] : []),
+    ...(modules.media_plan ? [{ href: `${base}/plano-de-midia`, label: "Plano de mídia" }] : []),
     { href: `${base}/arquivos`, label: "Arquivos" },
     { href: `${base}/configuracoes`, label: "Configurações" },
     { href: `${base}/acesso`, label: "Acesso" },

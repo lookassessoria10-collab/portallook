@@ -36,10 +36,10 @@ export interface DeliveryStatus {
   expectedReport: ReportIndexEntry | null;
 }
 
-/** Relatório do mês M vence no dia `dueDay` do mês M+1. */
-function monthlyDueDate(p: Period, dueDay: number): string {
-  const next = nextPeriod(p);
-  const [y, m] = next.start.split("-").map(Number);
+/** Relatório do mês M vence no dia `dueDay` do mês M+1; o plano do mês M (planejamento), no dia `dueDay` do próprio mês. */
+function monthlyDueDate(p: Period, dueDay: number, planning = false): string {
+  const month = planning ? p : nextPeriod(p);
+  const [y, m] = month.start.split("-").map(Number);
   return isoFromParts(y, m, dueDay);
 }
 
@@ -48,16 +48,20 @@ function weeklyDueDate(p: Period, dueDay: number): string {
   return addDays(p.end, dueDay);
 }
 
-export function dueDateFor(module: ModuleConfig, period: Period): string {
-  return module.cadence === "monthly" ? monthlyDueDate(period, module.dueDay) : weeklyDueDate(period, module.dueDay);
+export function dueDateFor(module: ModuleConfig, period: Period, planning = false): string {
+  return module.cadence === "monthly" ? monthlyDueDate(period, module.dueDay, planning) : weeklyDueDate(period, module.dueDay);
 }
 
-/** O período mais recente cujo prazo já passou (ou vence hoje). */
-export function expectedPeriodFor(module: ModuleConfig, today: string): Period {
+/**
+ * O período mais recente cujo prazo já passou (ou vence hoje). Em planejamento
+ * (plano de mídia) o próprio mês corrente já pode estar vencido.
+ */
+export function expectedPeriodFor(module: ModuleConfig, today: string, planning = false): Period {
   if (module.cadence === "monthly") {
     const [y, m] = today.split("-").map(Number);
-    const lastMonth = previousPeriod(monthPeriod(y, m));
-    return today >= monthlyDueDate(lastMonth, module.dueDay) ? lastMonth : previousPeriod(lastMonth);
+    const current = monthPeriod(y, m);
+    const candidate = planning ? current : previousPeriod(current);
+    return today >= monthlyDueDate(candidate, module.dueDay, planning) ? candidate : previousPeriod(candidate);
   }
   const lastWeek = weekPeriod(addDays(startOfWeek(today), -7));
   return today >= weeklyDueDate(lastWeek, module.dueDay) ? lastWeek : previousPeriod(lastWeek);
@@ -72,6 +76,8 @@ export function computeDelivery(input: {
   today: string;
   /** Data de cadastro (ISO) — evita marcar pendência de períodos anteriores ao início. */
   clientSince?: string;
+  /** Plano de mídia: o período entregue é o mês que começa, não o que terminou. */
+  planning?: boolean;
 }): DeliveryStatus {
   const { module, today } = input;
   const empty: DeliveryStatus = {
@@ -86,9 +92,10 @@ export function computeDelivery(input: {
   };
   if (!module.enabled) return empty;
 
-  const expected = expectedPeriodFor(module, today);
+  const planning = input.planning ?? false;
+  const expected = expectedPeriodFor(module, today, planning);
   const key = periodKey(expected);
-  const expectedDueDate = dueDateFor(module, expected);
+  const expectedDueDate = dueDateFor(module, expected, planning);
   const upcoming = nextPeriod(expected);
   const datasets = input.reports.filter((r) => r.status !== "archived");
   const published = datasets.filter((r) => r.status === "published");
@@ -103,7 +110,7 @@ export function computeDelivery(input: {
     expectedPeriod: expected,
     expectedDueDate,
     nextPeriod: upcoming,
-    nextDueDate: dueDateFor(module, upcoming),
+    nextDueDate: dueDateFor(module, upcoming, planning),
     latestPublished,
     expectedReport: publishedForPeriod ?? draftForPeriod,
   };

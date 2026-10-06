@@ -8,6 +8,7 @@ import { ImportList } from "@/features/admin/components/import-list";
 import { toWizardClients } from "@/features/admin/wizard-clients";
 import { listClientOverviews, today } from "@/features/clients/service";
 import { UploadWizard } from "@/features/uploads/components/upload-wizard";
+import { reportTypeFromParam } from "@/features/reports/schema";
 
 export const metadata: Metadata = { title: "Uploads" };
 
@@ -33,7 +34,7 @@ export default async function UploadsPage(props: PageProps<"/adm/uploads">) {
             clients={toWizardClients(overviews)}
             today={today()}
             maxMb={env().UPLOAD_MAX_MB}
-            initial={{ clientId: one(search.cliente), type: tipo === "commercial" || tipo === "traffic" ? tipo : null, periodKey: one(search.periodo) }}
+            initial={{ clientId: one(search.cliente), type: reportTypeFromParam(tipo), periodKey: one(search.periodo), mode: one(search.modo) === "retroativo" ? "retroactive" : "regular" }}
           />
         </div>
         <Card className="h-fit 2xl:col-span-4">

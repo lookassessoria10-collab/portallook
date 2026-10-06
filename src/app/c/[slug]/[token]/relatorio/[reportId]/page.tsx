@@ -7,7 +7,7 @@ import { LookLogo } from "@/components/brand/look-logo";
 import { ReportViewer } from "@/components/dashboard/report-viewer";
 import { InsightList } from "@/components/dashboard/insight-list";
 import { getPortalClient, getVisibleReport, portalBasePath } from "@/features/portal/access";
-import { REPORT_TYPE_LABEL } from "@/features/reports/schema";
+import { REPORT_TYPE_LABEL, REPORT_TYPE_PATH } from "@/features/reports/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ export default async function ReportDocumentPage(props: PageProps<"/c/[slug]/[to
   if (!report || !report.source) notFound();
 
   const base = portalBasePath(slug, token);
-  const tab = report.type === "traffic" ? "trafego" : "comercial";
+  const tab = REPORT_TYPE_PATH[report.type];
   const file = `${base}/arquivo/${report.id}`;
 
   return (

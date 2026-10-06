@@ -22,6 +22,7 @@ function entry(type: "traffic" | "commercial", period: Period, summary: ReportIn
     summary,
     labels,
     allowDownload: false,
+    retroactive: false,
     updatedAt: now,
     publishedAt: now,
     createdAt: now,

@@ -9,7 +9,7 @@ import { DeliveryBadge } from "@/components/dashboard/status-badge";
 import { PageHeader } from "@/features/admin/components/admin-shell";
 import { buildAdminOverview, uploadHref } from "@/features/admin/overview";
 import { listClientOverviews, today } from "@/features/clients/service";
-import { REPORT_TYPE_LABEL } from "@/features/reports/schema";
+import { REPORT_TYPE_LABEL, reportTypeFromParam } from "@/features/reports/schema";
 
 export const metadata: Metadata = { title: "Pendências" };
 
@@ -17,11 +17,12 @@ const TYPE_FILTERS = [
   { key: "", label: "Todos" },
   { key: "commercial", label: "Comercial" },
   { key: "traffic", label: "Tráfego" },
+  { key: "media_plan", label: "Plano de mídia" },
 ];
 
 export default async function PendingPage(props: PageProps<"/adm/pendencias">) {
   const search = await props.searchParams;
-  const type = search.tipo === "commercial" || search.tipo === "traffic" ? search.tipo : "";
+  const type = reportTypeFromParam(typeof search.tipo === "string" ? search.tipo : null) ?? "";
   const o = buildAdminOverview(await listClientOverviews());
   const date = today();
   const items = o.attention.filter((a) => !type || a.type === type);

@@ -39,6 +39,7 @@ export default async function ClientOverviewPage(props: PageProps<"/adm/clientes
       <div className="grid gap-4 md:grid-cols-2 xl:col-span-8">
         <ModuleStatusCard clientId={id} type="commercial" module={o.client.modules.commercial} delivery={o.delivery.commercial} today={date} />
         <ModuleStatusCard clientId={id} type="traffic" module={o.client.modules.traffic} delivery={o.delivery.traffic} today={date} />
+        {o.client.modules.media_plan.enabled ? <ModuleStatusCard clientId={id} type="media_plan" module={o.client.modules.media_plan} delivery={o.delivery.media_plan} today={date} /> : null}
 
         <Card className="md:col-span-2">
           <CardHeader title="Link do cliente" subtitle="Envie este endereço ao cliente. Ele continua válido a cada novo relatório." icon={<Link2 className="size-4" />} actions={<Link href={`/adm/clientes/${id}/acesso`} className="text-sm font-semibold text-primary hover:underline">Gerenciar</Link>} />

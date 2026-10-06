@@ -18,17 +18,26 @@ import { logEvent } from "@/features/events/service";
 import { getClient } from "@/features/clients/service";
 import { removeImportEntry, upsertImportEntry } from "@/features/reports/index-entry";
 import { createDraftReport, getReportData, getReportManifest, newInsightId, PERIOD_WARNING_CODES, publishReport, type ReportData } from "@/features/reports/service";
-import type { ImportIndexEntry, Insight, ReportIndexEntry, ReportManifest, ReportType, SourceType } from "@/features/reports/schema";
+import { REPORT_TYPE_LABEL, type ImportIndexEntry, type Insight, type ReportIndexEntry, type ReportManifest, type ReportType, type SourceType } from "@/features/reports/schema";
 import { computeCommercialMetrics } from "@/features/commercial/metrics";
 import { normalizeCommercial, type SheetRole } from "@/features/commercial/normalize";
 import { CommercialDataSchema, type CommercialData } from "@/features/commercial/schema";
 import { buildTrafficView } from "@/features/traffic/metrics";
 import { normalizeTraffic } from "@/features/traffic/normalize";
 import { TrafficDataSchema, platformLabel, type TrafficData } from "@/features/traffic/schema";
+import { computeMediaPlanMetrics } from "@/features/media-plan/metrics";
+import { normalizeMediaPlan } from "@/features/media-plan/normalize";
+import { MediaPlanDataSchema } from "@/features/media-plan/schema";
 import { getRepositories } from "@/server/repositories";
 import { IssueCollector } from "./issues";
 import { ParsedImportSchema, type ParsedImport, type ParsedPeriod } from "./parsed";
-import type { CsvContent, FileFormat, ImportPreview, ImportRecord, PreviewPeriod, UploadPlatform } from "./schema";
+import { CSV_CONTENT_OPTIONS, type CsvContent, type FileFormat, type ImportMode, type ImportPreview, type ImportRecord, type PreviewPeriod, type UploadPlatform } from "./schema";
+
+/** Schema final de cada tipo de relatório — nada inconsistente vira rascunho. */
+const DATA_SCHEMA = { commercial: CommercialDataSchema, traffic: TrafficDataSchema, media_plan: MediaPlanDataSchema } as const;
+
+/** Nome da tabela colada sem título em cada tipo de relatório. */
+const DEFAULT_TABLE: Record<ReportType, string> = { commercial: "Funil", traffic: "Campanhas", media_plan: "Plano" };
 
 const CONTENT_TYPES: Record<FileFormat, string> = {
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -97,6 +106,8 @@ export interface InitImportInput {
   csvDimensionLabel?: string | null;
   /** Tráfego: arquivo de uma plataforma só (substitui só as campanhas dela em cada período). */
   platform?: UploadPlatform | null;
+  /** Tráfego: meses anteriores enviados de uma vez (retroativo). */
+  mode?: ImportMode;
   period?: Period | null;
   title?: string | null;
   allowDownload?: boolean;
@@ -114,13 +125,16 @@ export async function initImport(input: InitImportInput): Promise<InitImportResu
   const client = await getClient(input.clientId);
   if (!client) throw new UserFacingError("Cliente não encontrado.");
   if (client.status !== "active") throw new UserFacingError("Este cliente está inativo. Reative-o para enviar relatórios.");
-  if (!client.modules[input.reportType].enabled) throw new UserFacingError(`O módulo ${input.reportType === "commercial" ? "Comercial" : "Tráfego"} não está ativo para este cliente.`);
+  if (!client.modules[input.reportType].enabled) throw new UserFacingError(`O módulo ${REPORT_TYPE_LABEL[input.reportType]} não está ativo para este cliente.`);
+  const mode = input.mode ?? "regular";
+  if (mode === "retroactive" && input.reportType !== "traffic") throw new UserFacingError("O envio retroativo é só para dados de tráfego.");
 
   const fileName = sanitizeDisplayName(input.fileName);
   const format = EXTENSION_FORMAT[extensionOf(fileName)];
   if (!format) throw new UserFacingError("Formato não aceito. Envie XLSX, XLS, CSV, PDF ou HTML, ou cole os dados.");
   if (input.platform && input.reportType !== "traffic") throw new UserFacingError("A plataforma só se aplica a relatórios de tráfego.");
   if (input.platform && (format === "pdf" || format === "html")) throw new UserFacingError("O upload por plataforma aceita planilhas (XLSX, XLS, CSV) ou dados colados.");
+  if (mode === "retroactive" && (format === "pdf" || format === "html")) throw new UserFacingError("Dados retroativos precisam ser planilha (XLSX, XLS, CSV) ou dados colados, para entrar na comparação mês a mês.");
   const mime = (input.contentType || "").toLowerCase().split(";")[0].trim();
   if (!ALLOWED_MIME[format].test(mime)) throw new UserFacingError("O tipo do arquivo não corresponde à extensão. Verifique se o arquivo está correto.");
 
@@ -130,8 +144,7 @@ export async function initImport(input: InitImportInput): Promise<InitImportResu
 
   if (format === "csv") {
     if (!input.csvContent) throw new UserFacingError("Informe o tipo de conteúdo do CSV (funil, financeiro, canais…).");
-    const isTraffic = input.csvContent === "traffic";
-    if (isTraffic !== (input.reportType === "traffic")) throw new UserFacingError("O conteúdo escolhido para o CSV não corresponde ao tipo de relatório.");
+    if (CSV_CONTENT_OPTIONS.find((o) => o.value === input.csvContent)?.reportType !== input.reportType) throw new UserFacingError("O conteúdo escolhido para o CSV não corresponde ao tipo de relatório.");
     if (input.csvContent === "dimension" && !input.csvDimensionLabel?.trim()) throw new UserFacingError("Informe o nome da dimensão (ex.: Serviços, Profissionais).");
   }
   // HTML estruturado traz o próprio período; HTML legado sem período é recusado na validação.
@@ -156,7 +169,9 @@ export async function initImport(input: InitImportInput): Promise<InitImportResu
     csvContent: format === "csv" ? (input.csvContent ?? null) : null,
     csvDimensionLabel: input.csvContent === "dimension" ? (input.csvDimensionLabel?.trim().slice(0, 60) ?? null) : null,
     platform: input.platform ?? null,
-    requestedPeriod: input.period ?? null,
+    mode,
+    // Retroativo: os meses vêm sempre dos dados.
+    requestedPeriod: mode === "retroactive" ? null : (input.period ?? null),
     title: input.title?.trim().slice(0, 160) || null,
     // Dados colados não são um arquivo do cliente: nunca ficam disponíveis para download no portal.
     allowDownload: format === "md" ? false : (input.allowDownload ?? client.modules[input.reportType].allowOriginalDownload),
@@ -185,12 +200,14 @@ export async function receiveFile(importId: string, body: Buffer) {
   await logEvent("upload.received", { clientId: record.clientId, summary: `Arquivo ${record.fileName} recebido.`, meta: { importId } });
 }
 
+type CommercialCsv = Exclude<CsvContent, "traffic" | "media_plan">;
+
 function csvRole(content: CsvContent): SheetRole {
-  const map: Record<Exclude<CsvContent, "traffic">, SheetRole> = { funnel: "funnel", financial: "financial", channels: "channels", insights: "insights", dimension: "dimension" };
-  return map[content as Exclude<CsvContent, "traffic">];
+  const map: Record<CommercialCsv, SheetRole> = { funnel: "funnel", financial: "financial", channels: "channels", insights: "insights", dimension: "dimension" };
+  return map[content as CommercialCsv];
 }
 
-const CSV_SHEET_NAME: Record<CsvContent, string> = { funnel: "Funil", financial: "Financeiro", channels: "Canais", insights: "Insights", dimension: "Dimensão", traffic: "Campanhas" };
+const CSV_SHEET_NAME: Record<CsvContent, string> = { funnel: "Funil", financial: "Financeiro", channels: "Canais", insights: "Insights", dimension: "Dimensão", traffic: "Campanhas", media_plan: "Plano" };
 
 /**
  * Etapa 2: lê o arquivo, valida conteúdo (assinatura, colunas, períodos),
@@ -221,7 +238,8 @@ export async function processImport(importId: string): Promise<ImportRecord> {
       if (expected === "md") issues.error("content_mismatch", "Os dados colados não foram reconhecidos como tabela. Cole uma tabela em Markdown ou as células copiadas da planilha (não cole HTML nem imagens).");
       else issues.error("content_mismatch", sniffed === "unknown" ? "O conteúdo do arquivo não pôde ser reconhecido. Ele pode estar corrompido." : `O arquivo tem extensão .${expected}, mas o conteúdo parece ser ${sniffed.toUpperCase()}. Salve no formato correto e envie novamente.`);
     } else {
-      const granularity = client.modules[record.reportType].cadence === "weekly" ? "week" : "month";
+      // Retroativo é sempre mensal, mesmo para clientes com tráfego semanal.
+      const granularity = record.mode === "retroactive" ? "month" : client.modules[record.reportType].cadence === "weekly" ? "week" : "month";
       const periodCtx = { granularity, requestedPeriod: record.requestedPeriod } as const;
 
       if (expected === "pdf") {
@@ -244,7 +262,7 @@ export async function processImport(importId: string): Promise<ImportRecord> {
           expected === "csv"
             ? readCsv(body, CSV_SHEET_NAME[record.csvContent ?? "funnel"])
             : expected === "md"
-              ? readPastedData(body, record.reportType === "traffic" ? "Campanhas" : "Funil")
+              ? readPastedData(body, DEFAULT_TABLE[record.reportType])
               : readExcel(body, sniffed === "xlsx" ? "xlsx" : "xls");
         if (record.reportType === "commercial") {
           const result = normalizeCommercial(workbook, { ...periodCtx, csvRole: record.csvContent ? csvRole(record.csvContent) : undefined, csvDimensionLabel: record.csvDimensionLabel }, issues);
@@ -252,6 +270,11 @@ export async function processImport(importId: string): Promise<ImportRecord> {
           // Os valores do arquivo estão na moeda do cliente (é a que o portal exibe).
           for (const p of result.periods) (p.data as { currency?: string }).currency = client.currency;
           parsed = { kind: "dataset", reportType: "commercial", sourceType: expected, partial: Boolean(record.csvContent), periods: result.periods };
+        } else if (record.reportType === "media_plan") {
+          const result = normalizeMediaPlan(workbook, { requestedPeriod: record.requestedPeriod }, issues);
+          sheets = result.sheets;
+          for (const p of result.periods) (p.data as { currency?: string }).currency = client.currency;
+          parsed = { kind: "dataset", reportType: "media_plan", sourceType: expected, partial: false, periods: result.periods };
         } else {
           const result = normalizeTraffic(workbook, { ...periodCtx, clientNames: [client.name, client.shortName, client.slug], csv: expected === "csv", platform: record.platform, currency: client.currency }, issues);
           sheets = result.sheets;
@@ -271,8 +294,7 @@ export async function processImport(importId: string): Promise<ImportRecord> {
   // Validação final contra o schema — nunca deixa passar dado inconsistente.
   if (parsed?.kind === "dataset" && !parsed.partial) {
     for (const p of parsed.periods) {
-      const schema = parsed.reportType === "commercial" ? CommercialDataSchema : TrafficDataSchema;
-      const check = schema.safeParse(p.data);
+      const check = DATA_SCHEMA[parsed.reportType].safeParse(p.data);
       if (!check.success) issues.error("invalid_data", `Os dados de ${formatPeriod(p.period)} estão incompletos: ${check.error.issues[0]?.message ?? "verifique as colunas obrigatórias"}.`);
       else p.data = check.data;
     }
@@ -308,17 +330,23 @@ function pastedWording(message: string): string {
 
 function parseStructuredHtml(payload: unknown, record: ImportRecord, clientNames: string[], issues: IssueCollector): ParsedImport | null {
   const obj = (payload ?? {}) as { type?: string; client?: string; data?: unknown; insights?: Array<{ type?: string; title?: string; description?: string }> };
-  const type = obj.type === "traffic" || obj.type === "trafego" ? "traffic" : obj.type === "commercial" || obj.type === "comercial" ? "commercial" : null;
+  const type: ReportType | null =
+    obj.type === "traffic" || obj.type === "trafego"
+      ? "traffic"
+      : obj.type === "commercial" || obj.type === "comercial"
+        ? "commercial"
+        : obj.type === "media_plan" || obj.type === "plano_de_midia" || obj.type === "plano-de-midia"
+          ? "media_plan"
+          : null;
   if (!type) {
-    issues.error("invalid_structure", 'O HTML estruturado precisa informar "type": "commercial" ou "traffic".');
+    issues.error("invalid_structure", 'O HTML estruturado precisa informar "type": "commercial", "traffic" ou "media_plan".');
     return null;
   }
   if (type !== record.reportType) {
-    issues.error("type_mismatch", `Este HTML contém dados de ${type === "traffic" ? "tráfego" : "comercial"}, mas o relatório escolhido é ${record.reportType === "traffic" ? "tráfego" : "comercial"}.`);
+    issues.error("type_mismatch", `Este HTML contém dados de ${REPORT_TYPE_LABEL[type].toLowerCase()}, mas o relatório escolhido é ${REPORT_TYPE_LABEL[record.reportType].toLowerCase()}.`);
     return null;
   }
-  const schema = type === "commercial" ? CommercialDataSchema : TrafficDataSchema;
-  const check = schema.safeParse(obj.data);
+  const check = DATA_SCHEMA[type].safeParse(obj.data);
   if (!check.success) {
     issues.error("invalid_structure", `Os dados do HTML estruturado não seguem o formato do Portal Look (${check.error.issues[0]?.path.join(".") || "raiz"}: ${check.error.issues[0]?.message}).`);
     return null;
@@ -366,6 +394,22 @@ function periodMetrics(reportType: ReportType, p: ParsedPeriod): { metrics: Prev
     ];
     return { metrics, details };
   }
+  if (reportType === "media_plan") {
+    const parsed = MediaPlanDataSchema.safeParse(p.data);
+    if (!parsed.success) return { metrics: [], details: [] };
+    const m = computeMediaPlanMetrics(parsed.data);
+    const metrics: PreviewPeriod["metrics"] = [
+      { label: "Investimento planejado", value: formatCurrency(m.budget) },
+      { label: "Campanhas", value: formatInteger(m.itemCount) },
+      ...m.resultGroups.slice(0, 2).map((g) => ({ label: `Meta de ${g.label.toLowerCase()}`, value: formatInteger(g.target) })),
+    ];
+    const details = [
+      ...m.platforms.map((pl) => `${pl.label}: ${formatCurrency(pl.budget)}`),
+      ...(parsed.data.goals.length ? [`${parsed.data.goals.length} meta(s) do mês`] : []),
+      ...(p.insights.length ? [`${p.insights.length} insight(s)`] : []),
+    ];
+    return { metrics, details };
+  }
   const parsed = TrafficDataSchema.safeParse(p.data);
   if (!parsed.success) return { metrics: [], details: [] };
   const v = buildTrafficView(parsed.data);
@@ -403,6 +447,19 @@ function buildPreview(parsed: ParsedImport, existingReports: ReportIndexEntry[],
   const requested = record.requestedPeriod ? periodKey(record.requestedPeriod) : null;
   let suggested = requested && periods.some((p) => p.periodKey === requested) ? [requested] : [];
   let periodMismatch: ImportPreview["periodMismatch"] = null;
+  if (record.mode === "retroactive") {
+    // Retroativo: entram só os meses que ainda não estão no sistema; os existentes ficam como estão, a menos que o ADM marque.
+    const existing = periods.filter((p) => p.existing !== "none");
+    for (const p of existing) p.details = [...p.details, p.existing === "published" ? "Já está no portal: só será substituído se você marcar" : "Já existe uma versão deste mês: só será substituída se você marcar"];
+    if (existing.length) {
+      issues.warn(
+        "retroactive_existing",
+        `${existing.length === 1 ? "1 mês do arquivo já existe" : `${existing.length} meses do arquivo já existem`} no sistema (${existing.map((p) => p.label).join(", ")}). ${existing.length === 1 ? "Ele fica desmarcado e não será alterado" : "Eles ficam desmarcados e não serão alterados"}, a menos que você marque na prévia.`,
+      );
+    }
+    if (record.platform) for (const p of periods) p.details = [...p.details, ...platformMergeDetails(existingReports, p.periodKey, record.platform)];
+    return { kind: "dataset", sourceType: parsed.sourceType, sheets, periods, suggestedPeriodKeys: periods.filter((p) => p.existing === "none").map((p) => p.periodKey), documentPages: null, periodMismatch: null };
+  }
   if (!suggested.length) {
     // Sem período pedido (ou não encontrado): sugere os que ainda não existem; senão o mais recente.
     const fresh = periods.filter((p) => p.existing === "none").map((p) => p.periodKey);
@@ -424,7 +481,8 @@ function buildPreview(parsed: ParsedImport, existingReports: ReportIndexEntry[],
   // Aviso de comparação: sem período anterior publicado não há variação a exibir.
   // Com divergência de período, ainda não se sabe qual será usado — o aviso seria enganoso.
   const published = sameType.filter((r) => r.kind === "dataset" && r.status === "published");
-  for (const key of periodMismatch ? [] : suggested) {
+  // O plano de mídia não depende do mês anterior para fazer sentido: sem esse aviso.
+  for (const key of periodMismatch || record.reportType === "media_plan" ? [] : suggested) {
     const p = periods.find((x) => x.periodKey === key);
     if (p && !published.some((r) => r.period.start < p.period.start) && !periods.some((x) => x.period.start < p.period.start)) {
       issues.warn("no_previous", `Não há período anterior a ${p.label} para comparação — o dashboard não mostrará variações.`);
@@ -592,7 +650,8 @@ export async function confirmImport(importId: string, options: { periodKeys: str
         const merged = await mergePlatformTraffic(record.clientId, p, record.platform);
         data = { type: "traffic", data: merged.data };
         base = merged.base;
-      } else data = { type: "traffic", data: TrafficDataSchema.parse(p.data) };
+      } else if (parsed.reportType === "media_plan") data = { type: "media_plan", data: MediaPlanDataSchema.parse(p.data) };
+      else data = { type: "traffic", data: TrafficDataSchema.parse(p.data) };
       // Atualização parcial: mantém os insights já escritos no relatório-base e acrescenta os do arquivo.
       if (base) insights = mergeInsights(base.insights, insights);
 
@@ -610,6 +669,7 @@ export async function confirmImport(importId: string, options: { periodKeys: str
         warnings,
         allowDownload: record.allowDownload,
         importId,
+        retroactive: record.mode === "retroactive",
       });
       reportIds.push(report.id);
     }

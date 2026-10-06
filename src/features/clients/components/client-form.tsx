@@ -19,6 +19,7 @@ export interface ClientFormValues {
   roiMetric: "roas" | "roiPercent";
   commercial: { enabled: boolean; cadence: "monthly" | "weekly"; dueDay: number; allowOriginalDownload: boolean };
   traffic: { enabled: boolean; cadence: "monthly" | "weekly"; dueDay: number; allowOriginalDownload: boolean };
+  media_plan: { enabled: boolean; cadence: "monthly" | "weekly"; dueDay: number; allowOriginalDownload: boolean };
 }
 
 export const DEFAULT_CLIENT_VALUES: ClientFormValues = {
@@ -32,6 +33,7 @@ export const DEFAULT_CLIENT_VALUES: ClientFormValues = {
   roiMetric: "roas",
   commercial: { enabled: true, cadence: "monthly", dueDay: 5, allowOriginalDownload: true },
   traffic: { enabled: true, cadence: "weekly", dueDay: 1, allowOriginalDownload: false },
+  media_plan: { enabled: false, cadence: "monthly", dueDay: 1, allowOriginalDownload: false },
 };
 
 export function ClientForm({
@@ -117,6 +119,7 @@ export function ClientForm({
       <div className="grid gap-4 lg:grid-cols-2">
         <ModuleFieldset prefix="commercial" title="Comercial" description="Funil, canais, receita e investimento." initial={initial.commercial} />
         <ModuleFieldset prefix="traffic" title="Tráfego" description="Campanhas Meta Ads, Google Ads e outras." initial={initial.traffic} />
+        <ModuleFieldset prefix="media_plan" title="Plano de mídia" description="Verba planejada por plataforma, cronograma e metas do mês." initial={initial.media_plan} planning />
       </div>
 
       <fieldset className="card space-y-5 p-5 sm:p-6">
@@ -145,9 +148,10 @@ export function ClientForm({
   );
 }
 
-function ModuleFieldset({ prefix, title, description, initial }: { prefix: "commercial" | "traffic"; title: string; description: string; initial: ClientFormValues["commercial"] }) {
+/** `planning`: plano de mídia — sempre mensal, com prazo num dia do próprio mês planejado. */
+function ModuleFieldset({ prefix, title, description, initial, planning }: { prefix: "commercial" | "traffic" | "media_plan"; title: string; description: string; initial: ClientFormValues["commercial"]; planning?: boolean }) {
   const [enabled, setEnabled] = useState(initial.enabled);
-  const [cadence, setCadence] = useState(initial.cadence);
+  const [cadence, setCadence] = useState(planning ? "monthly" : initial.cadence);
   const [dueDay, setDueDay] = useState(initial.dueDay);
   const days = cadence === "weekly" ? WEEKDAYS_PT.map((d, i) => ({ value: i + 1, label: d.charAt(0).toUpperCase() + d.slice(1) })) : Array.from({ length: 28 }, (_, i) => ({ value: i + 1, label: `Dia ${i + 1}` }));
   return (
@@ -155,6 +159,13 @@ function ModuleFieldset({ prefix, title, description, initial }: { prefix: "comm
       <legend className="sr-only">{title}</legend>
       <Checkbox name={`${prefix}.enabled`} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} label={`Módulo ${title}`} description={description} />
       <div className={enabled ? "grid gap-4 sm:grid-cols-2" : "pointer-events-none grid gap-4 opacity-45 sm:grid-cols-2"} aria-disabled={!enabled}>
+        {planning ? (
+          <Field label="Periodicidade" htmlFor={`${prefix}-cadence`} hint="Um plano por mês.">
+            <Select id={`${prefix}-cadence`} value="monthly" disabled>
+              <option value="monthly">Mensal</option>
+            </Select>
+          </Field>
+        ) : (
         <Field label="Periodicidade" htmlFor={`${prefix}-cadence`}>
           <Select
             id={`${prefix}-cadence`}
@@ -170,7 +181,8 @@ function ModuleFieldset({ prefix, title, description, initial }: { prefix: "comm
             <option value="weekly">Semanal</option>
           </Select>
         </Field>
-        <Field label={cadence === "weekly" ? "Entrega até (dia da semana seguinte)" : "Entrega até (dia do mês seguinte)"} htmlFor={`${prefix}-due`}>
+        )}
+        <Field label={planning ? "Entrega até (dia do próprio mês)" : cadence === "weekly" ? "Entrega até (dia da semana seguinte)" : "Entrega até (dia do mês seguinte)"} htmlFor={`${prefix}-due`}>
           <Select id={`${prefix}-due`} name={`${prefix}.dueDay`} value={dueDay} onChange={(e) => setDueDay(Number(e.target.value))}>
             {days.map((d) => (
               <option key={d.value} value={d.value}>

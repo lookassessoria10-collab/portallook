@@ -25,6 +25,7 @@ export default async function ClientSettingsPage(props: PageProps<"/adm/clientes
     roiMetric: client.dashboard.roiMetric,
     commercial: { ...client.modules.commercial },
     traffic: { ...client.modules.traffic },
+    media_plan: { ...client.modules.media_plan },
   };
   return (
     <div className="grid gap-6 xl:grid-cols-12">

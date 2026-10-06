@@ -1,22 +1,31 @@
 import { z } from "zod";
-import { PeriodSchema, ReportTypeSchema, TimestampSchema, ValidationIssueSchema } from "@/features/reports/schema";
+import { PeriodSchema, ReportTypeSchema, TimestampSchema, ValidationIssueSchema, type ReportType } from "@/features/reports/schema";
 
 /** "md": dados colados no painel (tabelas Markdown ou células copiadas da planilha). */
 export const FileFormatSchema = z.enum(["xlsx", "xls", "csv", "pdf", "html", "md"]);
 export type FileFormat = z.infer<typeof FileFormatSchema>;
 
 /** CSV não tem abas: o ADM informa qual conteúdo o arquivo representa. */
-export const CsvContentSchema = z.enum(["funnel", "financial", "channels", "traffic", "insights", "dimension"]);
+export const CsvContentSchema = z.enum(["funnel", "financial", "channels", "traffic", "insights", "dimension", "media_plan"]);
 export type CsvContent = z.infer<typeof CsvContentSchema>;
 
-export const CSV_CONTENT_OPTIONS: Array<{ value: CsvContent; label: string; reportType: "commercial" | "traffic" }> = [
+export const CSV_CONTENT_OPTIONS: Array<{ value: CsvContent; label: string; reportType: ReportType }> = [
   { value: "funnel", label: "Funil comercial", reportType: "commercial" },
   { value: "financial", label: "Financeiro", reportType: "commercial" },
   { value: "channels", label: "Canais", reportType: "commercial" },
   { value: "dimension", label: "Dimensão adicional (serviços, profissionais, unidades, produtos…)", reportType: "commercial" },
   { value: "insights", label: "Insights", reportType: "commercial" },
   { value: "traffic", label: "Tráfego (campanhas)", reportType: "traffic" },
+  { value: "media_plan", label: "Plano de mídia (linhas do plano)", reportType: "media_plan" },
 ];
+
+/**
+ * "regular": o relatório do período (fluxo normal). "retroactive": meses anteriores
+ * enviados de uma vez para comparação — sempre mensais, e os meses que já estão no
+ * portal só são trocados se o ADM marcar.
+ */
+export const ImportModeSchema = z.enum(["regular", "retroactive"]);
+export type ImportMode = z.infer<typeof ImportModeSchema>;
 
 /**
  * Upload de uma plataforma só (ex.: exportação do Meta Ads com todos os meses):
@@ -96,6 +105,7 @@ export const ImportRecordSchema = z.object({
   csvDimensionLabel: z.string().nullable().default(null),
   /** Tráfego: arquivo de uma plataforma só (null = coluna Plataforma do arquivo). */
   platform: UploadPlatformSchema.nullable().default(null),
+  mode: ImportModeSchema.default("regular"),
   requestedPeriod: PeriodSchema.nullable().default(null),
   title: z.string().nullable().default(null),
   allowDownload: z.boolean().default(false),

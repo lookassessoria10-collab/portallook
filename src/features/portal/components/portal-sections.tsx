@@ -2,10 +2,13 @@ import Link from "next/link";
 import { ChevronRight, Download, FileCode, FileSpreadsheet, FileText } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { SOURCE_TYPE_LABEL, type ReportIndexEntry, type SourceType } from "@/features/reports/schema";
+import type { PortalScale } from "@/features/portal/model";
 
 export interface PortalLinks {
   /** Visão geral (todos os períodos) da área atual. */
   overview: string;
+  /** Troca a escala (meses/semanas) da área atual. */
+  scale: (scale: PortalScale) => string;
   period: (key: string) => string;
   document: (reportId: string) => string;
   file: (reportId: string, download?: boolean) => string;

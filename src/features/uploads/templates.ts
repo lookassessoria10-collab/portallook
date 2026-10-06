@@ -149,6 +149,112 @@ export function trafficTemplateWorkbook(): XLSX.WorkBook {
   return wb;
 }
 
+/** Plano de mídia no formato do modelo "Estratégia de Mídia" (ver media-plan/normalize). */
+export function mediaPlanTemplateWorkbook(): XLSX.WorkBook {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Modelo Portal Look — Plano de mídia"],
+        ["Plano (obrigatória): uma linha por campanha. Campanha, Plataforma e Verba são obrigatórias; o percentual é calculado pelo portal."],
+        ["Mês: escolha no assistente ou inclua a coluna Mês (ex.: 10/2026) em todas as abas para enviar vários meses."],
+        ["Apresentação: Campo | Valor (Título, Chamada, Resumo, Etiquetas separadas por ;, Atualizado em)."],
+        ["Resumo e Metas: Indicador | Valor | Descrição. O valor pode ser faixa (60–125) ou texto (≥ 30%) e aparece como foi escrito."],
+        ["Conteúdo: uma linha por bloco. Formatos: Texto, Destaque, Cartão, Passo, Item, Mensagem, Alerta, Fase (linhas separadas por ' / ') e Tabela. Posição 'Topo' = logo depois do resumo."],
+        ["Qualquer outra aba (ex.: Matriz de criativos) aparece no plano como tabela, exatamente como está — no ponto marcado com Formato 'Tabela' (Texto = nome da aba)."],
+      ],
+      [120],
+    ),
+    "Instruções",
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Campo", "Valor"],
+        ["Título", "Estratégia de Mídia — Clínica Exemplo"],
+        ["Chamada", "Captação contínua + ações especiais"],
+        ["Resumo", "R$ 50 por dia para manter a captação ativa o mês inteiro, com reforço flexível em semanas especiais."],
+        ["Etiquetas", "Ciclo contínuo · 30 dias; Verba dinâmica; Meta Ads · WhatsApp"],
+        ["Atualizado em", "22/09/2026"],
+      ],
+      [16, 90],
+    ),
+    "Apresentação",
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Indicador", "Valor", "Descrição"],
+        ["Orçamento-base", "R$ 1.500", "30 dias de captação"],
+        ["Dia normal", "R$ 50", "campanha contínua"],
+        ["Dia especial", "R$ 70", "R$ 40 contínua + R$ 30 ação"],
+      ],
+      [18, 12, 30],
+    ),
+    "Resumo",
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Campanha", "Plataforma", "Objetivo", "Funil", "Verba", "Diário", "Público", "Ofertas", "Início", "Fim", "Observações"],
+        ["Captação contínua — Implantes", "Meta Ads", "Conversas no WhatsApp", "Meio / fundo", 1500, 50, "Cidade e região · público amplo", "Implantes; próteses e facetas como variações", null, null, "Operação permanente"],
+      ],
+      [32, 12, 22, 14, 10, 10, 30, 36, 12, 12, 30],
+    ),
+    "Plano",
+  );
+  XLSX.utils.book_append_sheet(wb, sheet([["Plataforma", "Descrição"], ["Meta Ads", "R$ 50/dia durante 30 dias, com destino ao WhatsApp da clínica."]], [14, 70]), "Plataformas");
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Meta", "Valor", "Descrição"],
+        ["Conversas da contínua", "60–125", "R$ 1.500 ÷ R$ 12–25 · estimativa inicial"],
+        ["Custo por conversa", "R$ 12–25", "investimento ÷ novas conversas"],
+        ["Taxa de qualificação", "≥ 30%", "qualificadas ÷ conversas"],
+      ],
+      [24, 12, 40],
+    ),
+    "Metas",
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Seção", "Formato", "Título", "Texto", "Etiqueta", "Posição"],
+        ["Direção executiva", "Texto", null, "Campanha contínua de R$ 50/dia; nas ações especiais, a contínua vai a R$ 40/dia e a especial recebe R$ 30/dia.", null, "Topo"],
+        ["Direção executiva", "Destaque", "Modelo flexível", "Total do mês = R$ 1.500 + R$ 20 por dia de ação especial.", null, null],
+        ["Por que essas campanhas", "Cartão", "Captação contínua", "Mantém o aprendizado e o fluxo de conversas o mês inteiro.", "R$ 50/dia", null],
+        ["Como funciona uma semana especial", "Passo", "Definição", "A clínica informa procedimento, datas e condição aprovada.", null, null],
+        ["Atendimento no WhatsApp", "Mensagem", "Mensagem da captação", "Olá! Vi o anúncio e gostaria de saber mais.", null, null],
+        ["Atendimento no WhatsApp", "Item", "Conversa qualificada", "Interesse no tratamento anunciado.", null, null],
+        ["Matriz de criativos", "Tabela", null, "Matriz de criativos", null, null],
+        ["Matriz de criativos", "Destaque", "Produção", "Quatro vídeos verticais e duas peças 4:5 para a campanha contínua.", null, null],
+        ["Compliance", "Alerta", "Sem antes/depois", "Casos clínicos só com identificação do profissional e TCLE.", null, null],
+        ["Plano de otimização", "Fase", "Durante a ação", "Contínua R$ 40/dia + especial R$ 30/dia / Acompanhar a capacidade de atendimento", null, null],
+      ],
+      [30, 12, 22, 70, 12, 10],
+    ),
+    "Conteúdo",
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Frente", "Ângulo", "Gancho", "CTA"],
+        ["Implantes", "Função e segurança", "Perdeu um dente e quer entender as opções?", "Agende sua avaliação."],
+      ],
+      [16, 20, 46, 24],
+    ),
+    "Matriz de criativos",
+  );
+  return wb;
+}
+
 export function workbookBuffer(wb: XLSX.WorkBook, bookType: "xlsx" | "xls" = "xlsx"): Buffer {
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType }) as Buffer);
 }

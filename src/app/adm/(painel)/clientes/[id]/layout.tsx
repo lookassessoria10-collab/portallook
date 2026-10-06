@@ -55,7 +55,7 @@ export default async function ClientLayout({ children, params }: LayoutProps<"/a
         </div>
       </header>
       <div className="mt-6">
-        <ClientTabs clientId={client.id} modules={{ commercial: client.modules.commercial.enabled, traffic: client.modules.traffic.enabled }} />
+        <ClientTabs clientId={client.id} modules={{ commercial: client.modules.commercial.enabled, traffic: client.modules.traffic.enabled, media_plan: client.modules.media_plan.enabled }} />
       </div>
       <div className="mt-6">{children}</div>
     </div>

@@ -11,6 +11,7 @@ import path from "node:path";
 import { buildDemoClients } from "@/features/demo/data";
 import { CommercialDataSchema } from "@/features/commercial/schema";
 import { TrafficDataSchema } from "@/features/traffic/schema";
+import { MediaPlanDataSchema } from "@/features/media-plan/schema";
 import { buildPortalPath, portalBaseUrl, rotateAccessToken } from "@/features/clients/access";
 import { createDraftReport, newInsightId, publishReport, type ReportData } from "@/features/reports/service";
 import { upsertImportEntry } from "@/features/reports/index-entry";
@@ -74,7 +75,9 @@ async function main() {
         const data: ReportData =
           r.type === "commercial"
             ? { type: "commercial", data: CommercialDataSchema.parse(r.commercial) }
-            : { type: "traffic", data: TrafficDataSchema.parse(r.traffic) };
+            : r.type === "media_plan"
+              ? { type: "media_plan", data: MediaPlanDataSchema.parse(r.mediaPlan) }
+              : { type: "traffic", data: TrafficDataSchema.parse(r.traffic) };
         const json = Buffer.from(JSON.stringify(data.data));
         manifest = await createDraftReport({
           clientId: client.id,
@@ -112,6 +115,7 @@ async function main() {
         status: "invalid",
         csvContent: null,
         platform: null,
+        mode: "regular",
         csvDimensionLabel: null,
         requestedPeriod: null,
         title: null,

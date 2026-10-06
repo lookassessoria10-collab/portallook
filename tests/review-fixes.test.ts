@@ -184,7 +184,7 @@ describe("comercial colado", () => {
 function entry(period: Period, campaigns: TrafficDataInput["campaigns"]): ReportIndexEntry {
   const { summary, labels } = trafficSummary(TrafficDataSchema.parse({ schemaVersion: 1, period, campaigns }));
   const now = "2026-09-01T12:00:00.000Z";
-  return { id: `rp_${periodKey(period)}`, type: "traffic", kind: "dataset", period, periodKey: periodKey(period), title: null, status: "published", summary, labels, allowDownload: false, updatedAt: now, publishedAt: now, createdAt: now, sourceType: "xlsx", sourceFileName: null, insightCount: 0 };
+  return { id: `rp_${periodKey(period)}`, type: "traffic", kind: "dataset", period, periodKey: periodKey(period), title: null, status: "published", summary, labels, allowDownload: false, retroactive: false, updatedAt: now, publishedAt: now, createdAt: now, sourceType: "xlsx", sourceFileName: null, insightCount: 0 };
 }
 
 describe("visão geral: mesmas regras do relatório do mês", () => {

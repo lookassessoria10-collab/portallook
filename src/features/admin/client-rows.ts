@@ -3,7 +3,7 @@ import { formatPeriod } from "@/lib/dates/period";
 import { getPortalLink } from "@/features/clients/access";
 import type { ClientOverview } from "@/features/clients/service";
 import type { DeliveryState } from "@/features/reports/delivery";
-import type { ReportType } from "@/features/reports/schema";
+import { REPORT_TYPES, type ReportType } from "@/features/reports/schema";
 
 export interface ModuleCell {
   enabled: boolean;
@@ -34,7 +34,7 @@ export async function buildClientRows(overviews: ClientOverview[]): Promise<Clie
       const link = await getPortalLink(o.client);
       const modules = {} as Record<ReportType, ModuleCell>;
       const dues: string[] = [];
-      for (const type of ["commercial", "traffic"] as const) {
+      for (const type of REPORT_TYPES) {
         const d = o.delivery[type];
         const enabled = o.client.modules[type].enabled;
         const pendingNow = d.state === "pending" || d.state === "error" || d.state === "draft";

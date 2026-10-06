@@ -20,7 +20,9 @@ import { buildCommercialViewModel } from "@/features/commercial/view-model";
 import { TrafficDashboard } from "@/features/traffic/components/traffic-dashboard";
 import { buildTrafficViewModel } from "@/features/traffic/view-model";
 import { getReportManifest } from "@/features/reports/service";
-import { REPORT_TYPE_LABEL, SOURCE_TYPE_LABEL } from "@/features/reports/schema";
+import { REPORT_TYPE_LABEL, REPORT_TYPE_PATH, SOURCE_TYPE_LABEL } from "@/features/reports/schema";
+import { MediaPlanDashboard } from "@/features/media-plan/components/media-plan-dashboard";
+import { buildMediaPlanViewModel } from "@/features/media-plan/view-model";
 
 export const metadata: Metadata = { title: "Relatório" };
 
@@ -30,7 +32,7 @@ export default async function AdminReportPage(props: PageProps<"/adm/clientes/[i
   if (!client || !manifest || manifest.clientId !== id) notFound();
   const tz = env().APP_TIMEZONE;
   const label = `${REPORT_TYPE_LABEL[manifest.type]} · ${formatPeriod(manifest.period)}`;
-  const tabPath = manifest.type === "commercial" ? "comercial" : "trafego";
+  const tabPath = REPORT_TYPE_PATH[manifest.type];
   const fileUrl = `/api/adm/clientes/${id}/relatorios/${reportId}/arquivo`;
   const model = await loadPortalModel(client, { mode: "preview", focusReportId: reportId });
   const dataset = model.selection.dataset?.entry.id === reportId ? model.selection.dataset : null;
@@ -40,7 +42,7 @@ export default async function AdminReportPage(props: PageProps<"/adm/clientes/[i
     <div className="space-y-6">
       <div>
         <Link href={`/adm/clientes/${id}/${tabPath}`} className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-text-3 hover:text-text">
-          <ArrowLeft className="size-4" aria-hidden /> Relatórios de {REPORT_TYPE_LABEL[manifest.type].toLowerCase()}
+          <ArrowLeft className="size-4" aria-hidden /> {manifest.type === "media_plan" ? "Planos de mídia" : `Relatórios de ${REPORT_TYPE_LABEL[manifest.type].toLowerCase()}`}
         </Link>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -51,6 +53,7 @@ export default async function AdminReportPage(props: PageProps<"/adm/clientes/[i
             <p className="mt-1 text-sm text-text-3">
               {manifest.title ? `${label} · ` : ""}
               {manifest.kind === "dataset" ? "Dashboard" : "Documento"}
+              {manifest.retroactive ? " · enviado como retroativo" : ""}
               {manifest.source ? ` · ${SOURCE_TYPE_LABEL[manifest.source.type]}${manifest.source.type !== "seed" ? ` (${manifest.source.fileName})` : ""}` : ""}
             </p>
             <p className="mt-0.5 text-xs text-text-3">
@@ -69,7 +72,7 @@ export default async function AdminReportPage(props: PageProps<"/adm/clientes/[i
                 clientId={id}
                 reportId={reportId}
                 current={{ key: manifest.periodKey, label: formatPeriod(manifest.period) }}
-                options={periodOptions(client.modules[manifest.type].cadence, today())}
+                options={periodOptions(client.modules[manifest.type].cadence, today(), undefined, manifest.type === "media_plan" ? 3 : 0)}
                 published={manifest.status === "published"}
               />
             ) : null}
@@ -106,6 +109,13 @@ export default async function AdminReportPage(props: PageProps<"/adm/clientes/[i
             {dataset ? (
               dataset.data.type === "commercial" ? (
                 <CommercialDashboard vm={buildCommercialViewModel(dataset.data.data, { previous: model.previous, history: model.history, dashboard: client.dashboard })} insights={manifest.insights} currency={client.currency} />
+              ) : dataset.data.type === "media_plan" ? (
+                <MediaPlanDashboard
+                  vm={buildMediaPlanViewModel(dataset.data.data, { previous: model.previous, history: model.history, actual: model.relatedTraffic, today: model.today })}
+                  insights={manifest.insights}
+                  currency={client.currency}
+                  trafficEnabled={client.modules.traffic.enabled}
+                />
               ) : (
                 <TrafficDashboard vm={buildTrafficViewModel(dataset.data.data, { previous: model.previous, history: model.history })} insights={manifest.insights} currency={client.currency} />
               )

@@ -17,8 +17,10 @@ import { CommercialOverview } from "@/features/commercial/components/commercial-
 import { buildCommercialOverview } from "@/features/commercial/overview";
 import { TrafficOverview } from "@/features/traffic/components/traffic-overview";
 import { buildTrafficOverview } from "@/features/traffic/overview";
+import { MediaPlanDashboard } from "@/features/media-plan/components/media-plan-dashboard";
+import { buildMediaPlanViewModel } from "@/features/media-plan/view-model";
 import type { PortalModel } from "@/features/portal/model";
-import { PeriodNav } from "./period-nav";
+import { PeriodNav, ScaleSwitch } from "./period-nav";
 import { PortalTabs, TAB_LABEL } from "./portal-tabs";
 import { OriginalDocuments, type PortalLinks } from "./portal-sections";
 
@@ -32,6 +34,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
   const greeting = client.greetingName || client.shortName;
   const tabLabel = TAB_LABEL[model.tab];
   const periodItems = model.periods.map((p) => ({ key: p.key, label: p.short, title: p.label, href: links.period(p.key), draft: model.mode === "preview" && p.draft }));
+  const scaleItems = (model.scales ?? []).map((s) => ({ key: s, label: s === "month" ? "Meses" : "Semanas", href: links.scale(s), active: s === model.scale }));
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 pb-16 sm:px-6 lg:px-8">
@@ -62,9 +65,12 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
 
       <div className="sticky top-0 z-20 -mx-4 mt-5 border-b border-border bg-[rgb(6_14_28/0.94)] px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:gap-4">
-          <PortalTabs tabs={model.tabs} active={model.tab} basePath={basePath} className="md:w-[280px] md:shrink-0" />
+          <PortalTabs tabs={model.tabs} active={model.tab} basePath={basePath} className={model.tabs.length > 2 ? "md:w-[420px] md:shrink-0" : model.tabs.includes("media_plan") ? "md:w-[340px] md:shrink-0" : "md:w-[280px] md:shrink-0"} />
           {model.tabs.length < 2 ? <p className="hidden shrink-0 text-sm font-bold text-text-2 md:block">{tabLabel}</p> : null}
-          <PeriodNav overviewHref={model.overview ? links.overview : null} items={periodItems} active={model.periodKey} className="md:flex-1" />
+          <div className="flex min-w-0 gap-2 md:flex-1">
+            <ScaleSwitch options={scaleItems} />
+            <PeriodNav overviewHref={model.overview ? links.overview : null} items={periodItems} active={model.periodKey} className="min-w-0 flex-1" />
+          </div>
         </div>
       </div>
 
@@ -72,7 +78,11 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
         {!model.tabs.length ? (
           <EmptyState icon={<Inbox />} title="Nenhuma área disponível" description="Assim que a Look ativar os relatórios, eles aparecerão aqui." />
         ) : !model.periods.length ? (
-          <EmptyState icon={<Inbox />} title={`Ainda não há relatórios de ${tabLabel.toLowerCase()}`} description="Os relatórios aparecerão aqui assim que forem publicados pela equipe da Look." />
+          <EmptyState
+            icon={<Inbox />}
+            title={model.tab === "media_plan" ? "Ainda não há plano de mídia publicado" : `Ainda não há relatórios de ${tabLabel.toLowerCase()}`}
+            description={model.tab === "media_plan" ? "O plano do mês aparecerá aqui assim que for publicado pela equipe da Look." : "Os relatórios aparecerão aqui assim que forem publicados pela equipe da Look."}
+          />
         ) : model.view === "overview" && model.overview ? (
           <div className="space-y-6">
             {model.latestDocumentOnly ? (
@@ -101,6 +111,13 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
                   vm={buildCommercialViewModel(selection.dataset.data.data, { previous: model.previous, history: model.history, dashboard: client.dashboard })}
                   insights={selection.insights}
                   currency={client.currency}
+                />
+              ) : selection.dataset.data.type === "media_plan" ? (
+                <MediaPlanDashboard
+                  vm={buildMediaPlanViewModel(selection.dataset.data.data, { previous: model.previous, history: model.history, actual: model.relatedTraffic, today: model.today })}
+                  insights={selection.insights}
+                  currency={client.currency}
+                  trafficEnabled={client.modules.traffic.enabled}
                 />
               ) : (
                 <TrafficDashboard vm={buildTrafficViewModel(selection.dataset.data.data, { previous: model.previous, history: model.history })} insights={selection.insights} currency={client.currency} />

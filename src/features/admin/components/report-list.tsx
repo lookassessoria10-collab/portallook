@@ -3,6 +3,7 @@ import { FileCode, FileSpreadsheet, FileText, FolderOpen, Database } from "lucid
 import { formatDateTime, formatPeriod } from "@/lib/dates/period";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ReportStatusBadge } from "@/components/dashboard/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { SOURCE_TYPE_LABEL, REPORT_TYPE_LABEL, type ReportIndexEntry } from "@/features/reports/schema";
 import { ReportQuickAction } from "./report-row-actions";
 
@@ -47,6 +48,11 @@ export function ReportList({ clientId, entries, timeZone, emptyAction }: { clien
               </span>
             </Link>
             <div className="flex items-center justify-between gap-2 sm:justify-end">
+              {e.retroactive ? (
+                <Badge tone="info" className="hidden sm:inline-flex">
+                  Retroativo
+                </Badge>
+              ) : null}
               <ReportStatusBadge status={e.status} />
               <ReportQuickAction clientId={clientId} reportId={e.id} status={e.status} label={label} />
             </div>

@@ -5,7 +5,7 @@ Portal de relatórios e dashboards dos clientes da **Look Assessoria de Comunica
 **A mesma aplicação, com dados e configurações diferentes, gera um dashboard personalizado para cada cliente.** Não é preciso criar páginas novas para um cliente novo.
 
 - **Painel da Look (`/adm`):** cadastro de clientes, periodicidade das entregas, upload de relatórios, validação, rascunho → publicação, status de pendências, links exclusivos e histórico.
-- **Portal do cliente (`/c/{slug}/{token}`):** sem login. O cliente abre um link exclusivo e vê Comercial e Tráfego, período a período, pensado primeiro para o celular.
+- **Portal do cliente (`/c/{slug}/{token}`):** sem login. O cliente abre um link exclusivo e vê Comercial, Tráfego e Plano de mídia, período a período, pensado primeiro para o celular.
 
 ---
 
@@ -296,9 +296,9 @@ public/modelos   modelos de importação (XLSX, CSV, HTML estruturado)
 
 Todos os schemas estão em `src/features/*/schema.ts` (Zod).
 
-- **Client:** `id`, `slug`, `name`, `shortName`, `greetingName`, `segment`, `status` (active/inactive/archived), `logo`, `currency`, `modules.{commercial,traffic}` (`enabled`, `cadence` monthly/weekly, `dueDay`, `allowOriginalDownload`), `dashboard` (`roiMetric`: roas/roiPercent; `highlightMetrics`), `notes`, datas e `version`.
+- **Client:** `id`, `slug`, `name`, `shortName`, `greetingName`, `segment`, `status` (active/inactive/archived), `logo`, `currency`, `modules.{commercial,traffic,media_plan}` (`enabled`, `cadence` monthly/weekly, `dueDay`, `allowOriginalDownload`; `media_plan` é sempre mensal e, em clientes antigos sem a chave, entra desativado), `dashboard` (`roiMetric`: roas/roiPercent; `highlightMetrics`), `notes`, datas e `version`.
 - **ClientAccess:** `enabled`, `token { hash, ciphertext, hint, createdAt } | null` e `history`.
-- **ReportManifest:** `id`, `clientId`, `type` (commercial/traffic), `kind` (dataset/document), `period { start, end, granularity }`, `periodKey`, `status`, `source` (arquivo original), `dataPath`, `insights`, `warnings`, `summary`, `labels`, `allowDownload`, `createdAt`, `publishedAt` etc.
+- **ReportManifest:** `id`, `clientId`, `type` (commercial/traffic/media_plan), `kind` (dataset/document), `period { start, end, granularity }`, `periodKey`, `status`, `source` (arquivo original), `dataPath`, `insights`, `warnings`, `summary`, `labels`, `allowDownload`, `retroactive` (enviado como mês anterior), `createdAt`, `publishedAt` etc.
   - Os status possíveis são draft, published, unpublished, superseded e archived.
   - `summary` guarda os indicadores usados em histórico e comparação.
 - **CommercialData:**
@@ -310,6 +310,7 @@ Todos os schemas estão em `src/features/*/schema.ts` (Zod).
   - `context` (banner do período).
 - **TrafficData:** `campaigns[] { platform, name, investment, impressions, reach, clicks, linkClicks, results, resultType, resultLabel, conversions, attributedRevenue }`.
   - `resultType` pode ser whatsapp, lead, form, purchase, appointment, call, conversion, visit ou other. Tipos diferentes nunca são somados como se fossem iguais.
+- **MediaPlanData** (modelo "Estratégia de Mídia"): `header { title, tagline, summary, tags[], updatedAt }`; `highlights[]` e `goals[]` (`label`, `value`, `display` — texto como foi escrito, ex.: "60–125", "≥ 30%" —, `format`, `description`); `items[] { platform, name, objective, funnel, audience, offers, format, start, end, budget, dailyBudget, resultType, resultLabel, resultTarget, costPerResultTarget, impressionsTarget, reachTarget, clicksTarget, notes }`; `platforms[] { platform, description }`; `sections[] { title, placement (top/bottom), blocks[] }` com blocos `text`, `callout`, `card`, `step`, `item`, `quote`, `warning`, `phase` e `table` (`columns`, `rows`).
 - **Insight:** `type` (positive, attention, neutral, recommendation), `title`, `description` e `source` (manual, import ou auto). Insights automáticos aparecem sinalizados. O MVP não gera recomendações automáticas.
 - **ImportRecord:** status do upload, erros e avisos, prévia por período e IDs dos rascunhos criados.
   - Os status são awaiting_file, uploaded, validated, invalid, imported, discarded e failed.
@@ -320,7 +321,7 @@ Todos os schemas estão em `src/features/*/schema.ts` (Zod).
 
 1. **Painel → Clientes → Novo cliente.**
 2. Preencha nome, endereço (slug), saudação e segmento.
-3. Ative os módulos. Para cada um, escolha a periodicidade e o prazo. Exemplos: Comercial *mensal até o dia 5*; Tráfego *semanal até segunda-feira*.
+3. Ative os módulos. Para cada um, escolha a periodicidade e o prazo. Exemplos: Comercial *mensal até o dia 5*; Tráfego *semanal até segunda-feira*; Plano de mídia *até o dia 1 do próprio mês* (o plano é entregue antes ou no começo do mês).
 4. Salve. O **link exclusivo é gerado na hora** e aparece na visão geral do cliente e na aba **Acesso**.
 5. Opcional: envie o logo em **Configurações**.
 
@@ -331,8 +332,8 @@ Todos os schemas estão em `src/features/*/schema.ts` (Zod).
 **Painel → Novo upload** (ou "Enviar relatório" em qualquer pendência, que já chega com cliente, tipo e período preenchidos).
 
 1. **Cliente**
-2. **Tipo** (Comercial ou Tráfego)
-3. **Período.** Planilhas podem "detectar pelo arquivo". PDF exige o período.
+2. **Tipo** (Comercial, Tráfego, Tráfego · meses anteriores ou Plano de mídia)
+3. **Período.** Planilhas podem "detectar pelo arquivo". PDF exige o período. No plano de mídia, os próximos meses aparecem primeiro; no tráfego retroativo este passo é pulado (os meses vêm dos dados).
 4. **Arquivo:** arraste e solte ou selecione, ou use **Colar dados** (tabela em Markdown ou células copiadas da planilha). Para CSV, informe o conteúdo (funil, financeiro, canais, dimensão ou tráfego). Em tráfego, escolha a **plataforma** quando o arquivo for de uma só (ver abaixo).
 5. **Validação:**
    - **ERRO** impede a importação (ex.: aba Funil ausente, período inválido, cliente incompatível, arquivo corrompido);
@@ -346,6 +347,10 @@ Arquivos maiores que `SERVER_UPLOAD_MAX_MB` vão direto do navegador para o Blob
 **CSV parcial:** um CSV de canais, financeiro ou dimensão atualiza só aquela seção. O sistema cria um novo rascunho copiando as outras seções do relatório mais recente do período.
 
 **Upload por plataforma (tráfego):** escolha "Só Meta Ads" ou "Só Google Ads" e envie a exportação da plataforma com todos os meses de uma vez (Meta: Divisão › Por tempo › Mês; Google: segmentar por Mês). A coluna Plataforma deixa de ser obrigatória e cada mês vira um rascunho que **substitui só as campanhas daquela plataforma**: as das outras plataformas são copiadas do relatório mais recente do mês (rascunho ou publicado). Enviar Meta e depois Google acumula as duas no mesmo rascunho; um rascunho criado antes da última publicação é considerado esquecido e não serve de base. Linhas de outras plataformas conhecidas (ex.: Google num upload do Meta) são ignoradas, com aviso; valores como "Display", "YouTube" ou "audience_network" pertencem à plataforma escolhida.
+
+**Tráfego · meses anteriores (retroativo):** em **Cliente → Tráfego → Meses anteriores** (ou no tipo "Tráfego · meses anteriores" do assistente), envie de uma vez os meses passados — planilha, exportação do Meta/Google dividida por mês ou dados colados, sempre com a coluna Mês (ou Início/Fim). As linhas são lidas como **meses**, mesmo que o cliente receba tráfego semanal. Na prévia, os meses que ainda não estão no sistema vêm marcados; os que já existem vêm **desmarcados e não são alterados**, a menos que o ADM marque. Os relatórios criados levam a marca "Retroativo" no ADM. Para o cliente, aparecem na mesma aba de Tráfego, com visão geral e comparação mês a mês; se o tráfego dele for semanal, o portal mostra o seletor **Meses | Semanas** (as duas escalas nunca se misturam).
+
+**Plano de mídia:** segue a organização do modelo "Estratégia de Mídia" da Look e é enviado como os outros (planilha, CSV, dados colados, PDF ou HTML). Abas/tabelas reconhecidas: **Plano** ou **Campanhas** (obrigatória: Campanha, Plataforma, Verba; opcionais Objetivo, Funil, Diário, Público, Ofertas, Formato, Início, Fim, Meta/Tipo de resultado, Custo por resultado, Observações — o % de cada campanha é calculado), **Apresentação** (Campo | Valor: Título, Chamada, Resumo, Etiquetas separadas por `;`, Atualizado em), **Resumo** e **Metas** (Indicador | Valor | Descrição; faixas como `60–125` e `≥ 30%` aparecem como foram escritas), **Plataformas** (Plataforma | Descrição), **Conteúdo** (Seção | Formato | Título | Texto | Etiqueta | Posição; formatos Texto, Destaque, Cartão, Passo, Item, Mensagem, Alerta, Fase e Tabela; Posição "Topo" põe a seção logo depois do resumo) e **Insights**. Qualquer outra tabela (ex.: "Matriz de criativos") aparece no plano como veio, no lugar marcado no Conteúdo com o formato Tabela. No portal, o plano mostra apresentação, resumo, orçamento por plataforma e por campanha, campanhas, cronograma (quando há datas), metas, as seções de conteúdo e, quando o tráfego do mesmo mês está publicado, o **planejado × realizado** por plataforma e por resultado. Modelo: `public/modelos/modelo-plano-de-midia.xlsx`.
 
 **Publicar todos:** publica os rascunhos da importação que ainda estão em rascunho, pulando os que já têm uma versão mais nova do mesmo período. Ao publicar qualquer versão, a publicada anterior e os rascunhos mais antigos do mesmo período viram "substituídos".
 
@@ -407,6 +412,7 @@ Calculado em `src/features/reports/delivery.ts`. Existir um arquivo não signifi
 
 - **Mensal com prazo no dia 5:** o relatório de agosto vence em 05/09. Em 29/09, o período esperado é agosto.
 - **Semanal com prazo na segunda-feira:** a semana 21 a 27/09 vence na segunda 28/09.
+- **Plano de mídia com prazo no dia 1:** é planejamento, então o plano de outubro vence em 01/10 (no próprio mês). Em 06/10, o período esperado é outubro.
 
 | Estado | Quando |
 | --- | --- |

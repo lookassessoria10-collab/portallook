@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPortalClient, portalBasePath } from "@/features/portal/access";
-import { loadPortalModel } from "@/features/portal/model";
+import { loadPortalModel, SCALE_PARAM } from "@/features/portal/model";
+import { REPORT_TYPE_PATH } from "@/features/reports/schema";
 import { PortalView } from "@/features/portal/components/portal-view";
 import type { PortalLinks } from "@/features/portal/components/portal-sections";
 
@@ -24,10 +25,12 @@ export default async function ClientPortalPage(props: PageProps<"/c/[slug]/[toke
   if (!client) notFound();
 
   const base = portalBasePath(slug, token);
-  const model = await loadPortalModel(client, { tab: one(search.aba), period: one(search.periodo), mode: "client" });
-  const tabParam = model.tab === "traffic" ? "trafego" : "comercial";
+  const model = await loadPortalModel(client, { tab: one(search.aba), period: one(search.periodo), scale: one(search.escala), mode: "client" });
+  const tabParam = REPORT_TYPE_PATH[model.tab];
+  const scaleParam = model.scales ? `&escala=${SCALE_PARAM[model.scale]}` : "";
   const links: PortalLinks = {
-    overview: `${base}?aba=${tabParam}`,
+    overview: `${base}?aba=${tabParam}${scaleParam}`,
+    scale: (scale) => `${base}?aba=${tabParam}&escala=${SCALE_PARAM[scale]}`,
     period: (key) => `${base}?aba=${tabParam}&periodo=${encodeURIComponent(key)}`,
     document: (id) => `${base}/relatorio/${id}`,
     file: (id, download) => `${base}/arquivo/${id}${download ? "?download=1" : ""}`,

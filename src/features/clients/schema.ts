@@ -19,6 +19,9 @@ export const ModuleConfigSchema = z
   });
 export type ModuleConfig = z.infer<typeof ModuleConfigSchema>;
 
+/** Clientes cadastrados antes do módulo existir não têm a chave: entram com ele desativado. */
+export const MEDIA_PLAN_MODULE_DEFAULT: ModuleConfig = { enabled: false, cadence: "monthly", dueDay: 1, allowOriginalDownload: false };
+
 export const ClientStatusSchema = z.enum(["active", "inactive", "archived"]);
 export type ClientStatus = z.infer<typeof ClientStatusSchema>;
 
@@ -50,6 +53,8 @@ export const ClientSchema = z.object({
   modules: z.object({
     commercial: ModuleConfigSchema,
     traffic: ModuleConfigSchema,
+    /** Plano de mídia: sempre mensal; o plano do mês vence no `dueDay` do próprio mês. */
+    media_plan: ModuleConfigSchema.default(MEDIA_PLAN_MODULE_DEFAULT),
   }),
   dashboard: DashboardConfigSchema.default({ roiMetric: "roas", highlightMetrics: [] }),
   notes: z.string().max(4000).default(""),

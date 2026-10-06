@@ -12,13 +12,32 @@ export const PeriodSchema = z
   })
   .refine((p) => p.start <= p.end, "O início do período precisa ser anterior ao fim.");
 
-export const ReportTypeSchema = z.enum(["commercial", "traffic"]);
+export const ReportTypeSchema = z.enum(["commercial", "traffic", "media_plan"]);
 export type ReportType = z.infer<typeof ReportTypeSchema>;
+
+/** Ordem das áreas no painel e no portal. */
+export const REPORT_TYPES: readonly ReportType[] = ["commercial", "traffic", "media_plan"];
 
 export const REPORT_TYPE_LABEL: Record<ReportType, string> = {
   commercial: "Comercial",
   traffic: "Tráfego",
+  media_plan: "Plano de mídia",
 };
+
+/** Segmento de URL de cada área: aba do cliente no ADM e parâmetro `aba` do portal. */
+export const REPORT_TYPE_PATH: Record<ReportType, string> = {
+  commercial: "comercial",
+  traffic: "trafego",
+  media_plan: "plano-de-midia",
+};
+
+/** Lê `aba`/`tipo` aceitando o segmento da URL ("trafego") ou o identificador interno ("traffic"). */
+export function reportTypeFromParam(value: string | null | undefined): ReportType | null {
+  if (!value) return null;
+  const parsed = ReportTypeSchema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  return REPORT_TYPES.find((t) => REPORT_TYPE_PATH[t] === value) ?? null;
+}
 
 export const ReportKindSchema = z.enum(["dataset", "document"]);
 export type ReportKind = z.infer<typeof ReportKindSchema>;
@@ -103,6 +122,8 @@ export const ReportManifestSchema = z.object({
   labels: z.record(z.string(), z.string()).default({}),
   allowDownload: z.boolean().default(false),
   importId: z.string().nullable().default(null),
+  /** Enviado como dado retroativo (meses anteriores, para comparação). */
+  retroactive: z.boolean().default(false),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
   publishedAt: TimestampSchema.nullable().default(null),
@@ -123,6 +144,7 @@ export const ReportIndexEntrySchema = ReportManifestSchema.pick({
   summary: true,
   labels: true,
   allowDownload: true,
+  retroactive: true,
   updatedAt: true,
   publishedAt: true,
   createdAt: true,

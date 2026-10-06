@@ -30,10 +30,11 @@ export default async function AdminHome() {
     <>
       <PageHeader eyebrow={longToday(date)} title="Visão geral" description="Entregas, pendências e últimos envios de todos os clientes." />
 
-      <section aria-label="Indicadores" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section aria-label="Indicadores" className={o.modules.media_plan.total ? "grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-5" : "grid grid-cols-2 gap-3 lg:grid-cols-4"}>
         <StatTile icon={<Users />} label="Clientes ativos" value={o.activeClients} hint={o.inactiveClients ? `${o.inactiveClients} inativo(s)` : "Todos ativos"} href="/adm/clientes" />
         <ModuleTile type="commercial" counts={o.modules.commercial} />
         <ModuleTile type="traffic" counts={o.modules.traffic} />
+        {o.modules.media_plan.total ? <ModuleTile type="media_plan" counts={o.modules.media_plan} /> : null}
         <StatTile
           icon={<FileWarning />}
           label="Arquivos com erro"

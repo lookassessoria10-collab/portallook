@@ -6,18 +6,20 @@ import { actionError, type ActionResult } from "@/lib/errors";
 import { isValidId } from "@/lib/ids";
 import { parsePeriodKey } from "@/lib/dates/period";
 import { requireAdmin } from "@/features/auth/session";
-import { CsvContentSchema, UploadPlatformSchema, type ImportRecord } from "./schema";
+import { ReportTypeSchema } from "@/features/reports/schema";
+import { CsvContentSchema, ImportModeSchema, UploadPlatformSchema, type ImportRecord } from "./schema";
 import { confirmImport, deleteImport, discardImport, initImport, processImport, publishImportDrafts, type InitImportResult } from "./service";
 
 const InitSchema = z.object({
   clientId: z.string().refine((v) => isValidId(v, "cl"), "Selecione o cliente."),
-  reportType: z.enum(["commercial", "traffic"]),
+  reportType: ReportTypeSchema,
   fileName: z.string().min(1).max(260),
   size: z.number().int().positive(),
   contentType: z.string().max(200),
   csvContent: CsvContentSchema.nullable().optional(),
   csvDimensionLabel: z.string().max(60).nullable().optional(),
   platform: UploadPlatformSchema.nullable().optional(),
+  mode: ImportModeSchema.optional(),
   periodKey: z.string().max(40).nullable().optional(),
   title: z.string().max(160).nullable().optional(),
   allowDownload: z.boolean().optional(),

@@ -8,18 +8,24 @@ import { commercialSummary } from "@/features/commercial/metrics";
 import { CommercialDataSchema, type CommercialData } from "@/features/commercial/schema";
 import { trafficSummary } from "@/features/traffic/metrics";
 import { TrafficDataSchema, type TrafficData } from "@/features/traffic/schema";
+import { mediaPlanSummary } from "@/features/media-plan/metrics";
+import { MediaPlanDataSchema, type MediaPlanData } from "@/features/media-plan/schema";
 import { getRepositories } from "@/server/repositories";
-import { InsightSchema, REPORT_TYPE_LABEL, type Insight, type ReportKind, type ReportManifest, type ReportType, type SourceFile, type ValidationIssue } from "./schema";
+import { InsightSchema, REPORT_TYPE_LABEL, REPORT_TYPES, type Insight, type ReportKind, type ReportManifest, type ReportType, type SourceFile, type ValidationIssue } from "./schema";
 
-export type ReportData = { type: "commercial"; data: CommercialData } | { type: "traffic"; data: TrafficData };
+export type ReportData = { type: "commercial"; data: CommercialData } | { type: "traffic"; data: TrafficData } | { type: "media_plan"; data: MediaPlanData };
 
 export const getReportManifest = cache(async (clientId: string, reportId: string): Promise<ReportManifest | null> => {
   const repos = getRepositories();
   const index = await repos.reports.getIndex(clientId);
   const entry = index.reports.find((r) => r.id === reportId);
   if (entry) return repos.reports.getManifest(clientId, entry.type, reportId);
-  // Índice desatualizado: tenta os dois tipos diretamente.
-  return (await repos.reports.getManifest(clientId, "commercial", reportId)) ?? (await repos.reports.getManifest(clientId, "traffic", reportId));
+  // Índice desatualizado: procura o relatório em cada tipo.
+  for (const type of REPORT_TYPES) {
+    const manifest = await repos.reports.getManifest(clientId, type, reportId);
+    if (manifest) return manifest;
+  }
+  return null;
 });
 
 export async function requireReport(clientId: string, reportId: string): Promise<ReportManifest> {
@@ -32,16 +38,27 @@ export const getReportData = cache(async (manifest: ReportManifest): Promise<Rep
   if (manifest.kind !== "dataset") return null;
   const raw = await getRepositories().reports.getData(manifest);
   if (!raw) return null;
-  if (manifest.type === "commercial") {
-    const parsed = CommercialDataSchema.safeParse(raw);
-    return parsed.success ? { type: "commercial", data: parsed.data } : null;
-  }
-  const parsed = TrafficDataSchema.safeParse(raw);
-  return parsed.success ? { type: "traffic", data: parsed.data } : null;
+  return parseReportData(manifest.type, raw);
 });
 
+/** Valida o JSON gravado contra o schema do tipo do relatório. */
+export function parseReportData(type: ReportType, raw: unknown): ReportData | null {
+  if (type === "commercial") {
+    const parsed = CommercialDataSchema.safeParse(raw);
+    return parsed.success ? { type, data: parsed.data } : null;
+  }
+  if (type === "media_plan") {
+    const parsed = MediaPlanDataSchema.safeParse(raw);
+    return parsed.success ? { type, data: parsed.data } : null;
+  }
+  const parsed = TrafficDataSchema.safeParse(raw);
+  return parsed.success ? { type, data: parsed.data } : null;
+}
+
 export function summarize(data: ReportData) {
-  return data.type === "commercial" ? commercialSummary(data.data) : trafficSummary(data.data);
+  if (data.type === "commercial") return commercialSummary(data.data);
+  if (data.type === "media_plan") return mediaPlanSummary(data.data);
+  return trafficSummary(data.data);
 }
 
 export interface CreateReportInput {
@@ -58,6 +75,7 @@ export interface CreateReportInput {
   warnings?: ValidationIssue[];
   allowDownload?: boolean;
   importId?: string | null;
+  retroactive?: boolean;
 }
 
 /** Cria um relatório sempre como rascunho — publicação é uma ação separada. */
@@ -109,6 +127,7 @@ export async function createDraftReport(input: CreateReportInput): Promise<Repor
     labels,
     allowDownload: input.allowDownload ?? false,
     importId: input.importId ?? null,
+    retroactive: input.retroactive ?? false,
     createdAt: now,
     updatedAt: now,
     publishedAt: null,
@@ -232,7 +251,7 @@ export async function changeReportPeriod(clientId: string, reportId: string, per
   if (manifest.kind === "dataset") {
     const current = await getReportData(manifest);
     if (!current) throw new UserFacingError("Os dados deste relatório não puderam ser lidos.");
-    const next: ReportData = current.type === "commercial" ? { type: "commercial", data: { ...current.data, period } } : { type: "traffic", data: { ...current.data, period } };
+    const next = { type: current.type, data: { ...current.data, period } } as ReportData;
     const dataPath = await repos.reports.saveData(clientId, manifest.type, reportId, next.data);
     patch = { ...patch, dataPath, ...summarize(next) };
   }
