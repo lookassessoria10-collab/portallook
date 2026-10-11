@@ -8,7 +8,7 @@ import { parsePeriodKey } from "@/lib/dates/period";
 import { requireAdmin } from "@/features/auth/session";
 import { ReportTypeSchema } from "@/features/reports/schema";
 import { CsvContentSchema, ImportModeSchema, UploadPlatformSchema, type ImportRecord } from "./schema";
-import { confirmImport, deleteImport, discardImport, initImport, processImport, publishImportDrafts, type InitImportResult } from "./service";
+import { confirmImport, deleteImport, discardImport, initImport, processImport, publishImportDrafts, startImportFromReport, type InitImportResult } from "./service";
 
 const InitSchema = z.object({
   clientId: z.string().refine((v) => isValidId(v, "cl"), "Selecione o cliente."),
@@ -48,6 +48,19 @@ export async function processImportAction(importId: string): Promise<ActionResul
     return { ok: true, data: record };
   } catch (e) {
     return actionError(e, "upload:process");
+  }
+}
+
+/** Reabre a planilha original de um relatório para importar outros meses do mesmo arquivo. */
+export async function importFromReportAction(clientId: string, reportId: string): Promise<ActionResult<{ importId: string }>> {
+  await requireAdmin();
+  try {
+    if (!isValidId(clientId, "cl") || !isValidId(reportId, "rp")) return { ok: false, error: "Relatório inválido." };
+    const record = await startImportFromReport(clientId, reportId);
+    revalidatePath("/adm", "layout");
+    return { ok: true, data: { importId: record.id } };
+  } catch (e) {
+    return actionError(e, "upload:from-report");
   }
 }
 

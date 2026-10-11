@@ -300,7 +300,7 @@ export function UploadWizard({
               type === "media_plan"
                 ? "O plano pode ser enviado antes do mês começar. Com a coluna Mês no arquivo, dá para enviar vários meses de uma vez."
                 : type === "social"
-                  ? "A planilha de rede social traz o ano todo: todos os meses preenchidos são lidos e, na prévia, você escolhe quais importar. Escolha um mês para já deixá-lo marcado."
+                  ? "A planilha de rede social traz o ano todo: na prévia, vêm marcados todos os meses que ainda não estão no portal, mais o mês escolhido aqui. Dá para marcar ou desmarcar cada mês antes de importar."
                   : "Para planilhas, você pode deixar o sistema detectar os períodos pelo arquivo."
             }
             onBack={() => setStep(1)}
@@ -562,7 +562,18 @@ export function UploadWizard({
                   </>
                 ) : (
                   <fieldset>
-                    <legend className="mb-2 text-xs font-semibold text-text-3">Períodos encontrados</legend>
+                    <legend className="mb-2 flex w-full items-center justify-between gap-3 text-xs font-semibold text-text-3">
+                      <span>Períodos encontrados</span>
+                      {record.preview.periods.length > 1 ? (
+                        <button
+                          type="button"
+                          className="text-[13px] font-semibold text-primary hover:underline"
+                          onClick={() => setSelected(selected.length === record.preview!.periods.length ? [] : record.preview!.periods.map((p) => p.periodKey))}
+                        >
+                          {selected.length === record.preview.periods.length ? "Desmarcar todos" : `Marcar todos (${record.preview.periods.length})`}
+                        </button>
+                      ) : null}
+                    </legend>
                     <ul className="space-y-2">
                       {record.preview.periods.map((p) => {
                         const checked = selected.includes(p.periodKey);

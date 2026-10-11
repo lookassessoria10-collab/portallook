@@ -14,7 +14,7 @@ import { buildSocialViewModel } from "@/features/social/view-model";
 import { buildSocialOverview } from "@/features/social/overview";
 import { computeDelivery } from "@/features/reports/delivery";
 import { createClient } from "@/features/clients/service";
-import { confirmImport, initImport, processImport, publishImportDrafts, receiveFile } from "@/features/uploads/service";
+import { confirmImport, initImport, processImport, publishImportDrafts, receiveFile, startImportFromReport } from "@/features/uploads/service";
 import { getReportManifest } from "@/features/reports/service";
 import { loadPortalModel } from "@/features/portal/model";
 import type { ClientInput } from "@/features/clients/input";
@@ -265,6 +265,38 @@ describe("fluxo: rede social no portal", () => {
     const september = await loadPortalModel(client, { tab: "rede-social", period: "2026-09", mode: "client" });
     expect(september.selection.dataset?.data.type).toBe("social");
     expect(september.previous?.periodKey).toBe("2026-08");
+  });
+
+  it("com um mês escolhido no assistente, os outros meses novos da planilha também vêm marcados", async () => {
+    const client = await createClient({ ...baseInput, social: { enabled: true, cadence: "monthly", dueDay: 5, allowOriginalDownload: false } }, null);
+    const body = workbookBuffer(masterWorkbook(2));
+    const init = await initImport({ clientId: client.id, reportType: "social", fileName: "rede-social.xlsx", size: body.length, contentType: "", period: monthPeriod(2026, 9) });
+    await receiveFile(init.importId, body);
+    const record = await processImport(init.importId);
+    expect(record.preview?.suggestedPeriodKeys).toEqual(["2026-07", "2026-08", "2026-09"]);
+  });
+
+  it("relatório importado só com setembro: reabre a planilha guardada e traz os outros meses", async () => {
+    const client = await createClient({ ...baseInput, social: { enabled: true, cadence: "monthly", dueDay: 5, allowOriginalDownload: false } }, null);
+    const body = workbookBuffer(masterWorkbook(2));
+    const init = await initImport({ clientId: client.id, reportType: "social", fileName: "rede-social.xlsx", size: body.length, contentType: "", period: monthPeriod(2026, 9) });
+    await receiveFile(init.importId, body);
+    const first = await processImport(init.importId);
+    const done = await confirmImport(first.id, { periodKeys: ["2026-09"] });
+    await publishImportDrafts(done.id, null);
+
+    const reopened = await startImportFromReport(client.id, done.reportIds[0]);
+    expect(reopened.status).toBe("validated");
+    expect(reopened.fileName).toBe("rede-social.xlsx");
+    expect(reopened.requestedPeriod).toBeNull();
+    // Setembro já está no portal: fica desmarcado; os meses novos vêm marcados.
+    expect(reopened.preview?.suggestedPeriodKeys).toEqual(["2026-07", "2026-08"]);
+    expect(reopened.preview?.periods.find((p) => p.periodKey === "2026-09")?.details.join(" ")).toMatch(/Já está no portal/);
+    const more = await confirmImport(reopened.id, { periodKeys: reopened.preview!.suggestedPeriodKeys });
+    expect(await publishImportDrafts(more.id, null)).toBe(2);
+
+    const model = await loadPortalModel(client, { tab: "rede-social", mode: "client" });
+    expect(model.periods.map((p) => p.key)).toEqual(["2026-07", "2026-08", "2026-09"]);
   });
 
   it("clientes antigos entram com o módulo desativado e o upload é recusado", async () => {

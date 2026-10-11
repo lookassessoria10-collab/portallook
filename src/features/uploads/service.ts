@@ -192,6 +192,65 @@ export async function initImport(input: InitImportInput): Promise<InitImportResu
   return { importId: id, strategy, pathname: stagingPath, maxBytes };
 }
 
+const FORMAT_BY_SOURCE: Partial<Record<SourceType, FileFormat>> = { xlsx: "xlsx", xls: "xls", csv: "csv", md: "md" };
+
+/**
+ * Nova importação a partir da planilha original guardada num relatório — para trazer
+ * outros meses do mesmo arquivo (ex.: planilha de rede social com o ano todo importada
+ * só com setembro). Usa as mesmas opções do envio original, valida de novo e abre a
+ * prévia com os meses do arquivo. O relatório de origem não muda; nada é publicado aqui.
+ */
+export async function startImportFromReport(clientId: string, reportId: string): Promise<ImportRecord> {
+  const manifest = await getReportManifest(clientId, reportId);
+  if (!manifest || manifest.clientId !== clientId) throw new NotFoundError("Relatório não encontrado.");
+  const format = manifest.source ? FORMAT_BY_SOURCE[manifest.source.type] : undefined;
+  if (manifest.kind !== "dataset" || !manifest.source?.path || !format) {
+    throw new UserFacingError("Este relatório não tem a planilha original guardada. Envie o arquivo de novo em Novo upload.");
+  }
+  const client = await getClient(clientId);
+  if (!client) throw new UserFacingError("Cliente não encontrado.");
+  if (client.status !== "active") throw new UserFacingError("Este cliente está inativo. Reative-o para enviar relatórios.");
+  if (!client.modules[manifest.type].enabled) throw new UserFacingError(`O módulo ${REPORT_TYPE_LABEL[manifest.type]} não está ativo para este cliente.`);
+
+  const previous = manifest.importId ? await getRepositories().imports.get(manifest.importId) : null;
+  // CSV não tem abas: vale o conteúdo informado no envio original (ou o do próprio tipo, quando não há dúvida).
+  const csvContent = format === "csv" ? (previous?.csvContent ?? (manifest.type === "commercial" ? null : CSV_CONTENT_OPTIONS.find((o) => o.reportType === manifest.type)?.value ?? null)) : null;
+  if (format === "csv" && !csvContent) throw new UserFacingError("Não foi possível saber o conteúdo deste CSV. Envie o arquivo de novo em Novo upload.");
+
+  const id = createId("im");
+  const stagingPath = paths.importOriginal(id, format);
+  await getStorage().copy(manifest.source.path, stagingPath, CONTENT_TYPES[format]);
+  const now = new Date().toISOString();
+  await saveRecord({
+    id,
+    clientId,
+    reportType: manifest.type,
+    format,
+    fileName: manifest.source.fileName,
+    size: manifest.source.size,
+    contentType: CONTENT_TYPES[format],
+    stagingPath,
+    status: "uploaded",
+    csvContent,
+    csvDimensionLabel: previous?.csvDimensionLabel ?? null,
+    platform: previous?.platform ?? null,
+    mode: previous?.mode ?? (manifest.retroactive ? "retroactive" : "regular"),
+    // Sem mês escolhido: a prévia marca todos os meses do arquivo que ainda não estão no sistema.
+    requestedPeriod: null,
+    title: null,
+    allowDownload: manifest.allowDownload,
+    issues: [],
+    preview: null,
+    parsedPath: null,
+    reportIds: [],
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+  });
+  await logEvent("upload.received", { clientId, summary: `Planilha ${manifest.source.fileName} reaberta a partir do relatório de ${formatPeriod(manifest.period)}.`, meta: { importId: id, reportId } });
+  return processImport(id);
+}
+
 /** Upload pelo servidor (arquivos pequenos ou driver local). */
 export async function receiveFile(importId: string, body: Buffer) {
   const record = await requireImport(importId);
@@ -499,6 +558,14 @@ function buildPreview(parsed: ParsedImport, existingReports: ReportIndexEntry[],
       issues.warn("requested_period_missing", `O período selecionado (${requestedLabel}) não aparece no arquivo: as datas da planilha são de ${periods[0].label}. Na prévia, escolha em qual período o relatório deve entrar.`);
     } else if (requested && periods.length) {
       issues.warn("requested_period_missing", `O período selecionado (${formatPeriod(record.requestedPeriod!)}) não aparece no arquivo. Períodos encontrados: ${periods.map((p) => p.label).join(", ")}.`);
+    }
+  }
+  if (record.reportType === "social" && !periodMismatch && periods.length > 1) {
+    // A planilha de rede social acumula o ano todo: vêm marcados os meses que ainda não estão no portal, além do escolhido.
+    const keys = new Set([...suggested, ...periods.filter((p) => p.existing === "none").map((p) => p.periodKey)]);
+    suggested = periods.filter((p) => keys.has(p.periodKey)).map((p) => p.periodKey);
+    for (const p of periods) {
+      if (!keys.has(p.periodKey)) p.details = [...p.details, p.existing === "published" ? "Já está no portal: só será substituído se você marcar" : "Já existe uma versão deste mês: só será substituída se você marcar"];
     }
   }
   if (record.platform) {

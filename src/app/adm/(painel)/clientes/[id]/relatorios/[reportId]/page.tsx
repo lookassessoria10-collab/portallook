@@ -76,6 +76,7 @@ export default async function AdminReportPage(props: PageProps<"/adm/clientes/[i
                 current={{ key: manifest.periodKey, label: formatPeriod(manifest.period) }}
                 options={periodOptions(client.modules[manifest.type].cadence, today(), undefined, manifest.type === "media_plan" ? 3 : 0)}
                 published={manifest.status === "published"}
+                sourceFileName={manifest.kind === "dataset" && manifest.source?.path && ["xlsx", "xls", "csv", "md"].includes(manifest.source.type) ? manifest.source.fileName : null}
               />
             ) : null}
             <ReportStatusActions clientId={id} reportId={reportId} status={manifest.status} label={label} />
