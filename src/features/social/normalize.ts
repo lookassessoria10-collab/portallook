@@ -19,6 +19,10 @@ import { NETWORK_LABEL, type SocialDataInput, type SocialExtraMetric, type Socia
  *
  * A planilha inteira (todas as abas) pode ser enviada: a aba do cliente é encontrada
  * pelo nome. Também aceita uma aba só, CSV ou a tabela colada, com as mesmas colunas.
+ *
+ * Anos anteriores: uma aba por ano ("LUCAS FRAGA 2025", ou só "2025" num arquivo do
+ * cliente), vários blocos na mesma aba (cada um com o título e o ano acima) ou um
+ * arquivo por ano ("… 2025.xlsx"). Todos os meses de todos os anos entram juntos.
  */
 
 const PERIOD = ["mes", "meses", "periodo", "mes de referencia", "competencia", "referencia", "month"];
@@ -52,13 +56,19 @@ const MONTH_NAMES: Record<string, number> = Object.fromEntries([
 ]);
 
 /** Palavras que não identificam um cliente ("Dra. Isabor" ≈ "ISABOR SANTANNA"). */
-const STOPWORDS = new Set(["da", "de", "do", "das", "dos", "e", "dr", "dra", "drs", "dras"]);
+const STOPWORDS = new Set(["da", "de", "do", "das", "dos", "e", "dr", "dra", "drs", "dras", "ano"]);
+
+/** Ano no nome da aba ("LUCAS FRAGA 2025"): diz o período, não o cliente. */
+const YEAR_TOKEN = /^(19|20)\d{2}$/;
 
 /** Abas de apoio (modelo, instruções): nunca são a aba do cliente. */
 const IGNORED_SHEET = /^(instrucoes|leia me|leiame|readme|como usar|glossario|legenda)\b/;
 
-/** Nomes de aba que não dizem de quem é (aba única exportada, tabela colada). */
-const GENERIC_SHEET = /^(planilha|sheet|pagina|aba|dados|tabela|rede social|redes sociais|social|instagram|facebook|tiktok|linkedin|youtube|analise|relatorio|metricas)\b|^\d+$/;
+/** Nomes de aba que não dizem de quem é (aba única exportada, tabela colada, "Instagram 2025"). */
+const GENERIC_SHEET = /^(planilha|sheet|pagina|aba|dados|tabela|rede social|redes sociais|social|instagram|facebook|tiktok|linkedin|youtube|analise|relatorio|metricas)(\d+)?( |$)/;
+
+/** Linha de título de um bloco ("ANÁLISE DE DADOS - INSTAGRAM - 2025"): o ano dela vale para os meses abaixo. */
+const TITLE_WORDS = /\b(analise|dados|instagram|facebook|tiktok|linkedin|youtube|relatorio|rede social)\b/;
 
 export interface SocialNormalizeContext {
   requestedPeriod: Period | null;
@@ -66,6 +76,8 @@ export interface SocialNormalizeContext {
   clientNames: string[];
   /** Hoje (AAAA-MM-DD): define o ano quando a planilha só tem o nome dos meses. */
   today: string;
+  /** Nome do arquivo: "… 2025.xlsx" diz o ano das abas que não dizem. */
+  fileName?: string | null;
 }
 
 export interface SocialNormalizeResult {
@@ -73,32 +85,43 @@ export interface SocialNormalizeResult {
   sheets: Array<{ name: string; rows: number; recognizedAs: string | null }>;
 }
 
-const tokens = (s: string) => normalizeText(s).split(" ").filter((t) => t && !STOPWORDS.has(t));
+/** Palavras do nome que identificam o cliente — sem acento, "Dra.", "de" e sem o ano. */
+const nameTokens = (s: string) =>
+  normalizeText(s)
+    .split(" ")
+    .filter((t) => t && !STOPWORDS.has(t) && !YEAR_TOKEN.test(t));
 const subset = (a: string[], b: string[]) => a.length > 0 && a.every((t) => b.includes(t));
+const isGenericSheet = (name: string) => {
+  const t = nameTokens(name);
+  return !t.length || GENERIC_SHEET.test(t.join(" "));
+};
 
-export type SheetMatch = { kind: "match"; name: string } | { kind: "ambiguous"; names: string[] } | { kind: "none" };
+/** `names`: todas as abas do cliente (uma por ano, quando há anos anteriores). */
+export type SheetMatch = { kind: "match"; names: string[] } | { kind: "ambiguous"; names: string[] } | { kind: "none" };
 
 /**
- * Aba do cliente pelo nome: igual ao nome, nome curto ou slug (sem acento, caixa e
- * "Dra."); senão, a única aba cujas palavras estão todas no nome do cliente (ou o contrário).
+ * Abas do cliente pelo nome: iguais ao nome, nome curto ou slug (sem acento, caixa,
+ * "Dra." e ano); senão, as abas cujas palavras estão todas no nome do cliente (ou o
+ * contrário) — desde que sejam do mesmo nome ("ISABOR SANTANNA" e "ISABOR SANTANNA 2025").
  */
 export function matchClientSheet(sheetNames: readonly string[], clientNames: readonly string[]): SheetMatch {
-  const targets = [...new Set(clientNames.map((n) => tokens(n.replace(/-/g, " "))).filter((t) => t.length).map((t) => t.join(" ")))].map((t) => t.split(" "));
-  const sheets = sheetNames.map((name) => ({ name, t: tokens(name) })).filter((s) => s.t.length);
+  const targets = [...new Set(clientNames.map((n) => nameTokens(n.replace(/-/g, " "))).filter((t) => t.length).map((t) => t.join(" ")))].map((t) => t.split(" "));
+  const sheets = sheetNames.map((name) => ({ name, t: nameTokens(name) })).filter((s) => s.t.length);
   const compact = (t: string[]) => t.join("");
   const exact = sheets.filter((s) => targets.some((t) => compact(t) === compact(s.t) || (subset(t, s.t) && subset(s.t, t))));
-  if (exact.length) return { kind: "match", name: exact[0].name };
+  if (exact.length) return { kind: "match", names: exact.map((s) => s.name) };
   const partial = sheets.filter((s) => targets.some((t) => subset(s.t, t) || subset(t, s.t)));
-  if (partial.length === 1) return { kind: "match", name: partial[0].name };
-  if (partial.length > 1) return { kind: "ambiguous", names: partial.map((s) => s.name) };
+  const distinct = new Set(partial.map((s) => compact(s.t)));
+  if (distinct.size === 1) return { kind: "match", names: partial.map((s) => s.name) };
+  if (distinct.size > 1) return { kind: "ambiguous", names: partial.map((s) => s.name) };
   return { kind: "none" };
 }
 
-/** Para o readExcel: lê só a aba do cliente quando ela é encontrada (a planilha da Look tem dezenas de abas). */
+/** Para o readExcel: lê só as abas do cliente quando são encontradas (a planilha da Look tem dezenas de abas). */
 export function selectClientSheet(clientNames: readonly string[]) {
   return (names: string[]): string[] => {
     const m = matchClientSheet(names, clientNames);
-    return m.kind === "match" ? [m.name] : names;
+    return m.kind === "match" ? m.names : names;
   };
 }
 
@@ -163,7 +186,8 @@ function detectNetwork(text: string): SocialNetwork {
   return "instagram";
 }
 
-function pickSheet(workbook: RawWorkbook, ctx: SocialNormalizeContext, issues: IssueCollector): RawSheet | null {
+/** Abas a ler: as do cliente (uma ou mais, por ano) ou, num arquivo só dele, todas as abas de dados. */
+function pickSheets(workbook: RawWorkbook, ctx: SocialNormalizeContext, issues: IssueCollector): RawSheet[] {
   const client = ctx.clientNames[0] ?? "o cliente";
   const candidates = workbook.sheets.filter((s) => !IGNORED_SHEET.test(normalizeText(s.name)) && isSocialSheet(s));
   const allNames = workbook.sheetNames ?? workbook.sheets.map((s) => s.name);
@@ -172,45 +196,108 @@ function pickSheet(workbook: RawWorkbook, ctx: SocialNormalizeContext, issues: I
       "missing_column",
       `Não encontramos as colunas da análise de rede social${workbook.sheets.length === 1 ? ` na aba ${workbook.sheets[0].name}` : ""}. A tabela precisa da coluna Mês e de métricas como Seguidores, Novos seguidores, Alcance, Visualizações (ou Impressões), Engajamento e Interações. Confira o formato esperado ou baixe o modelo.`,
     );
-    return null;
+    return [];
   }
   if (candidates.length === 1) {
     // Aba única (exportada sozinha ou colada): vale, mas avisa se o nome for de outro cliente.
     const sheet = candidates[0];
-    if (matchClientSheet([sheet.name], ctx.clientNames).kind === "none" && !GENERIC_SHEET.test(normalizeText(sheet.name))) {
+    if (matchClientSheet([sheet.name], ctx.clientNames).kind === "none" && !isGenericSheet(sheet.name)) {
       issues.warn("sheet_name_mismatch", `A aba se chama ${sheet.name.trim()}, que não parece ser de ${client}. Confira se é a planilha deste cliente antes de publicar.`, { sheet: sheet.name });
     }
-    return sheet;
+    return candidates;
   }
   const match = matchClientSheet(candidates.map((s) => s.name), ctx.clientNames);
-  if (match.kind === "match") return candidates.find((s) => s.name === match.name) ?? null;
+  if (match.kind === "match") return candidates.filter((s) => match.names.includes(s.name));
+  // Arquivo de um cliente só, com uma aba por ano ("2025", "2026", "Instagram 2024"): lê todas.
+  if (match.kind === "none" && candidates.every((s) => isGenericSheet(s.name))) return candidates;
   const list = (names: readonly string[]) => `${names.slice(0, 15).map((n) => n.trim()).join(", ")}${names.length > 15 ? ` e mais ${names.length - 15}` : ""}`;
   if (match.kind === "ambiguous") {
     issues.error("ambiguous_sheet", `Mais de uma aba parece ser de ${client}: ${list(match.names)}. Deixe a aba com o nome do cliente como está no portal (“${client}”) ou envie uma planilha só com a aba dele.`);
   } else {
     issues.error("client_sheet_not_found", `A planilha não tem uma aba com o nome de ${client}. Abas encontradas: ${list(allNames)}. Renomeie a aba do cliente para “${client}” (como está no portal) ou envie uma planilha só com a aba dele.`);
   }
-  return null;
+  return [];
 }
 
 interface MonthRow {
+  sheet: string;
   line: number;
   month: number;
   year: number | null;
+  network: SocialNetwork;
+  labels: Record<string, string>;
   metrics: Partial<SocialMetrics>;
   extras: SocialExtraMetric[];
 }
 
 export function normalizeSocial(workbook: RawWorkbook, ctx: SocialNormalizeContext, issues: IssueCollector): SocialNormalizeResult {
-  const sheet = pickSheet(workbook, ctx, issues);
-  if (!sheet) return { periods: [], sheets: workbook.sheets.length <= 3 ? workbook.sheets.map((s) => ({ name: s.name, rows: s.rows.length, recognizedAs: null })) : [] };
+  const picked = pickSheets(workbook, ctx, issues);
+  if (!picked.length) return { periods: [], sheets: workbook.sheets.length <= 3 ? workbook.sheets.map((s) => ({ name: s.name, rows: s.rows.length, recognizedAs: null })) : [] };
 
+  const [todayYear, todayMonth] = ctx.today.split("-").map(Number);
+  // Só anos plausíveis: "Clínica 1990" ou um telefone não viram ano.
+  const yearIn = (text: string) => [...text.matchAll(/\b((?:19|20)\d{2})\b/g)].map((m) => +m[1]).find((y) => y >= 2010 && y <= todayYear + 1) ?? null;
+  const fileYear = ctx.fileName ? yearIn(ctx.fileName.replace(/\.[a-z0-9]+$/i, "")) : null;
+
+  const rows: MonthRow[] = [];
+  const sheetNetworks = new Map<string, SocialNetwork>();
+  for (const sheet of picked) {
+    const read = readSheet(sheet, ctx, yearIn, fileYear, issues);
+    rows.push(...read.rows);
+    sheetNetworks.set(sheet.name, read.network);
+  }
+
+  // Meses ainda sem ano: deduzido pelos próprios meses (meses depois do atual são do ano passado).
+  // O mês do assistente vem preenchido com o pendente, então só vale quando aponta para um ano anterior (escolha deliberada).
+  const undated = rows.filter((r) => r.year === null);
+  if (undated.length) {
+    const latest = Math.max(...undated.map((r) => r.month));
+    const inferred = latest > todayMonth ? todayYear - 1 : todayYear;
+    const requestedYear = ctx.requestedPeriod ? +ctx.requestedPeriod.start.slice(0, 4) : null;
+    const year = requestedYear !== null && requestedYear < inferred ? requestedYear : inferred;
+    for (const r of undated) r.year = year;
+    if (year !== todayYear) {
+      issues.warn("year_assumed", `A planilha não informa o ano: os meses foram lidos como ${year}. Se não for esse ano, escreva o ano no título da aba (ex.: “ANÁLISE DE DADOS - INSTAGRAM - ${year}”), no nome da aba ou no nome do arquivo.`, { sheet: undated[0].sheet });
+    }
+  }
+
+  const byKey = new Map<string, { period: Period; row: MonthRow }>();
+  for (const r of rows) {
+    const period = monthPeriod(r.year!, r.month);
+    const key = periodKey(period);
+    const dup = byKey.get(key);
+    if (dup) {
+      const where = dup.row.sheet === r.sheet ? `na aba ${r.sheet} (linhas ${dup.row.line} e ${r.line})` : `nas abas ${dup.row.sheet.trim()} (linha ${dup.row.line}) e ${r.sheet.trim()} (linha ${r.line})`;
+      issues.error("duplicate_period", `${formatPeriod(period)} aparece duas vezes ${where}. Deixe uma linha por mês — se forem anos diferentes, coloque o ano no título de cada bloco ou no nome de cada aba.`, { sheet: r.sheet, row: r.line });
+      continue;
+    }
+    byKey.set(key, { period, row: r });
+  }
+
+  const periods: ParsedPeriod[] = [...byKey.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([key, { period, row }]) => {
+      const data: SocialDataInput = { schemaVersion: 1, period, network: row.network, metrics: row.metrics, labels: row.labels, extraMetrics: row.extras };
+      warnMonth(data, row.sheet, issues);
+      return { periodKey: key, period, sections: ["all"], data, insights: [] };
+    });
+
+  const sheets = picked.map((s) => {
+    const years = [...new Set([...byKey.values()].filter((v) => v.row.sheet === s.name).map((v) => v.period.start.slice(0, 4)))].sort();
+    return { name: s.name.trim(), rows: s.rows.length, recognizedAs: `Rede social · ${NETWORK_LABEL[sheetNetworks.get(s.name) ?? "instagram"]}${years.length ? ` · ${years.join(", ")}` : ""}` };
+  });
+  return { periods, sheets };
+}
+
+/** Linhas de mês de uma aba, com o ano do título/nome da aba/arquivo ou do bloco em que estão. */
+function readSheet(sheet: RawSheet, ctx: SocialNormalizeContext, yearIn: (text: string) => number | null, fileYear: number | null, issues: IssueCollector): { rows: MonthRow[]; network: SocialNetwork } {
   const cols = resolveColumns(sheet);
-  const title = [...(sheet.preamble ?? []), sheet.name].join(" ");
-  const network = detectNetwork(title);
-  const sheets = [{ name: sheet.name.trim(), rows: sheet.rows.length, recognizedAs: `Rede social · ${NETWORK_LABEL[network]}` }];
+  const network = detectNetwork([...(sheet.preamble ?? []), sheet.name].join(" "));
   const where = (line?: number, column?: string) => ({ sheet: sheet.name, ...(line ? { row: line } : {}), ...(column ? { column } : {}) });
+  const labels: Record<string, string> = {};
+  for (const [key, col] of cols.metrics) if (KEEP_LABEL.has(key)) labels[key] = humanizeLabel(col).slice(0, 80);
 
+  let blockYear = yearIn((sheet.preamble ?? []).join(" ")) ?? yearIn(sheet.name) ?? fileYear;
   const rows: MonthRow[] = [];
   for (const row of sheet.rows) {
     const rawLabel = cols.period ? row.cells[cols.period] : null;
@@ -231,8 +318,14 @@ export function normalizeSocial(workbook: RawWorkbook, ctx: SocialNormalizeConte
         if (note) issues.warn("sheet_note", `Observação da planilha (não aparece para o cliente): “${note.slice(0, 280)}”.`, where(row.line));
         continue;
       }
-      // Glossário, títulos e linhas sem números ficam de fora; linha com números e mês ilegível é erro.
-      if (!hasNumber || isTotalLabel(label)) continue;
+      if (!hasNumber) {
+        // Título de um novo bloco ("ANÁLISE DE DADOS - INSTAGRAM - 2025" ou só "2025"): o ano vale para os meses abaixo.
+        const marker = blockYearOf(row, yearIn);
+        if (marker !== null) blockYear = marker;
+        continue;
+      }
+      // Glossário e títulos ficam de fora; linha com números e mês ilegível é erro.
+      if (isTotalLabel(label)) continue;
       if (!cols.period) {
         issues.error("missing_period", `A aba ${sheet.name} não tem a coluna Mês. Inclua a coluna Mês (Janeiro, 01/2026…) ou escolha o mês no passo Período.`, where());
         break;
@@ -265,52 +358,33 @@ export function normalizeSocial(workbook: RawWorkbook, ctx: SocialNormalizeConte
     }
     if (invalid) continue;
     rows.push({
+      sheet: sheet.name,
       line: row.line,
       month: month.month,
-      year: month.year,
+      year: month.year ?? blockYear,
+      network,
+      labels,
       metrics,
       extras: extras.map(({ col, cell }) => ({ key: slugify(col) || `coluna-${cols.extras.indexOf(col) + 1}`, label: humanizeLabel(col).slice(0, 80), value: cell.invalid ? null : cell.value })),
     });
   }
+  return { rows, network };
+}
 
-  // Ano: o do mês (01/2026), o do título ("… - 2024"), o do mês escolhido no assistente ou, por último, o ano corrente.
-  const [todayYear, todayMonth] = ctx.today.split("-").map(Number);
-  const yearIn = (text: string) => [...text.matchAll(/\b(20\d{2})\b/g)].map((m) => +m[1]).find((y) => y >= 2010 && y <= todayYear + 1) ?? null;
-  const titleYear = yearIn((sheet.preamble ?? []).join(" ")) ?? yearIn(sheet.name);
-  let fallbackYear = titleYear ?? (ctx.requestedPeriod ? +ctx.requestedPeriod.start.slice(0, 4) : null);
-  const monthOnly = rows.filter((r) => r.year === null);
-  if (fallbackYear === null && monthOnly.length) {
-    // Meses depois do mês atual ainda não aconteceram: a planilha é do ano passado.
-    const latest = Math.max(...monthOnly.map((r) => r.month));
-    fallbackYear = latest > todayMonth ? todayYear - 1 : todayYear;
-    if (fallbackYear !== todayYear) {
-      issues.warn("year_assumed", `A planilha não informa o ano e tem meses depois de ${MONTHS_PT[todayMonth - 1]}: os meses foram lidos como ${fallbackYear}. Se não for esse ano, escreva o ano no título da aba (ex.: “ANÁLISE DE DADOS - INSTAGRAM - ${todayYear}”).`, where());
+/** Ano de uma linha de título de bloco: uma célula só com o ano, ou um título da análise com o ano. */
+function blockYearOf(row: RawSheet["rows"][number], yearIn: (text: string) => number | null): number | null {
+  for (const value of Object.values(row.cells)) {
+    const text = textCell(value);
+    if (!text) continue;
+    if (/^\s*(19|20)\d{2}\s*$/.test(text)) {
+      const year = yearIn(text);
+      if (year !== null) return year;
+    } else if (TITLE_WORDS.test(normalizeText(text))) {
+      const year = yearIn(text);
+      if (year !== null) return year;
     }
   }
-
-  const byKey = new Map<string, { period: Period; row: MonthRow }>();
-  for (const r of rows) {
-    const period = monthPeriod(r.year ?? fallbackYear ?? todayYear, r.month);
-    const key = periodKey(period);
-    const dup = byKey.get(key);
-    if (dup) {
-      issues.error("duplicate_period", `${formatPeriod(period)} aparece duas vezes na aba ${sheet.name} (linhas ${dup.row.line} e ${r.line}). Deixe uma linha por mês.`, where(r.line));
-      continue;
-    }
-    byKey.set(key, { period, row: r });
-  }
-
-  const labels: Record<string, string> = {};
-  for (const [key, col] of cols.metrics) if (KEEP_LABEL.has(key)) labels[key] = humanizeLabel(col).slice(0, 80);
-
-  const periods: ParsedPeriod[] = [...byKey.entries()]
-    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-    .map(([key, { period, row }]) => {
-      const data: SocialDataInput = { schemaVersion: 1, period, network, metrics: row.metrics, labels, extraMetrics: row.extras };
-      warnMonth(data, sheet.name, issues);
-      return { periodKey: key, period, sections: ["all"], data, insights: [] };
-    });
-  return { periods, sheets };
+  return null;
 }
 
 /** Avisos que não impedem a importação. */

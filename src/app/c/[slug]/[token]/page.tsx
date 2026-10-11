@@ -25,12 +25,14 @@ export default async function ClientPortalPage(props: PageProps<"/c/[slug]/[toke
   if (!client) notFound();
 
   const base = portalBasePath(slug, token);
-  const model = await loadPortalModel(client, { tab: one(search.aba), period: one(search.periodo), scale: one(search.escala), mode: "client" });
+  const model = await loadPortalModel(client, { tab: one(search.aba), period: one(search.periodo), scale: one(search.escala), year: one(search.ano), mode: "client" });
   const tabParam = REPORT_TYPE_PATH[model.tab];
   const scaleParam = model.scales ? `&escala=${SCALE_PARAM[model.scale]}` : "";
+  const yearParam = model.year !== null ? `&ano=${model.year}` : "";
   const links: PortalLinks = {
-    overview: `${base}?aba=${tabParam}${scaleParam}`,
+    overview: `${base}?aba=${tabParam}${scaleParam}${yearParam}`,
     scale: (scale) => `${base}?aba=${tabParam}&escala=${SCALE_PARAM[scale]}`,
+    year: (year) => `${base}?aba=${tabParam}${scaleParam}&ano=${year}`,
     period: (key) => `${base}?aba=${tabParam}&periodo=${encodeURIComponent(key)}`,
     document: (id) => `${base}/relatorio/${id}`,
     file: (id, download) => `${base}/arquivo/${id}${download ? "?download=1" : ""}`,

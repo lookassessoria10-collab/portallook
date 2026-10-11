@@ -45,6 +45,10 @@ export interface PortalModel {
   /** Escalas disponíveis na área (null = uma só, sem seletor). */
   scales: PortalScale[] | null;
   scale: PortalScale;
+  /** Anos com relatório (rede social com mais de um ano; null = sem seletor de ano). */
+  years: number[] | null;
+  /** Ano aberto: os períodos e a visão geral são só dele (null = todos). */
+  year: number | null;
   /** Períodos com relatório na escala atual, em ordem cronológica (abas de período). */
   periods: PortalPeriodOption[];
   /** Período aberto (null na visão geral). */
@@ -66,6 +70,8 @@ export interface PortalModel {
 }
 
 const HISTORY_POINTS: Record<ReportType, number> = { commercial: 12, traffic: 8, social: 12, media_plan: 12 };
+/** Áreas navegadas por ano quando há mais de um (a planilha de rede social é anual). */
+const YEARLY_TABS: ReadonlySet<ReportType> = new Set(["social"]);
 /** A visão geral reúne até 12 períodos (um ano, para relatórios mensais). */
 const OVERVIEW_POINTS = 12;
 
@@ -74,6 +80,8 @@ export interface LoadPortalOptions {
   period?: string | null;
   /** "meses" | "semanas" (ou month/week). */
   scale?: string | null;
+  /** Ano (AAAA) — só nas áreas navegadas por ano. */
+  year?: string | null;
   mode: "client" | "preview";
   /** Prévia de um relatório específico no ADM (inclui rascunho/retirado). */
   focusReportId?: string | null;
@@ -119,8 +127,23 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
   const scales = available.length > 1 ? (["month", "week"] as const).filter((s) => available.includes(s)) : null;
 
   const entries = allEntries.filter((e) => scaleOf(e.period) === scale);
-  const byPeriod = new Map<string, ReportIndexEntry[]>();
-  for (const e of entries) byPeriod.set(e.periodKey, [...(byPeriod.get(e.periodKey) ?? []), e]);
+  const group = (list: ReportIndexEntry[]) => {
+    const map = new Map<string, ReportIndexEntry[]>();
+    for (const e of list) map.set(e.periodKey, [...(map.get(e.periodKey) ?? []), e]);
+    return map;
+  };
+  // Todos os períodos: histórico e comparação atravessam os anos (janeiro compara com dezembro).
+  const byPeriodAll = group(entries);
+
+  // Ano: o do período pedido (ou do relatório em foco), o do parâmetro ou o mais recente.
+  const yearOf = (e: ReportIndexEntry) => +e.period.start.slice(0, 4);
+  const allYears = [...new Set(entries.map(yearOf))].sort((a, b) => a - b);
+  const yearly = YEARLY_TABS.has(tab) && scale === "month" && allYears.length > 1;
+  const yearEntry = focus ?? (options.period ? entries.find((e) => e.periodKey === options.period) : undefined);
+  const paramYear = options.year && /^\d{4}$/.test(options.year) ? +options.year : null;
+  const year = yearly ? (yearEntry ? yearOf(yearEntry) : paramYear !== null && allYears.includes(paramYear) ? paramYear : allYears[allYears.length - 1]) : null;
+  // Abas de período, visão geral e período aberto: só o ano escolhido.
+  const byPeriod = year === null ? byPeriodAll : group(entries.filter((e) => yearOf(e) === year));
 
   const periodEntries = [...byPeriod.values()].map((list) => pickDataset(list) ?? list[0]).sort((a, b) => comparePeriods(a.period, b.period));
   const shortLabels = periodSeriesLabels(periodEntries.map((e) => e.period));
@@ -132,13 +155,13 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
   }));
 
   // Série histórica, comparação e visão geral usam apenas o índice (sem abrir outros data.json).
-  const datasetSeries = [...byPeriod.values()]
+  const datasetSeries = [...byPeriodAll.values()]
     .map((list) => pickDataset(list))
     .filter((e): e is ReportIndexEntry => e !== null)
     .sort((a, b) => comparePeriods(a.period, b.period));
   // Visão geral nunca mistura meses com semanas (nem com intervalos personalizados).
   const overviewGranularity = datasetSeries.some((e) => e.period.granularity === scale) ? scale : datasetSeries.at(-1)?.period.granularity;
-  const overviewSeries = datasetSeries.filter((e) => e.period.granularity === overviewGranularity);
+  const overviewSeries = datasetSeries.filter((e) => e.period.granularity === overviewGranularity && (year === null || yearOf(e) === year));
   // O plano de mídia não tem visão geral: abre sempre um mês.
   const overview = !focus && tab !== "media_plan" && overviewSeries.length >= 2 ? overviewSeries.slice(-OVERVIEW_POINTS) : null;
   const lastPeriod = periodEntries.at(-1) ?? null;
@@ -201,6 +224,8 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
     view,
     scales: scales ? [...scales] : null,
     scale,
+    years: yearly ? allYears : null,
+    year,
     periods,
     periodKey: selectedKey,
     overview,

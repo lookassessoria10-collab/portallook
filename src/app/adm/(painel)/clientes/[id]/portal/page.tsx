@@ -20,12 +20,14 @@ export default async function PortalPreviewPage(props: PageProps<"/adm/clientes/
   const client = await getClient(id);
   if (!client) notFound();
   const base = `/adm/clientes/${id}/portal`;
-  const model = await loadPortalModel(client, { tab: one(search.aba), period: one(search.periodo), scale: one(search.escala), mode: "preview" });
+  const model = await loadPortalModel(client, { tab: one(search.aba), period: one(search.periodo), scale: one(search.escala), year: one(search.ano), mode: "preview" });
   const tabParam = REPORT_TYPE_PATH[model.tab];
   const scaleParam = model.scales ? `&escala=${SCALE_PARAM[model.scale]}` : "";
+  const yearParam = model.year !== null ? `&ano=${model.year}` : "";
   const links: PortalLinks = {
-    overview: `${base}?aba=${tabParam}${scaleParam}`,
+    overview: `${base}?aba=${tabParam}${scaleParam}${yearParam}`,
     scale: (scale) => `${base}?aba=${tabParam}&escala=${SCALE_PARAM[scale]}`,
+    year: (year) => `${base}?aba=${tabParam}${scaleParam}&ano=${year}`,
     period: (key) => `${base}?aba=${tabParam}&periodo=${encodeURIComponent(key)}`,
     document: (reportId) => `/adm/clientes/${id}/relatorios/${reportId}`,
     file: (reportId, download) => `/api/adm/clientes/${id}/relatorios/${reportId}/arquivo${download ? "?download=1" : ""}`,

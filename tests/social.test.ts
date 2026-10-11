@@ -90,13 +90,72 @@ describe("rede social: leitura da planilha da Look", () => {
   });
 
   it("encontra a aba pelo nome sem acento, caixa ou “Dra.”", () => {
-    expect(matchClientSheet(["CARDIOCENTER", "ISABOR SANTANNA"], ["Dra. Isabor Sant'Anna", "Dra. Isabor", "isabor"])).toEqual({ kind: "match", name: "ISABOR SANTANNA" });
-    expect(matchClientSheet(["HOSPITAL DA PLÁSTICA DA BAHIA", "INH"], ["Hospital da Plástica da Bahia"])).toEqual({ kind: "match", name: "HOSPITAL DA PLÁSTICA DA BAHIA" });
-    expect(matchClientSheet(["LUANE MATOS ", "LUCAS FRAGA"], ["Luane Matos"])).toEqual({ kind: "match", name: "LUANE MATOS " });
+    expect(matchClientSheet(["CARDIOCENTER", "ISABOR SANTANNA"], ["Dra. Isabor Sant'Anna", "Dra. Isabor", "isabor"])).toEqual({ kind: "match", names: ["ISABOR SANTANNA"] });
+    expect(matchClientSheet(["HOSPITAL DA PLÁSTICA DA BAHIA", "INH"], ["Hospital da Plástica da Bahia"])).toEqual({ kind: "match", names: ["HOSPITAL DA PLÁSTICA DA BAHIA"] });
+    expect(matchClientSheet(["LUANE MATOS ", "LUCAS FRAGA"], ["Luane Matos"])).toEqual({ kind: "match", names: ["LUANE MATOS "] });
     // Nome exato vence a coincidência parcial.
-    expect(matchClientSheet(["GILVAN LANDIM", "INSTITUTO LANDIM"], ["Instituto Landim", "Landim"])).toEqual({ kind: "match", name: "INSTITUTO LANDIM" });
+    expect(matchClientSheet(["GILVAN LANDIM", "INSTITUTO LANDIM"], ["Instituto Landim", "Landim"])).toEqual({ kind: "match", names: ["INSTITUTO LANDIM"] });
     expect(matchClientSheet(["GILVAN LANDIM", "INSTITUTO LANDIM"], ["Landim"])).toEqual({ kind: "ambiguous", names: ["GILVAN LANDIM", "INSTITUTO LANDIM"] });
     expect(matchClientSheet(["CARDIOCENTER"], ["Serenity Terapias", "Serenity"])).toEqual({ kind: "none" });
+  });
+
+  it("anos anteriores em abas próprias (“LUCAS FRAGA 2025”) entram junto com o ano atual", () => {
+    const wb = masterWorkbook(2);
+    XLSX.utils.book_append_sheet(wb, clientTab("ANÁLISE DE DADOS - INSTAGRAM", HEADER_2026, { NOVEMBRO: [900, 30, 5, 2000, 6000, 40, null, 80, 60, 5, 5, 5, 1], DEZEMBRO: [925, 31, 6, 2100, 6100, 41, null, 81, 61, 5, 5, 5, 1] }), "LUCAS FRAGA 2025");
+    XLSX.utils.book_append_sheet(wb, clientTab("ANÁLISE DE DADOS - INSTAGRAM", HEADER_2026, { JANEIRO: [950, 32, 7, 2200, 6200, 42, null, 82, 62, 5, 5, 5, 1] }), "LUCAS FRAGA");
+    const r = read(wb, ["Lucas Fraga", "Lucas Fraga", "lucas-fraga"]);
+    expect(r.issues.errors).toEqual([]);
+    expect(r.workbook.sheets.map((s) => s.name)).toEqual(["LUCAS FRAGA 2025", "LUCAS FRAGA"]);
+    expect(r.periods.map((p) => p.periodKey)).toEqual(["2025-11", "2025-12", "2026-01"]);
+    expect(r.sheets.map((s) => s.recognizedAs)).toEqual(["Rede social · Instagram · 2025", "Rede social · Instagram · 2026"]);
+  });
+
+  it("arquivo de um cliente com uma aba por ano (“2024”, “2025”) e ano no nome do arquivo", () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, clientTab("ANÁLISE DE DADOS - INSTAGRAM", HEADER_2026, { DEZEMBRO: [800, 20, 4, 1500, 4000, 30, null, 60, 50, 4, 3, 3, 0] }), "2024");
+    XLSX.utils.book_append_sheet(wb, clientTab("ANÁLISE DE DADOS - INSTAGRAM", HEADER_2026, { JANEIRO: [820, 22, 2, 1600, 4100, 31, null, 61, 51, 4, 3, 3, 0] }), "2025");
+    const byTab = read(wb, ["Lucas Fraga"]);
+    expect(byTab.issues.errors).toEqual([]);
+    expect(byTab.periods.map((p) => p.periodKey)).toEqual(["2024-12", "2025-01"]);
+
+    // Aba sem ano no nome nem no título: vale o ano do nome do arquivo.
+    const single = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(single, clientTab("ANÁLISE DE DADOS - INSTAGRAM", HEADER_2026, CARDIO), "LUCAS FRAGA");
+    const issues = new IssueCollector();
+    const r = normalizeSocial(readExcel(workbookBuffer(single), "xlsx"), ctx(["Lucas Fraga"], { fileName: "ANÁLISE DADOS - LUCAS FRAGA 2025.xlsx" }), issues);
+    expect(issues.errors).toEqual([]);
+    expect(r.periods.map((p) => p.periodKey)).toEqual(["2025-07", "2025-08", "2025-09"]);
+  });
+
+  it("vários anos empilhados na mesma aba: o título de cada bloco diz o ano", () => {
+    const rows: Row[] = [
+      [null, "ANÁLISE DE DADOS - INSTAGRAM - 2025"],
+      HEADER_2026,
+      ["NOVEMBRO", 900, 30, 5, 2000],
+      ["DEZEMBRO", 925, 31, 6, 2100],
+      ["OBSERVAÇÃO", "Cadastrado no Mlabs em 10/10/2025"],
+      [],
+      [null, "ANÁLISE DE DADOS - INSTAGRAM - 2026"],
+      HEADER_2026,
+      ["JANEIRO", 950, 32, 7, 2200],
+      ["FEVEREIRO", 970, 25, 5, 2300],
+      ...GLOSSARY,
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "LUCAS FRAGA");
+    const r = read(wb, ["Lucas Fraga"]);
+    expect(r.issues.errors).toEqual([]);
+    expect(r.periods.map((p) => p.periodKey)).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
+    expect(social(r, 2).metrics.followers).toBe(950);
+  });
+
+  it("o mesmo mês em duas abas sem ano é erro que explica como separar os anos", () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, clientTab("ANÁLISE DE DADOS - INSTAGRAM", HEADER_2026, CARDIO), "Planilha1");
+    XLSX.utils.book_append_sheet(wb, clientTab("ANÁLISE DE DADOS - INSTAGRAM", HEADER_2026, CARDIO), "Planilha2");
+    const r = read(wb, ["Lucas Fraga"]);
+    expect(r.issues.errors[0]?.code).toBe("duplicate_period");
+    expect(r.issues.errors[0]?.message).toMatch(/nas abas/);
   });
 
   it("aba ambígua ou inexistente é erro com a lista das abas", () => {
@@ -244,7 +303,7 @@ describe("fluxo: rede social no portal", () => {
     await receiveFile(init.importId, body);
     const record = await processImport(init.importId);
     expect(record.issues.filter((i) => i.level === "error")).toEqual([]);
-    expect(record.preview?.sheets).toEqual([{ name: "CARDIOCENTER", rows: 16, recognizedAs: "Rede social · Instagram" }]);
+    expect(record.preview?.sheets).toEqual([{ name: "CARDIOCENTER", rows: 16, recognizedAs: "Rede social · Instagram · 2026" }]);
     expect(record.preview?.suggestedPeriodKeys).toEqual(["2026-07", "2026-08", "2026-09"]);
     expect(record.preview?.periods[2].metrics[0]).toEqual({ label: "Seguidores", value: "3.699" });
 
@@ -297,6 +356,37 @@ describe("fluxo: rede social no portal", () => {
 
     const model = await loadPortalModel(client, { tab: "rede-social", mode: "client" });
     expect(model.periods.map((p) => p.key)).toEqual(["2026-07", "2026-08", "2026-09"]);
+  });
+
+  it("cliente com anos anteriores: seletor de ano, visão geral por ano e janeiro comparado com dezembro", async () => {
+    const client = await createClient({ ...baseInput, name: "Lucas Fraga", shortName: "Lucas Fraga", slug: "lucas-fraga", social: { enabled: true, cadence: "monthly", dueDay: 5, allowOriginalDownload: false } }, null);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, clientTab("ANÁLISE DE DADOS - INSTAGRAM", HEADER_2026, { NOVEMBRO: [900, 30, 5, 2000, 6000, 40, null, 80, 60, 5, 5, 5, 1], DEZEMBRO: [925, 31, 6, 2100, 6100, 41, null, 81, 61, 5, 5, 5, 1] }), "LUCAS FRAGA 2025");
+    XLSX.utils.book_append_sheet(wb, clientTab("ANÁLISE DE DADOS - INSTAGRAM", HEADER_2026, { JANEIRO: [950, 32, 7, 2200, 6200, 42, null, 82, 62, 5, 5, 5, 1], FEVEREIRO: [970, 25, 5, 2300, 6300, 43, null, 83, 63, 5, 5, 5, 1] }), "LUCAS FRAGA");
+    const body = workbookBuffer(wb);
+    const init = await initImport({ clientId: client.id, reportType: "social", fileName: "ANÁLISE DADOS - LUCAS FRAGA 2026.xlsx", size: body.length, contentType: "" });
+    await receiveFile(init.importId, body);
+    const record = await processImport(init.importId);
+    expect(record.issues.filter((i) => i.level === "error")).toEqual([]);
+    expect(record.preview?.suggestedPeriodKeys).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
+    const done = await confirmImport(record.id, { periodKeys: record.preview!.suggestedPeriodKeys });
+    await publishImportDrafts(done.id, null);
+
+    const latest = await loadPortalModel(client, { tab: "rede-social", mode: "client" });
+    expect(latest.years).toEqual([2025, 2026]);
+    expect(latest.year).toBe(2026);
+    expect(latest.periods.map((p) => p.key)).toEqual(["2026-01", "2026-02"]);
+    expect(latest.overview?.map((e) => e.periodKey)).toEqual(["2026-01", "2026-02"]);
+
+    const past = await loadPortalModel(client, { tab: "rede-social", year: "2025", mode: "client" });
+    expect(past.year).toBe(2025);
+    expect(past.periods.map((p) => p.key)).toEqual(["2025-11", "2025-12"]);
+    expect(buildSocialOverview(past.overview!, { current: false }).kpis[0].label).toBe("Seguidores em dezembro de 2025");
+
+    const january = await loadPortalModel(client, { tab: "rede-social", period: "2026-01", mode: "client" });
+    expect(january.year).toBe(2026);
+    expect(january.previous?.periodKey).toBe("2025-12");
+    expect(january.history.map((h) => h.periodKey)).toEqual(["2025-11", "2025-12", "2026-01"]);
   });
 
   it("clientes antigos entram com o módulo desativado e o upload é recusado", async () => {

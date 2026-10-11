@@ -74,6 +74,26 @@ export function PeriodNav({ overviewHref, items, active, className }: { overview
   );
 }
 
+/** "2025 | 2026": anos com relatório (rede social). Cada ano tem a própria visão geral e os seus meses. */
+export function YearSwitch({ options, className }: { options: Array<{ key: string; label: string; href: string; active: boolean }>; className?: string }) {
+  if (options.length < 2) return null;
+  return (
+    <nav aria-label="Ano" className={cn("flex shrink-0 gap-1 rounded-[14px] border border-border bg-surface p-1", className)}>
+      {options.map((o) => (
+        <Link
+          key={o.key}
+          href={o.href}
+          scroll={false}
+          aria-current={o.active ? "page" : undefined}
+          className={cn("tabular flex h-9 items-center justify-center rounded-[10px] px-3 text-sm font-bold transition-colors", o.active ? "bg-surface-3 text-text" : "text-text-3 hover:bg-surface-2 hover:text-text-2")}
+        >
+          <PendingLabel>{o.label}</PendingLabel>
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 /** "Meses | Semanas": só aparece quando a área tem relatórios nas duas escalas. */
 export function ScaleSwitch({ options, className }: { options: Array<{ key: string; label: string; href: string; active: boolean }>; className?: string }) {
   if (options.length < 2) return null;

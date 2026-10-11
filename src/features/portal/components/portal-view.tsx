@@ -24,7 +24,7 @@ import { buildSocialViewModel } from "@/features/social/view-model";
 import { SocialOverview } from "@/features/social/components/social-overview";
 import { buildSocialOverview } from "@/features/social/overview";
 import type { PortalModel } from "@/features/portal/model";
-import { PeriodNav, ScaleSwitch } from "./period-nav";
+import { PeriodNav, ScaleSwitch, YearSwitch } from "./period-nav";
 import { PortalTabs, TAB_LABEL } from "./portal-tabs";
 import { OriginalDocuments, type PortalLinks } from "./portal-sections";
 
@@ -39,6 +39,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
   const tabLabel = TAB_LABEL[model.tab];
   const periodItems = model.periods.map((p) => ({ key: p.key, label: p.short, title: p.label, href: links.period(p.key), draft: model.mode === "preview" && p.draft }));
   const scaleItems = (model.scales ?? []).map((s) => ({ key: s, label: s === "month" ? "Meses" : "Semanas", href: links.scale(s), active: s === model.scale }));
+  const yearItems = (model.years ?? []).map((y) => ({ key: String(y), label: String(y), href: links.year(y), active: y === model.year }));
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 pb-16 sm:px-6 lg:px-8">
@@ -73,6 +74,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
           {model.tabs.length < 2 ? <p className="hidden shrink-0 text-sm font-bold text-text-2 md:block">{tabLabel}</p> : null}
           <div className="flex min-w-0 gap-2 md:flex-1">
             <ScaleSwitch options={scaleItems} />
+            <YearSwitch options={yearItems} />
             <PeriodNav overviewHref={model.overview ? links.overview : null} items={periodItems} active={model.periodKey} className="min-w-0 flex-1" />
           </div>
         </div>
@@ -102,7 +104,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
               </Link>
             ) : null}
             {model.tab === "social" ? (
-              <SocialOverview vm={buildSocialOverview(model.overview)} periodHref={links.period} />
+              <SocialOverview vm={buildSocialOverview(model.overview, { current: !model.years || model.year === model.years[model.years.length - 1] })} periodHref={links.period} />
             ) : model.tab === "traffic" ? (
               <TrafficOverview vm={buildTrafficOverview(model.overview, client.currency)} currency={client.currency} periodHref={links.period} />
             ) : (

@@ -188,7 +188,10 @@ export function FormatGuide({
                     A linha de título acima do cabeçalho (<Code>ANÁLISE DE DADOS - INSTAGRAM - 2026</Code>) diz a rede e o ano.
                   </>
                 )}{" "}
-                Sem ano no título, vale o ano do mês escolhido no passo anterior ou, sem ele, o ano atual.
+                Sem ano no título, vale o ano do nome da aba ou do arquivo (<Code>… 2025.xlsx</Code>); sem nenhum deles, o ano atual.
+              </li>
+              <li>
+                <strong>Anos anteriores:</strong> entram junto, em qualquer destes jeitos — uma aba por ano (<Code>LUCAS FRAGA 2025</Code> ao lado de <Code>LUCAS FRAGA</Code>, ou só <Code>2025</Code> e <Code>2026</Code> num arquivo do cliente), vários blocos na mesma aba (cada um com o título e o ano acima) ou um arquivo por ano. No portal, o cliente escolhe o ano e janeiro é comparado com dezembro do ano anterior.
               </li>
               <li>
                 Meses ainda sem números são ignorados: dá para {paste ? "colar" : "enviar"} a tabela do ano todo e escolher na prévia os meses que entram. A linha <strong>OBSERVAÇÃO</strong> vira um aviso interno (não aparece para o cliente) e o glossário abaixo da tabela é ignorado.

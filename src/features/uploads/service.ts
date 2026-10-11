@@ -335,7 +335,7 @@ export async function processImport(importId: string): Promise<ImportRecord> {
           for (const p of result.periods) (p.data as { currency?: string }).currency = client.currency;
           parsed = { kind: "dataset", reportType: "commercial", sourceType: expected, partial: Boolean(record.csvContent), periods: result.periods };
         } else if (record.reportType === "social") {
-          const result = normalizeSocial(workbook, { requestedPeriod: record.requestedPeriod, clientNames, today: todayISO(env().APP_TIMEZONE) }, issues);
+          const result = normalizeSocial(workbook, { requestedPeriod: record.requestedPeriod, clientNames, today: todayISO(env().APP_TIMEZONE), fileName: record.fileName }, issues);
           sheets = result.sheets;
           parsed = { kind: "dataset", reportType: "social", sourceType: expected, partial: false, periods: result.periods };
         } else if (record.reportType === "media_plan") {

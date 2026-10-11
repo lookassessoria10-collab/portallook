@@ -9,6 +9,8 @@ export interface PortalLinks {
   overview: string;
   /** Troca a escala (meses/semanas) da área atual. */
   scale: (scale: PortalScale) => string;
+  /** Abre um ano da área atual (rede social com mais de um ano). */
+  year: (year: number) => string;
   period: (key: string) => string;
   document: (reportId: string) => string;
   file: (reportId: string, download?: boolean) => string;

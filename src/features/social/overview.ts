@@ -44,7 +44,8 @@ function labelOf(entries: readonly ReportIndexEntry[], key: string): string | nu
  * seguidores é o total do último mês; alcance e engajamento são contas únicas de
  * cada mês, então aparecem como média — nunca somados. `entries` em ordem cronológica.
  */
-export function buildSocialOverview(entries: readonly ReportIndexEntry[]): SocialOverviewViewModel {
+/** `current`: a visão geral chega ao mês mais recente (false = um ano anterior escolhido no seletor). */
+export function buildSocialOverview(entries: readonly ReportIndexEntry[], options: { current?: boolean } = {}): SocialOverviewViewModel {
   const last = entries[entries.length - 1];
   const unit = periodUnit(last.period.granularity);
   const labels = periodSeriesLabels(entries.map((e) => e.period));
@@ -105,7 +106,11 @@ export function buildSocialOverview(entries: readonly ReportIndexEntry[]): Socia
   const newNote = isFiniteNumber(totals.lostFollowers) && isFiniteNumber(totals.netFollowers) ? `${formatInteger(totals.lostFollowers)} deixaram de seguir · saldo de ${signed(totals.netFollowers)}` : average("newFollowers");
 
   const candidates: KpiView[] = [];
-  if (totals.followers !== null) candidates.push(kpi("followers", "followers", { label: "Seguidores hoje", description: "Total de seguidores no fim do último mês.", footnote: gainNote }));
+  if (totals.followers !== null) {
+    // Ano anterior: o total é o do último mês daquele ano, não o de hoje.
+    const label = options.current === false && lastFollowers ? `Seguidores em ${labels[lastFollowers.i].full.charAt(0).toLowerCase()}${labels[lastFollowers.i].full.slice(1)}` : "Seguidores hoje";
+    candidates.push(kpi("followers", "followers", { label, description: "Total de seguidores no fim do último mês do período.", footnote: gainNote }));
+  }
   if (totals.newFollowers !== null) candidates.push(kpi("newFollowers", "newFollowers", { description: "Novos seguidores somados em todos os meses.", footnote: newNote }));
   if (totals.reach !== null) candidates.push(kpi("reach", "reach", { label: `Alcance médio ${per}`, description: "Média de contas únicas alcançadas a cada mês (o alcance não é somado entre meses, porque a mesma conta pode ser alcançada em vários)." }));
   if (totals.interactions !== null) candidates.push(kpi("interactions", "interactions", { description: "Interações somadas em todos os meses.", footnote: average("interactions") }));

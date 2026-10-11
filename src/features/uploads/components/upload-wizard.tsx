@@ -300,7 +300,7 @@ export function UploadWizard({
               type === "media_plan"
                 ? "O plano pode ser enviado antes do mês começar. Com a coluna Mês no arquivo, dá para enviar vários meses de uma vez."
                 : type === "social"
-                  ? "A planilha de rede social traz o ano todo: na prévia, vêm marcados todos os meses que ainda não estão no portal, mais o mês escolhido aqui. Dá para marcar ou desmarcar cada mês antes de importar."
+                  ? "A planilha de rede social traz o ano todo (e os anos anteriores, se houver): na prévia, vêm marcados todos os meses que ainda não estão no portal, mais o mês escolhido aqui. Dá para marcar ou desmarcar cada mês antes de importar."
                   : "Para planilhas, você pode deixar o sistema detectar os períodos pelo arquivo."
             }
             onBack={() => setStep(1)}
