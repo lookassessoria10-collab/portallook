@@ -1,8 +1,8 @@
 import { formatInteger } from "@/lib/format/number";
 import { normalizeText, slugify } from "@/lib/ids";
-import { formatPeriod, periodKey, type Period } from "@/lib/dates/period";
-import { findColumn, numberCell, textCell } from "@/lib/parsers/cells";
-import type { RawSheet, RawWorkbook } from "@/lib/parsers/types";
+import { formatDate, formatPeriod, periodKey, type Period } from "@/lib/dates/period";
+import { dateCell, findColumn, numberCell, textCell } from "@/lib/parsers/cells";
+import type { CellValue, RawSheet, RawWorkbook } from "@/lib/parsers/types";
 import type { IssueCollector } from "@/features/uploads/issues";
 import { isTotalLabel, resolveRowPeriod, type PeriodContext } from "@/features/uploads/row-period";
 import type { CommercialSection, ParsedInsight, ParsedPeriod } from "@/features/uploads/parsed";
@@ -13,12 +13,15 @@ import type { ChannelKind, CommercialDataInput } from "./schema";
  * Planilha (qualquer layout razoável) → modelo comercial padronizado.
  * Os componentes visuais nunca veem a planilha: só o CommercialData.
  */
-export type SheetRole = "funnel" | "financial" | "channels" | "dimension" | "dimensions" | "extraMetrics" | "insights" | "context";
+export type SheetRole = "funnel" | "financial" | "channels" | "customers" | "table" | "dimension" | "dimensions" | "extraMetrics" | "insights" | "context";
 
 const ROLE_ALIASES: Array<[SheetRole, string[]]> = [
   ["funnel", ["funil", "funnel", "etapas", "pipeline"]],
   ["financial", ["financeiro", "financial", "financas", "faturamento"]],
   ["channels", ["canais", "canal", "origem", "origens", "channels", "origem dos leads"]],
+  ["customers", ["clientes", "novos x recorrentes", "novos e recorrentes", "novos vs recorrentes", "tipo de cliente", "tipos de cliente", "base de clientes"]],
+  // Tabelas exibidas como vieram: o que não é número calculável (agenda já marcada, próximos passos…).
+  ["table", ["oportunidades", "oportunidades abertas", "agendamentos futuros", "agenda futura", "plano de acao", "plano de acoes", "acoes", "proximos passos", "motivos de perda", "pendencias", "tabela"]],
   ["dimensions", ["dimensoes", "dimensions", "detalhamento"]],
   ["extraMetrics", ["indicadores", "kpis", "metricas", "indicadores adicionais"]],
   ["insights", ["insights", "analise", "analises", "observacoes", "comentarios"]],
@@ -43,6 +46,8 @@ interface Acc {
   channels: NonNullable<CommercialDataInput["channels"]>;
   dimensions: Map<string, { label: string; quantityLabel: string | null; rows: NonNullable<CommercialDataInput["dimensions"]>[number]["rows"] }>;
   extraMetrics: NonNullable<CommercialDataInput["extraMetrics"]>;
+  customers: { new: number | null; returning: number | null } | null;
+  tables: Map<string, { title: string; columns: string[]; rows: string[][] }>;
   context: CommercialDataInput["context"];
   insights: ParsedInsight[];
   sections: Set<CommercialSection>;
@@ -57,6 +62,8 @@ const ROLE_LABEL: Record<SheetRole, string> = {
   funnel: "Funil",
   financial: "Financeiro",
   channels: "Canais",
+  customers: "Clientes (novos × recorrentes)",
+  table: "Tabela",
   dimension: "Dimensão",
   dimensions: "Dimensões",
   extraMetrics: "Indicadores",
@@ -74,7 +81,7 @@ export function normalizeCommercial(
     const key = periodKey(p);
     let a = accs.get(key);
     if (!a) {
-      a = { period: p, funnel: new Map(), financial: null, channels: [], dimensions: new Map(), extraMetrics: [], context: null, insights: [], sections: new Set() };
+      a = { period: p, funnel: new Map(), financial: null, channels: [], dimensions: new Map(), extraMetrics: [], customers: null, tables: new Map(), context: null, insights: [], sections: new Set() };
       accs.set(key, a);
     }
     return a;
@@ -94,11 +101,13 @@ export function normalizeCommercial(
       sheets.push({ name: sheet.name, rows: sheet.rows.length, recognizedAs: null });
       continue;
     }
-    sheets.push({ name: sheet.name, rows: sheet.rows.length, recognizedAs: role === "dimension" ? `Dimensão: ${ctx.csvDimensionLabel ?? sheet.name}` : ROLE_LABEL[role] });
+    sheets.push({ name: sheet.name, rows: sheet.rows.length, recognizedAs: role === "dimension" ? (hasDimensionMeasures(sheet) ? `Detalhamento: ${ctx.csvDimensionLabel ?? sheet.name}` : `Tabela: ${sheet.name}`) : role === "table" ? `Tabela: ${sheet.name}` : ROLE_LABEL[role] });
     const handlers: Record<SheetRole, () => void> = {
       funnel: () => readFunnel(sheet, ctx, issues, acc),
       financial: () => readFinancial(sheet, ctx, issues, acc),
       channels: () => readChannels(sheet, ctx, issues, acc),
+      customers: () => readCustomers(sheet, ctx, issues, acc),
+      table: () => readTable(sheet, ctx, issues, acc),
       dimension: () => readDimension(sheet, ctx.csvDimensionLabel ?? sheet.name, ctx, issues, acc),
       dimensions: () => readDimensionsLong(sheet, ctx, issues, acc),
       extraMetrics: () => readExtraMetrics(sheet, ctx, issues, acc),
@@ -131,6 +140,8 @@ export function normalizeCommercial(
       channels: a.channels,
       dimensions: [...a.dimensions.entries()].filter(([, d]) => d.rows.length).map(([k, d]) => ({ key: k, label: d.label, quantityLabel: d.quantityLabel, rows: d.rows })),
       extraMetrics: a.extraMetrics,
+      customers: a.customers,
+      tables: [...a.tables.entries()].filter(([, t]) => t.rows.length).map(([k, t]) => ({ key: k, title: t.title, columns: t.columns, rows: t.rows })),
       context: a.context,
     };
     warnCommercial(data, label, issues, partial);
@@ -172,7 +183,8 @@ function readFunnel(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector,
   // Taxas e totais ("Taxa de conversão (%)", "Total") são calculados pelo sistema: não são etapas.
   const derived = h.filter((c) => c !== periodCol && (/^(taxa|conversao|percentual|total)\b/.test(normalizeText(c)) || c.includes("%")));
   if (derived.length) issues.warn("funnel_rate_columns", `As colunas ${derived.map((c) => `"${c}"`).join(", ")} da aba Funil foram ignoradas: taxas e totais são calculados pelo portal.`, { sheet: sheet.name });
-  const candidates = h.filter((c) => c !== periodCol && !derived.includes(c) && !/^(obs|observa|nota|coment)/.test(normalizeText(c)));
+  const cust = customerColumns(h, [periodCol]);
+  const candidates = h.filter((c) => c !== periodCol && c !== cust.newCol && c !== cust.returningCol && !derived.includes(c) && !/^(obs|observa|nota|coment)/.test(normalizeText(c)));
   const numeric = candidates.filter((c) => sheet.rows.some((r) => numberCell(r.cells[c]).value !== null));
   const stageCols = numeric.length ? numeric : candidates;
   if (!stageCols.length) return issues.error("missing_column", "A aba Funil não tem colunas de etapas.", { sheet: sheet.name });
@@ -186,6 +198,7 @@ function readFunnel(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector,
       a.funnel.set(slugify(col) || `etapa-${i + 1}`, { label: col, order: i + 1, value: qty.value === null ? null : Math.max(0, qty.value) });
     });
     a.sections.add("funnel");
+    readCustomerCells(sheet, row, cust, issues, a);
   }
 }
 
@@ -218,6 +231,7 @@ function readFinancial(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollect
       averageTicket: read(ticketCol),
     };
     a.sections.add("financial");
+    readCustomerCells(sheet, row, customerColumns(h, [periodCol, revenueCol, investCol, salesCol, attributedCol, otherCol, ticketCol]), issues, a);
   }
 }
 
@@ -282,18 +296,29 @@ function readChannels(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollecto
   }
 }
 
-const DIM_ITEM = ["item", "nome", "descricao", "servico", "profissional", "terapeuta", "unidade", "produto", "especialidade", "procedimento", "categoria", "tipo"];
+const DIM_ITEM = ["item", "nome", "descricao", "servico", "profissional", "terapeuta", "massagem", "unidade", "produto", "especialidade", "procedimento", "categoria", "tipo"];
 
-function readDimensionRows(sheet: RawSheet, rows: RawSheet["rows"], dimLabel: string, ctx: PeriodContext, issues: IssueCollector, acc: (p: Period) => Acc, exclude: Array<string | null>) {
-  const h = sheet.headers;
+/** Colunas de um detalhamento (serviços, profissionais…): nome do item, medidas e status. */
+function dimensionColumns(h: string[], exclude: Array<string | null>) {
   const periodCol = findColumn(h, PERIOD);
   const itemCol = findColumn(h, DIM_ITEM, [periodCol, ...exclude]) ?? h.find((c) => c !== periodCol && !exclude.includes(c)) ?? null;
-  if (!itemCol) return issues.error("missing_column", `A aba ${sheet.name} precisa de uma coluna com o nome de cada item.`, { sheet: sheet.name });
   const leadsCol = findColumn(h, ["leads", "contatos"], [itemCol]);
   const convCol = findColumn(h, ["conversoes", "conversao", "fechamentos", "conversions"], [itemCol]);
   const revenueCol = findColumn(h, ["receita", "faturamento", "revenue", "valor"], [itemCol]);
   const qtyCol = findColumn(h, ["quantidade", "qtd", "atendimentos", "sessoes", "vendas", "volume", "clientes", "total"], [itemCol, leadsCol, convCol, revenueCol]);
-  const noteCol = findColumn(h, ["observacao", "obs", "status", "nota"], [itemCol]);
+  const noteCol = findColumn(h, ["status", "situacao", "observacao", "obs", "nota"], [itemCol]);
+  return { periodCol, itemCol, leadsCol, convCol, revenueCol, qtyCol, noteCol };
+}
+
+/** A aba tem números de detalhamento? Sem eles, ela é uma tabela livre (ex.: "Próximos passos"). */
+function hasDimensionMeasures(sheet: RawSheet): boolean {
+  const c = dimensionColumns(sheet.headers, []);
+  return Boolean(c.itemCol && (c.leadsCol || c.convCol || c.revenueCol || c.qtyCol));
+}
+
+function readDimensionRows(sheet: RawSheet, rows: RawSheet["rows"], dimLabel: string, ctx: PeriodContext, issues: IssueCollector, acc: (p: Period) => Acc, exclude: Array<string | null>) {
+  const { periodCol, itemCol, leadsCol, convCol, revenueCol, qtyCol, noteCol } = dimensionColumns(sheet.headers, exclude);
+  if (!itemCol) return issues.error("missing_column", `A aba ${sheet.name} precisa de uma coluna com o nome de cada item.`, { sheet: sheet.name });
   if (!leadsCol && !convCol && !revenueCol && !qtyCol) {
     return issues.warn("unrecognized_sheet", `A aba "${sheet.name}" não tem colunas numéricas reconhecidas (Leads, Conversões, Quantidade ou Receita) e foi ignorada.`, { sheet: sheet.name });
   }
@@ -321,7 +346,92 @@ function readDimensionRows(sheet: RawSheet, rows: RawSheet["rows"], dimLabel: st
 }
 
 function readDimension(sheet: RawSheet, label: string, ctx: PeriodContext, issues: IssueCollector, acc: (p: Period) => Acc) {
+  if (!hasDimensionMeasures(sheet)) return readTable(sheet, ctx, issues, acc);
   readDimensionRows(sheet, sheet.rows, label, ctx, issues, acc, []);
+}
+
+/** Tabela livre: cada linha como veio, por período (coluna Mês ou o período escolhido no assistente). */
+function readTable(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector, acc: (p: Period) => Acc) {
+  const h = sheet.headers;
+  const periodCol = findColumn(h, PERIOD);
+  const columns = h.filter((c) => c !== periodCol && sheet.rows.some((r) => tableCell(r.cells[c]) !== ""));
+  if (!columns.length) return;
+  const key = slugify(sheet.name) || "tabela";
+  for (const row of sheet.rows) {
+    const cells = columns.map((c) => tableCell(row.cells[c]));
+    if (cells.every((c) => !c)) continue;
+    const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
+    if (!period) continue;
+    const a = acc(period);
+    let t = a.tables.get(key);
+    if (!t) {
+      t = { title: sheet.name.trim().slice(0, 120), columns: columns.map((c) => c.slice(0, 80)), rows: [] };
+      a.tables.set(key, t);
+    }
+    t.rows.push(cells.map((c) => c.slice(0, 500)));
+    a.sections.add("tables");
+  }
+}
+
+function tableCell(v: CellValue | undefined): string {
+  if (v === null || v === undefined) return "";
+  if (v instanceof Date) return formatDate(dateCell(v));
+  if (typeof v === "number") return v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  return textCell(v) ?? "";
+}
+
+/** Novos × recorrentes: só nomes exatos, para não confundir com etapas como "Novos contatos". */
+const NEW_CUSTOMERS = ["novos clientes", "clientes novos", "novos", "primeira vez", "novos pacientes", "pacientes novos", "new customers"];
+const RETURNING_CUSTOMERS = ["clientes recorrentes", "recorrentes", "recorrencia", "clientes de retorno", "pacientes recorrentes", "returning customers"];
+
+function customerColumns(headers: string[], exclude: Array<string | null>) {
+  const find = (aliases: string[], skip: Array<string | null>) => headers.find((c) => !skip.includes(c) && aliases.includes(normalizeText(c))) ?? null;
+  const newCol = find(NEW_CUSTOMERS, exclude);
+  return { newCol, returningCol: find(RETURNING_CUSTOMERS, [...exclude, newCol]) };
+}
+
+function readCustomerCells(sheet: RawSheet, row: RawSheet["rows"][number], cols: { newCol: string | null; returningCol: string | null }, issues: IssueCollector, a: Acc) {
+  if (!cols.newCol && !cols.returningCol) return;
+  const read = (col: string | null) => {
+    if (!col) return null;
+    const n = numberCell(row.cells[col]);
+    if (n.invalid) issues.error("invalid_number", `O valor de "${col}" não é um número (aba ${sheet.name}, linha ${row.line}).`, { sheet: sheet.name, row: row.line, column: col });
+    return n.value === null ? null : Math.abs(n.value);
+  };
+  setCustomers(a, read(cols.newCol), read(cols.returningCol));
+}
+
+function setCustomers(a: Acc, fresh: number | null, returning: number | null) {
+  if (fresh === null && returning === null) return;
+  a.customers = { new: fresh ?? a.customers?.new ?? null, returning: returning ?? a.customers?.returning ?? null };
+  a.sections.add("customers");
+}
+
+/**
+ * Aba Clientes: colunas Novos | Recorrentes (uma linha por mês) ou Tipo | Quantidade.
+ * Sem novos/recorrentes, "Clientes" é um detalhamento comum (ex.: clientes por cidade).
+ */
+function readCustomers(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector, acc: (p: Period) => Acc) {
+  const h = sheet.headers;
+  const periodCol = findColumn(h, PERIOD);
+  const cols = customerColumns(h, [periodCol]);
+  const typeCol = cols.newCol || cols.returningCol ? null : findColumn(h, ["tipo de cliente", "tipo", "categoria"], [periodCol]);
+  const qtyCol = typeCol ? findColumn(h, ["quantidade", "clientes", "total", "qtd"], [periodCol, typeCol]) : null;
+  if (!cols.newCol && !cols.returningCol && !(typeCol && qtyCol)) return readDimension(sheet, sheet.name, ctx, issues, acc);
+  for (const row of sheet.rows) {
+    const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
+    if (!period) continue;
+    if (typeCol && qtyCol) {
+      const type = normalizeText(textCell(row.cells[typeCol]) ?? "");
+      const n = numberCell(row.cells[qtyCol]);
+      if (n.invalid) issues.error("invalid_number", `O valor de "${qtyCol}" não é um número (aba ${sheet.name}, linha ${row.line}).`, { sheet: sheet.name, row: row.line, column: qtyCol });
+      if (n.value === null) continue;
+      if (/^novo|primeira/.test(type)) setCustomers(acc(period), Math.abs(n.value), null);
+      else if (/recorr|retorno/.test(type)) setCustomers(acc(period), null, Math.abs(n.value));
+      continue;
+    }
+    readCustomerCells(sheet, row, cols, issues, acc(period));
+  }
 }
 
 /** Aba "Dimensões" com coluna "Dimensão" agrupando vários tipos numa só tabela. */
@@ -342,6 +452,7 @@ function readExtraMetrics(sheet: RawSheet, ctx: PeriodContext, issues: IssueColl
   const nameCol = findColumn(h, ["indicador", "metrica", "nome", "indicator"], [periodCol]);
   const valueCol = findColumn(h, ["valor", "quantidade", "total", "value"], [nameCol]);
   if (!nameCol || !valueCol) return issues.error("missing_column", 'A aba Indicadores precisa das colunas "Indicador" (ou Métrica, Nome) e "Valor" (ou Quantidade, Total).', { sheet: sheet.name });
+  const computed = new Set<string>();
   const formatCol = findColumn(h, ["formato", "tipo", "format"], [nameCol, valueCol]);
   const dirCol = findColumn(h, ["direcao", "melhor quando", "direction"], [nameCol, valueCol]);
   for (const row of sheet.rows) {
@@ -349,11 +460,18 @@ function readExtraMetrics(sheet: RawSheet, ctx: PeriodContext, issues: IssueColl
     const label = textCell(row.cells[nameCol]);
     if (!period || !label) continue;
     const fmt = normalizeText(formatCol ? (textCell(row.cells[formatCol]) ?? "") : "");
-    const format = /moeda|real|r\$|currency|valor/.test(fmt) ? "currency" : /percent|%|taxa/.test(fmt) ? "percent" : /decimal/.test(fmt) ? "decimal" : "integer";
+    const format = /moeda|real|r\$|currency|valor/.test(fmt) ? "currency" : /percent|%|taxa/.test(fmt) ? "percent" : /multiplic|vezes|roas|^x$/.test(fmt) ? "multiplier" : /decimal/.test(fmt) ? "decimal" : "integer";
     const n = numberCell(row.cells[valueCol]);
     if (n.invalid) issues.error("invalid_number", `O valor do indicador "${label}" não é um número (aba ${sheet.name}, linha ${row.line}).`, { sheet: sheet.name, row: row.line, column: valueCol });
     const dir = normalizeText(dirCol ? (textCell(row.cells[dirCol]) ?? "") : "");
     const a = acc(period);
+    // "Novos clientes" e "Clientes recorrentes" têm lugar próprio no portal (novos × recorrentes).
+    const name = normalizeText(label);
+    if (NEW_CUSTOMERS.includes(name) || RETURNING_CUSTOMERS.includes(name)) {
+      if (!n.invalid && n.value !== null) setCustomers(a, NEW_CUSTOMERS.includes(name) ? Math.abs(n.value) : null, RETURNING_CUSTOMERS.includes(name) ? Math.abs(n.value) : null);
+      continue;
+    }
+    if (COMPUTED_INDICATOR.test(name)) computed.add(label);
     a.extraMetrics.push({
       key: slugify(label) || `indicador-${row.line}`,
       label,
@@ -363,7 +481,19 @@ function readExtraMetrics(sheet: RawSheet, ctx: PeriodContext, issues: IssueColl
     });
     a.sections.add("extraMetrics");
   }
+  if (computed.size) {
+    const list = [...computed].slice(0, 6).map((l) => `"${l}"`).join(", ");
+    issues.warn(
+      "computed_indicators",
+      `${computed.size === 1 ? "O indicador" : "Os indicadores"} ${list}${computed.size > 6 ? " e outros" : ""} ${computed.size === 1 ? "parece" : "parecem"} algo que o portal já calcula sozinho (acumulados na visão geral, conversões do funil, ROI e participação de cada canal, ticket médio). Se for, pode tirar da aba Indicadores para não repetir no relatório.`,
+      { sheet: sheet.name },
+    );
+  }
 }
+
+/** Indicadores que o portal já calcula (acumulados, conversões, ROI/ROAS, ticket, participação, custos por resultado, receita/investimento por canal). */
+const COMPUTED_INDICATOR =
+  /acumulad|^(taxa de )?conversao\b|^lead\b.*\b(agend|comparec|paciente|cliente)|^agend\b.*\bcomparec|^ticket medio|^roi\b|^roas\b|^retorno (sobre|por|da midia)|^participacao\b|^custo por\b|^cpl\b|^cpa\b|^resultado liquido|^receita (de |do |da )?(indicacao|google|instagram|meta|ads|doctoralia|outros|sites?)|^investimento (de |do |da |em )?(meta|google|instagram|ads|sites?)/;
 
 function readInsights(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector, acc: (p: Period) => Acc) {
   const h = sheet.headers;
@@ -409,7 +539,9 @@ function warnCommercial(data: CommercialDataInput, label: string, issues: IssueC
     const cur = stages[i].value;
     if (prev !== null && cur !== null && cur > prev) issues.warn("funnel_increase", `Em ${label}, a etapa "${stages[i].label}" (${formatInteger(cur)}) é maior que "${stages[i - 1].label}" (${formatInteger(prev)}). Confira se a ordem das etapas está correta.`);
   }
-  for (const c of data.channels ?? []) {
+  // Só parece esquecimento quando alguns canais têm conversões e outros não (sem a coluna, é escolha do cliente).
+  const someConversions = (data.channels ?? []).some((c) => c.conversions != null);
+  for (const c of someConversions ? (data.channels ?? []) : []) {
     if (c.conversions == null && c.leads != null) issues.warn("channel_no_conversion", `O canal "${c.label}" não tem conversões informadas em ${label}.`);
   }
   const leadSum = (data.channels ?? []).reduce((s, c) => s + (c.leads ?? 0), 0);

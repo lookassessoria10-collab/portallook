@@ -43,6 +43,8 @@ export interface CommercialViewModel {
   dimensions: DimensionView[];
   extraMetrics: Array<ExtraMetric & { formatted: string; comparison: Comparison | null }>;
   context: CommercialData["context"];
+  /** Tabelas livres do período (oportunidades, plano de ação…), como vieram. */
+  tables: CommercialData["tables"];
   metrics: CommercialMetrics;
 }
 
@@ -121,6 +123,13 @@ export function buildCommercialViewModel(
   addSecondary("cpl", m.cpl, "cost");
   addSecondary("cpa", m.cpa, "cost", costPerLabel(m.finalStageLabel));
   addSecondary("sales", m.sales, "sales");
+  if (m.newCustomers !== null) {
+    secondary.push({ ...kpi("newCustomers", m.newCustomers, ctx, { icon: "newFollowers" }), footnote: m.newCustomerShare !== null ? `${formatPercent(m.newCustomerShare, 0)} dos clientes` : null });
+  }
+  if (m.returningCustomers !== null) {
+    const share = m.newCustomerShare !== null ? 1 - m.newCustomerShare : null;
+    secondary.push({ ...kpi("returningCustomers", m.returningCustomers, ctx, { icon: "followers" }), footnote: share !== null ? `${formatPercent(share, 0)} dos clientes` : null });
+  }
 
   // Financeiro: só aparece se houver receita ou investimento.
   let financial: CommercialViewModel["financial"] = null;
@@ -150,13 +159,14 @@ export function buildCommercialViewModel(
     channels: channelRows.length ? { rows: channelRows, measures: [...measures], hasInvestment: channelRows.some((c) => isFiniteNumber(c.investment)) } : null,
     financial,
     trend: buildTrend(input.history, m),
-    dimensions: data.dimensions.map(buildDimensionView),
+    dimensions: data.dimensions.map(buildDimensionView).filter((d) => d.rows.length),
     extraMetrics: data.extraMetrics.map((e) => ({
       ...e,
       formatted: formatValue(e.value, e.format, data.currency),
       comparison: input.previous ? compareValues(e.value, input.previous.summary[`extra.${e.key}`] ?? null, { direction: e.direction as MetricDirection }) : null,
     })),
     context: data.context,
+    tables: data.tables,
     metrics: m,
   };
 }
@@ -170,7 +180,7 @@ export function orderByConfig(items: KpiView[], order: string[]): KpiView[] {
   });
 }
 
-function channelMeta(c: ChannelMetrics, currency: string, finalLabel: string): string[] {
+export function channelMeta(c: ChannelMetrics, currency: string, finalLabel: string): string[] {
   const meta: string[] = [];
   if (isFiniteNumber(c.conversions)) meta.push(`${formatInteger(c.conversions)} ${c.conversions === 1 ? lowerFirst(singularizePt(finalLabel)) : lowerFirst(finalLabel)}`);
   if (c.conversionRate !== null) meta.push(`conversão ${formatPercent(c.conversionRate)}`);

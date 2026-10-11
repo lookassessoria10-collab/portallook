@@ -252,14 +252,26 @@ export function FormatGuide({
             <>
               {paste ? (
                 <li>
-                  <strong>Uma tabela por seção</strong>, cada uma com o título na linha de cima: <Code>## Funil</Code> (obrigatória), <Code>## Financeiro</Code>, <Code>## Canais</Code>, <Code>## Indicadores</Code>, <Code>## Insights</Code>, <Code>## Contexto</Code>. Outro título (ex.: <Code>## Serviços</Code>) vira um detalhamento com esse nome. Só a primeira tabela pode ficar sem título: ela é lida como Funil.
+                  <strong>Uma tabela por seção</strong>, cada uma com o título na linha de cima: <Code>## Funil</Code> (obrigatória), <Code>## Financeiro</Code>, <Code>## Clientes</Code>, <Code>## Canais</Code>, <Code>## Indicadores</Code>, <Code>## Insights</Code>, <Code>## Contexto</Code>. Outro título com números (ex.: <Code>## Terapeutas</Code>) vira um detalhamento com esse nome; sem números (ex.: <Code>## Plano de ação</Code>), uma tabela como veio. Só a primeira tabela pode ficar sem título: ela é lida como Funil.
                 </li>
               ) : null}
               <li>
                 Cada tabela tem a coluna do período: {weekly ? <><strong>Período</strong> com a data da semana (<Code>21/09/2026</Code> ou <Code>21/09/2026 a 27/09/2026</Code>)</> : <><strong>Mês</strong> (<Code>01/2026</Code> ou <Code>janeiro de 2026</Code>)</>}, uma linha por {weekly ? "semana" : "mês"}.{periodNote}
               </li>
               <li>
-                <strong>Funil:</strong> as colunas além do período são as etapas, na ordem (Leads, Agendamentos, Comparecimentos…); colunas de taxa ou total são ignoradas. <strong>Financeiro:</strong> Receita, Investimento em mídia, Vendas, Receita atribuída. <strong>Canais:</strong> Canal, Tipo (Mídia paga, Orgânico, Indicação…), Leads, Vendas, Receita, Investimento.
+                <strong>Modelo único:</strong> todas as abas são opcionais, menos o Funil — a aba que o cliente não usa pode ser apagada ou ficar vazia, e a seção some do portal. Os nomes seguem o cliente (Terapeutas ou Profissionais, Massagens ou Serviços, Consultas ou Comparecimentos).
+              </li>
+              <li>
+                <strong>Funil:</strong> as colunas além do período são as etapas, na ordem (Leads, Agendamentos, Comparecimentos…); colunas de taxa ou total são ignoradas. <strong>Financeiro:</strong> Receita, Investimento em mídia, Vendas e Receita atribuída (só a receita dos canais pagos, quando o retorno deve considerar só a mídia). <strong>Clientes:</strong> Novos clientes e Clientes recorrentes.
+              </li>
+              <li>
+                <strong>Canais:</strong> Canal, Tipo (Mídia paga, Orgânico, Indicação…), Leads, Comparecimentos (ou Vendas), Receita e Investimento — o retorno de cada canal pago e a participação de cada canal são calculados.
+              </li>
+              <li>
+                <strong>Detalhamentos</strong> (qualquer aba com números: Serviços, Terapeutas, Massagens, Procedimentos…): o nome do item, Atendimentos (ou Quantidade), Receita e, se quiser, <strong>Status</strong> (Ativa, Inativa, Destaque). Viram ranking no mês e acumulado na visão geral, com coluna por mês. Linha só com Status, sem números, atualiza o status no acumulado.
+              </li>
+              <li>
+                <strong>Tabelas livres:</strong> Oportunidades, Plano de ação, Próximos passos, Motivos de perda (ou qualquer aba sem números) aparecem no mês exatamente como vieram. <strong>Indicadores:</strong> só o que o portal não calcula — acumulados, conversões do funil, ticket médio, ROI e participação dos canais já são calculados (formato <Code>Multiplicador</Code> mostra “7,42x”).
               </li>
             </>
           )}

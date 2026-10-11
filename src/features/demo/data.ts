@@ -89,6 +89,22 @@ function isaborCommercial(): DemoReport[] {
         { key: "doctoralia", label: "Doctoralia", kind: "marketplace", leads: row.ch.doc[0], conversions: row.ch.doc[1], revenue: row.ch.doc[2], investment: null },
         { key: "outros", label: "Outros", kind: "other", leads: row.ch.out[0], conversions: row.ch.out[1], revenue: row.ch.out[2], investment: null },
       ],
+      // Tabelas livres do mês mais recente: o que não é número (agenda já marcada, próximos passos).
+      tables:
+        row.m === 8
+          ? [
+              { key: "oportunidades", title: "Oportunidades", columns: ["Origem", "Data agendada", "Situação"], rows: [["Indicação", "02/09/2026", "Aguardando atendimento"], ["Instagram", "09/09/2026", "Aguardando atendimento"]] },
+              {
+                key: "plano-de-acao",
+                title: "Plano de ação",
+                columns: ["#", "Ação", "Impacto esperado", "Urgência"],
+                rows: [
+                  ["1", "Roteiro de triagem no WhatsApp antes de falar de valores", "Mais agendamentos entre os contatos do Instagram", "Alta"],
+                  ["2", "Material de indicação para entregar após a consulta", "Escalar o canal que mais converte, sem custo de mídia", "Média"],
+                ],
+              },
+            ]
+          : [],
     };
     const insights: DemoReport["insights"] =
       row.m === 8
@@ -308,18 +324,10 @@ function serenityCommercial(): DemoReport[] {
           key: "profissionais",
           label: "Profissionais",
           quantityLabel: "Atendimentos",
-          rows: SERENITY_PROS.map((p, i) => ({ key: `pro-${i}`, label: p, quantity: proQty[i], revenue: proQty[i] * ticket })),
-        },
-        {
-          key: "tipo-de-cliente",
-          label: "Novos x recorrentes",
-          quantityLabel: "Clientes",
-          rows: [
-            { key: "novos", label: "Novos clientes", quantity: newClients },
-            { key: "recorrentes", label: "Clientes recorrentes", quantity: row.comp - newClients },
-          ],
+          rows: SERENITY_PROS.map((p, i) => ({ key: `pro-${i}`, label: p, quantity: proQty[i], revenue: proQty[i] * ticket, note: row.m === 8 ? (i === 0 ? "Destaque" : i === 5 ? "Nova" : "Ativa") : null })),
         },
       ],
+      customers: { new: newClients, returning: row.comp - newClients },
     };
     return {
       type: "commercial",

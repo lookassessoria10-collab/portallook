@@ -88,7 +88,11 @@ describe("normalização comercial", () => {
     const codes = issues.warnings.map((w) => w.code);
     expect(codes).toContain("missing_revenue");
     expect(codes).toContain("channel_sum_mismatch");
-    expect(codes).toContain("channel_no_conversion");
+    // Sem coluna de conversões nos canais é escolha do cliente; o aviso fica para o canal que ficou sem, quando os outros têm.
+    expect(codes).not.toContain("channel_no_conversion");
+    const partial = new IssueCollector();
+    normalizeCommercial(book({ Funil: [["Período", "Leads", "Vendas"], ["09/2026", 80, 10]], Canais: [["Período", "Canal", "Leads", "Vendas"], ["09/2026", "Google Ads", 60, 8], ["09/2026", "Meta Ads", 20, null]] }), monthCtx, partial);
+    expect(partial.warnings.find((w) => w.code === "channel_no_conversion")?.message).toContain("Meta Ads");
   });
 
   it("sem coluna de período usa o período escolhido no assistente", () => {

@@ -32,6 +32,11 @@ export interface CommercialMetrics {
   roiPercent: number | null;
   roasBasis: RoasBasis | null;
   otherCosts: number | null;
+  /** Novos × recorrentes (aba Clientes). */
+  newCustomers: number | null;
+  returningCustomers: number | null;
+  /** Fração de novos entre os clientes atendidos. */
+  newCustomerShare: number | null;
 }
 
 export function sortStages(stages: readonly FunnelStage[]): FunnelStage[] {
@@ -93,6 +98,9 @@ export function computeCommercialMetrics(data: CommercialData): CommercialMetric
     roiPercent,
     roasBasis: roas === null ? null : roasBasis,
     otherCosts: f?.otherCosts ?? null,
+    newCustomers: data.customers?.new ?? null,
+    returningCustomers: data.customers?.returning ?? null,
+    newCustomerShare: safeDivide(data.customers?.new ?? null, sumMaybe([data.customers?.new, data.customers?.returning])),
   };
 }
 
@@ -144,7 +152,9 @@ export function buildDimensionView(dimension: Dimension): DimensionView {
   const measures = (["revenue", "quantity", "conversions", "leads"] as const).filter((m) => dimension.rows.some((r) => isFiniteNumber(r[m])));
   const measure: DimensionMeasure = measures[0] ?? "quantity";
   const total = sumMaybe(dimension.rows.map((r) => r[measure]));
-  const rows = [...dimension.rows]
+  // Linha só com status (sem números) atualiza o status no acumulado, mas não é item do mês.
+  const rows = dimension.rows
+    .filter((r) => measures.some((m) => isFiniteNumber(r[m])))
     .map((r) => ({
       ...r,
       share: safeDivide(r[measure], total),
@@ -175,6 +185,8 @@ export function commercialSummary(data: CommercialData): { summary: ReportSummar
     cpa: m.cpa,
     roas: m.roas,
     roiPercent: m.roiPercent,
+    newCustomers: m.newCustomers,
+    returningCustomers: m.returningCustomers,
   };
   const labels: Record<string, string> = { firstStage: m.firstStageLabel, finalStage: m.finalStageLabel };
   for (const s of m.stages) {
@@ -185,7 +197,21 @@ export function commercialSummary(data: CommercialData): { summary: ReportSummar
   for (const c of data.channels) {
     if (isFiniteNumber(c.leads)) summary[`channel.${c.key}.leads`] = c.leads;
     if (isFiniteNumber(c.revenue)) summary[`channel.${c.key}.revenue`] = c.revenue;
+    if (isFiniteNumber(c.conversions)) summary[`channel.${c.key}.conversions`] = c.conversions;
+    if (isFiniteNumber(c.investment)) summary[`channel.${c.key}.investment`] = c.investment;
     labels[`channel.${c.key}`] = c.label;
+    labels[`channel.${c.key}.kind`] = c.kind;
+  }
+  // Detalhamentos item a item: a visão geral monta o ranking acumulado (ex.: terapeutas) sem abrir cada mês.
+  for (const d of data.dimensions) {
+    labels[`dim.${d.key}`] = d.label;
+    if (d.quantityLabel) labels[`dim.${d.key}.q`] = d.quantityLabel;
+    for (const r of d.rows) {
+      const base = `dim.${d.key}.${r.key}`;
+      labels[base] = r.label;
+      if (r.note) labels[`${base}.note`] = r.note;
+      for (const m of ["quantity", "revenue", "leads", "conversions"] as const) if (isFiniteNumber(r[m])) summary[`${base}.${m}`] = r[m];
+    }
   }
   return { summary, labels };
 }

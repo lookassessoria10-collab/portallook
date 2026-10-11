@@ -34,6 +34,8 @@ export const METRICS = {
   cpl: def({ key: "cpl", label: "Custo por lead", shortLabel: "CPL", format: "currency", direction: "lowerIsBetter", comparison: "relative", description: "Investimento em mídia ÷ leads." }),
   cpa: def({ key: "cpa", label: "Custo por conversão", shortLabel: "CPA", format: "currency", direction: "lowerIsBetter", comparison: "relative", description: "Investimento em mídia ÷ conversões finais." }),
   roas: def({ key: "roas", label: "Retorno sobre mídia", shortLabel: "ROAS", format: "multiplier", direction: "higherIsBetter", comparison: "relative", description: "Receita atribuída ÷ investimento em mídia. 3,0x = R$ 3 para cada R$ 1 investido." }),
+  newCustomers: def({ key: "newCustomers", label: "Novos clientes", shortLabel: "Novos", format: "integer", direction: "higherIsBetter", comparison: "relative", description: "Clientes atendidos pela primeira vez no período." }),
+  returningCustomers: def({ key: "returningCustomers", label: "Clientes recorrentes", shortLabel: "Recorrentes", format: "integer", direction: "higherIsBetter", comparison: "relative", description: "Clientes que já tinham sido atendidos e voltaram no período." }),
   roiPercent: def({ key: "roiPercent", label: "Retorno percentual", shortLabel: "ROI", format: "percent", direction: "higherIsBetter", comparison: "points", description: "(Receita atribuída − investimento) ÷ investimento." }),
 
   // Tráfego

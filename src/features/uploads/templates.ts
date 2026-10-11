@@ -12,21 +12,29 @@ function sheet(rows: Row[], widths?: number[]) {
   return ws;
 }
 
+/**
+ * Modelo comercial único da Look: todas as abas que um cliente pode ter. Cada aba é
+ * opcional, exceto Funil — o portal mostra só o que vier preenchido, com os nomes do
+ * cliente ("Terapeutas", "Massagens", "Consultas"…). Ver commercial/normalize.
+ */
 export function commercialTemplateWorkbook(): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
     wb,
     sheet(
       [
-        ["Modelo Portal Look — Relatório Comercial"],
-        ["Cada aba é opcional, exceto Funil. Use uma linha por período (mês) e item."],
-        ["Funil: as colunas depois de Período são as etapas, na ordem (Leads, Agendamentos, Comparecimentos… — use os nomes do cliente)."],
-        ["Deixe a célula vazia quando a etapa não foi registrada (diferente de zero)."],
-        ["Canais — Tipo: Mídia paga, Orgânico, Indicação, Recorrente, Plataforma, Offline, Parceria ou Outro."],
-        ["Abas extras (Serviços, Profissionais, Unidades, Produtos…) viram detalhamentos automaticamente."],
-        ["Insights — Tipo: Positivo, Atenção, Recomendação ou Neutro."],
+        ["Modelo Portal Look — Relatório Comercial (modelo único)"],
+        ["Cada aba é opcional, exceto Funil. Apague (ou deixe vazia) a aba que o cliente não usa: a seção some do portal. Use uma linha por mês e item."],
+        ["Funil: as colunas depois de Período são as etapas, na ordem (Leads, Agendamentos, Comparecimentos… — use os nomes do cliente). Vazio = não registrado (diferente de zero)."],
+        ["Financeiro: Receita, Investimento em mídia, Receita atribuída (só a receita dos canais pagos, quando o retorno deve considerar só a mídia) e Vendas."],
+        ["Clientes: Novos clientes e Clientes recorrentes de cada mês."],
+        ["Canais — uma linha por canal e mês: Leads, Comparecimentos, Receita e Investimento. Tipo: Mídia paga, Orgânico, Indicação, Recorrente, Plataforma, Offline, Parceria ou Outro. O ROI e a participação de cada canal são calculados pelo portal."],
+        ["Detalhamentos: qualquer aba com números vira um ranking com o nome dela — Serviços, Profissionais, Terapeutas, Massagens, Procedimentos, Unidades… Colunas: o nome do item, Atendimentos (ou Quantidade), Receita e, se quiser, Status (Ativa, Inativa, Destaque)."],
+        ["Tabelas livres: Oportunidades, Plano de ação, Próximos passos, Motivos de perda (ou qualquer aba sem números) aparecem como vieram, no mês."],
+        ["Indicadores: só o que o portal não calcula (ex.: Marcações para o mês seguinte). Acumulados, conversões, ticket médio, ROI e participação dos canais já são calculados — não precisam ser digitados."],
+        ["Insights — Tipo: Positivo, Atenção, Recomendação ou Neutro. Contexto: um aviso no topo do mês (ex.: mês parcial)."],
       ],
-      [110],
+      [130],
     ),
     "Instruções",
   );
@@ -53,6 +61,18 @@ export function commercialTemplateWorkbook(): XLSX.WorkBook {
       [12, 12, 22, 10, 18],
     ),
     "Financeiro",
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Período", "Novos clientes", "Clientes recorrentes"],
+        ["08/2026", 6, 2],
+        ["09/2026", 8, 3],
+      ],
+      [12, 16, 20],
+    ),
+    "Clientes",
   );
   XLSX.utils.book_append_sheet(
     wb,
@@ -85,6 +105,42 @@ export function commercialTemplateWorkbook(): XLSX.WorkBook {
     wb,
     sheet(
       [
+        ["Período", "Profissional", "Atendimentos", "Receita", "Status"],
+        ["09/2026", "Dra. Ana", 7, 2975, "Destaque"],
+        ["09/2026", "Dr. Bruno", 4, 1700, "Ativo"],
+      ],
+      [12, 20, 14, 10, 12],
+    ),
+    "Profissionais",
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Período", "Origem", "Data agendada", "Situação"],
+        ["09/2026", "Indicação", "02/10/2026", "Aguardando atendimento"],
+        ["09/2026", "Google", "28/10/2026", "Aguardando atendimento"],
+      ],
+      [12, 14, 14, 26],
+    ),
+    "Oportunidades",
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Período", "#", "Ação", "Impacto esperado", "Urgência"],
+        ["09/2026", 1, "Script de triagem antes do contato comercial", "Menos contatos fora do perfil", "Alta"],
+        ["09/2026", 2, "Reforçar a campanha que mais converteu", "Mais comparecimentos com a mesma verba", "Média"],
+      ],
+      [12, 4, 44, 36, 10],
+    ),
+    "Plano de ação",
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
         ["Período", "Indicador", "Valor", "Formato", "Direção"],
         ["09/2026", "Marcações para o mês seguinte", 4, "Número", "Maior é melhor"],
       ],
@@ -104,6 +160,7 @@ export function commercialTemplateWorkbook(): XLSX.WorkBook {
     ),
     "Insights",
   );
+  XLSX.utils.book_append_sheet(wb, sheet([["Período", "Título", "Descrição"], ["08/2026", "Agenda reduzida", "Atendimentos suspensos de 18 a 22/08."]], [12, 24, 60]), "Contexto");
   return wb;
 }
 

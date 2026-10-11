@@ -12,7 +12,7 @@ export const ParsedInsightSchema = z.object({
 });
 export type ParsedInsight = z.infer<typeof ParsedInsightSchema>;
 
-export const CommercialSectionSchema = z.enum(["funnel", "financial", "channels", "dimensions", "extraMetrics", "context"]);
+export const CommercialSectionSchema = z.enum(["funnel", "financial", "channels", "dimensions", "extraMetrics", "context", "customers", "tables"]);
 export type CommercialSection = z.infer<typeof CommercialSectionSchema>;
 
 export const ParsedPeriodSchema = z.object({

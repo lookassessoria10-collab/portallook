@@ -12,6 +12,7 @@ import type { Insight } from "@/features/reports/schema";
 import type { CommercialViewModel } from "@/features/commercial/view-model";
 import { ChannelBreakdown } from "./channel-breakdown";
 import { DimensionCard } from "./dimension-card";
+import { FreeTable } from "./free-table";
 
 /**
  * Ordem pensada para responder, nesta sequência: Como estamos? O que aconteceu?
@@ -40,7 +41,7 @@ export function CommercialDashboard({ vm, insights, currency }: { vm: Commercial
         {vm.secondary.length ? (
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {vm.secondary.map((k) => (
-              <MetricCard key={k.key} size="compact" label={k.label} value={k.value} format={k.format} currency={currency} comparison={k.comparison} reference={vm.reference} description={k.description} />
+              <MetricCard key={k.key} size="compact" label={k.label} value={k.value} format={k.format} currency={currency} comparison={k.comparison} reference={vm.reference} description={k.description} footnote={k.footnote} />
             ))}
           </div>
         ) : null}
@@ -109,6 +110,12 @@ export function CommercialDashboard({ vm, insights, currency }: { vm: Commercial
           </div>
         </DashboardSection>
       ) : null}
+
+      {vm.tables.map((t) => (
+        <DashboardSection key={t.key} id={`tabela-${t.key}`} title={t.title}>
+          <FreeTable table={t} />
+        </DashboardSection>
+      ))}
 
       {vm.extraMetrics.length ? (
         <DashboardSection id="indicadores" title="Indicadores adicionais">

@@ -306,7 +306,9 @@ Todos os schemas estão em `src/features/*/schema.ts` (Zod).
   - `funnel[] { key, label, order, value|null }` (funil dinâmico);
   - `financial { revenue, mediaInvestment, sales, attributedRevenue, otherCosts, averageTicket }`;
   - `channels[] { key, label, kind, leads, conversions, revenue, investment }`;
-  - `dimensions[] { key, label, quantityLabel, rows[] }`, genéricas: serviços, profissionais, unidades…;
+  - `dimensions[] { key, label, quantityLabel, rows[] }`, genéricas: serviços, profissionais, unidades… (cada linha com `note` = status);
+  - `customers { new, returning }` (novos × recorrentes);
+  - `tables[] { key, title, columns, rows }` (tabelas livres: oportunidades, plano de ação…);
   - `extraMetrics[]` (ex.: "Cirurgias geradas");
   - `context` (banner do período).
 - **TrafficData:** `campaigns[] { platform, name, investment, impressions, reach, clicks, linkClicks, results, resultType, resultLabel, conversions, attributedRevenue }`.
@@ -391,11 +393,15 @@ Outras ações:
 
 **Planilha comercial:**
 
-- **Abas reconhecidas:** Funil (obrigatória), Financeiro, Canais, Indicadores, Insights, Contexto e Dimensões.
+- **Modelo único** (`public/modelos/modelo-comercial.xlsx`): todas as abas são opcionais, menos Funil. A aba que o cliente não usa pode ser apagada ou ficar vazia — a seção some do portal. Os nomes seguem o cliente (Terapeutas/Profissionais, Massagens/Serviços, Consultas/Comparecimentos).
+- **Abas reconhecidas:** Funil (obrigatória), Financeiro, Clientes (novos × recorrentes: `Novos clientes | Clientes recorrentes`, ou `Tipo | Quantidade`), Canais, Indicadores, Insights, Contexto e Dimensões.
+- **Tabelas livres:** Oportunidades, Plano de ação, Próximos passos, Motivos de perda — ou qualquer aba sem números — aparecem no mês exatamente como vieram.
+- **Indicadores** são só para o que o portal não calcula: acumulados, conversões do funil, ticket, ROI e participação de cada canal já são calculados (o importador avisa quando um indicador parece calculado; formato `Multiplicador` mostra “7,42x”). "Novos clientes" e "Clientes recorrentes" informados como indicadores vão para novos × recorrentes.
 - **Formatos do funil:**
   - largo: `Período | Leads | Agendamentos | …`;
   - longo: `Período | Etapa | Ordem | Quantidade`.
-- **Qualquer outra aba** com colunas numéricas (Serviços, Profissionais, Unidades…) vira um detalhamento com o nome da aba.
+- **Qualquer outra aba** com colunas numéricas (Serviços, Profissionais, Terapeutas, Unidades…) vira um detalhamento com o nome da aba: ranking no mês (com ticket e `Status`, ex.: Ativa, Inativa, Destaque) e **acumulado na visão geral**, com coluna por mês. Uma linha só com Status, sem números, atualiza o status no acumulado sem aparecer no mês.
+- **Visão geral comercial:** além de funil, receita/investimento e tabela mês a mês, mostra leads e receita por canal, canais somados no período (conversão, ROAS, CPL), **retorno por canal pago** mês a mês (investimento, receita, retorno e total pago), novos × recorrentes e os detalhamentos acumulados — cada bloco só quando a planilha traz o dado.
 
 **Planilha de tráfego:**
 

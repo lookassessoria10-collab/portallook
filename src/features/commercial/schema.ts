@@ -62,11 +62,30 @@ export const DimensionSchema = z.object({
 });
 export type Dimension = z.infer<typeof DimensionSchema>;
 
+/** Clientes atendidos no período, por tipo (aba Clientes). */
+export const CustomersSchema = z.object({
+  new: Count.nullable().default(null),
+  returning: Count.nullable().default(null),
+});
+export type Customers = z.infer<typeof CustomersSchema>;
+
+/**
+ * Tabela livre do período, exibida como veio (ex.: "Oportunidades abertas", "Plano de ação").
+ * Para o que não é número calculável: agendamentos já marcados, próximos passos, motivos de perda.
+ */
+export const CommercialTableSchema = z.object({
+  key: z.string().min(1),
+  title: z.string().min(1).max(120),
+  columns: z.array(z.string().max(80)).min(1),
+  rows: z.array(z.array(z.string().max(500))).min(1),
+});
+export type CommercialTable = z.infer<typeof CommercialTableSchema>;
+
 export const ExtraMetricSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   value: Amount.nullable(),
-  format: z.enum(["integer", "decimal", "currency", "percent"]).default("integer"),
+  format: z.enum(["integer", "decimal", "currency", "percent", "multiplier"]).default("integer"),
   direction: z.enum(["higherIsBetter", "lowerIsBetter", "neutral"]).default("neutral"),
   description: z.string().max(240).nullable().default(null),
 });
@@ -81,6 +100,9 @@ export const CommercialDataSchema = z.object({
   channels: z.array(ChannelRowSchema).default([]),
   dimensions: z.array(DimensionSchema).default([]),
   extraMetrics: z.array(ExtraMetricSchema).default([]),
+  /** Novos × recorrentes (null = o cliente não acompanha). */
+  customers: CustomersSchema.nullable().default(null),
+  tables: z.array(CommercialTableSchema).default([]),
   /** Contexto do período (ex.: "Agenda reduzida em 16 dias"). */
   context: z.object({ title: z.string(), description: z.string().default("") }).nullable().default(null),
 });
