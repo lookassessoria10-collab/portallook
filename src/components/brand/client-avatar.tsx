@@ -18,6 +18,8 @@ export function ClientAvatar({ name, logoUrl, size = 40, className }: { name: st
         alt={`Logo de ${name}`}
         width={size}
         height={size}
+        loading="lazy"
+        decoding="async"
         className={cn("shrink-0 rounded-full border border-border-strong bg-white object-contain", className)}
         style={{ width: size, height: size }}
       />

@@ -20,6 +20,8 @@ export interface ClientRow {
   slug: string;
   segment: string;
   status: "active" | "inactive" | "archived";
+  /** Logo enviado em Configurações (rota autenticada do ADM); null = iniciais. */
+  logoUrl: string | null;
   modules: Record<ReportType, ModuleCell>;
   lastUpdatedAt: string | null;
   nextDueDate: string | null;
@@ -55,6 +57,8 @@ export async function buildClientRows(overviews: ClientOverview[]): Promise<Clie
         slug: o.client.slug,
         segment: o.client.segment,
         status: o.client.status,
+        // A versão na URL troca a imagem assim que um novo logo é enviado.
+        logoUrl: o.client.logo ? `/api/adm/clientes/${o.client.id}/logo?v=${encodeURIComponent(o.client.logo.updatedAt)}` : null,
         modules,
         lastUpdatedAt: o.lastUpdatedAt,
         nextDueDate: dues.sort()[0] ?? null,

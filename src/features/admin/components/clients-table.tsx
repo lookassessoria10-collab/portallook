@@ -142,7 +142,7 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
                   <tr key={r.id} className="border-t border-border align-middle hover:bg-surface-2/40">
                     <th scope="row" className="px-5 py-3.5 text-left font-normal">
                       <Link href={`/adm/clientes/${r.id}`} className="group flex items-center gap-3">
-                        <ClientAvatar name={r.name} size={36} />
+                        <ClientAvatar name={r.name} logoUrl={r.logoUrl} size={36} />
                         <span className="min-w-0">
                           <span className="block truncate font-bold text-text group-hover:text-primary">{r.name}</span>
                           <span className="block truncate text-xs text-text-3">
@@ -185,7 +185,7 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
               <li key={r.id} className="card p-4">
                 <div className="flex items-start gap-3">
                   <Link href={`/adm/clientes/${r.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                    <ClientAvatar name={r.name} size={40} />
+                    <ClientAvatar name={r.name} logoUrl={r.logoUrl} size={40} />
                     <span className="min-w-0">
                       <span className="block truncate font-bold text-text">{r.name}</span>
                       <span className="block truncate text-xs text-text-3">
