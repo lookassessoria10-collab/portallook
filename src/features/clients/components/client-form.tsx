@@ -19,6 +19,7 @@ export interface ClientFormValues {
   roiMetric: "roas" | "roiPercent";
   commercial: { enabled: boolean; cadence: "monthly" | "weekly"; dueDay: number; allowOriginalDownload: boolean };
   traffic: { enabled: boolean; cadence: "monthly" | "weekly"; dueDay: number; allowOriginalDownload: boolean };
+  social: { enabled: boolean; cadence: "monthly" | "weekly"; dueDay: number; allowOriginalDownload: boolean };
   media_plan: { enabled: boolean; cadence: "monthly" | "weekly"; dueDay: number; allowOriginalDownload: boolean };
 }
 
@@ -33,6 +34,7 @@ export const DEFAULT_CLIENT_VALUES: ClientFormValues = {
   roiMetric: "roas",
   commercial: { enabled: true, cadence: "monthly", dueDay: 5, allowOriginalDownload: true },
   traffic: { enabled: true, cadence: "weekly", dueDay: 1, allowOriginalDownload: false },
+  social: { enabled: false, cadence: "monthly", dueDay: 5, allowOriginalDownload: false },
   media_plan: { enabled: false, cadence: "monthly", dueDay: 1, allowOriginalDownload: false },
 };
 
@@ -119,6 +121,7 @@ export function ClientForm({
       <div className="grid gap-4 lg:grid-cols-2">
         <ModuleFieldset prefix="commercial" title="Comercial" description="Funil, canais, receita e investimento." initial={initial.commercial} />
         <ModuleFieldset prefix="traffic" title="Tráfego" description="Campanhas Meta Ads, Google Ads e outras." initial={initial.traffic} />
+        <ModuleFieldset prefix="social" title="Rede social" description="Seguidores, alcance, engajamento e interações do Instagram, mês a mês." initial={initial.social} monthlyOnly />
         <ModuleFieldset prefix="media_plan" title="Plano de mídia" description="Verba planejada por plataforma, cronograma e metas do mês." initial={initial.media_plan} planning />
       </div>
 
@@ -148,10 +151,28 @@ export function ClientForm({
   );
 }
 
-/** `planning`: plano de mídia — sempre mensal, com prazo num dia do próprio mês planejado. */
-function ModuleFieldset({ prefix, title, description, initial, planning }: { prefix: "commercial" | "traffic" | "media_plan"; title: string; description: string; initial: ClientFormValues["commercial"]; planning?: boolean }) {
+/**
+ * `planning`: plano de mídia — sempre mensal, com prazo num dia do próprio mês planejado.
+ * `monthlyOnly`: rede social — sempre mensal, com prazo no mês seguinte.
+ */
+function ModuleFieldset({
+  prefix,
+  title,
+  description,
+  initial,
+  planning,
+  monthlyOnly,
+}: {
+  prefix: "commercial" | "traffic" | "social" | "media_plan";
+  title: string;
+  description: string;
+  initial: ClientFormValues["commercial"];
+  planning?: boolean;
+  monthlyOnly?: boolean;
+}) {
+  const fixedMonthly = planning || monthlyOnly;
   const [enabled, setEnabled] = useState(initial.enabled);
-  const [cadence, setCadence] = useState(planning ? "monthly" : initial.cadence);
+  const [cadence, setCadence] = useState(fixedMonthly ? "monthly" : initial.cadence);
   const [dueDay, setDueDay] = useState(initial.dueDay);
   const days = cadence === "weekly" ? WEEKDAYS_PT.map((d, i) => ({ value: i + 1, label: d.charAt(0).toUpperCase() + d.slice(1) })) : Array.from({ length: 28 }, (_, i) => ({ value: i + 1, label: `Dia ${i + 1}` }));
   return (
@@ -159,8 +180,8 @@ function ModuleFieldset({ prefix, title, description, initial, planning }: { pre
       <legend className="sr-only">{title}</legend>
       <Checkbox name={`${prefix}.enabled`} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} label={`Módulo ${title}`} description={description} />
       <div className={enabled ? "grid gap-4 sm:grid-cols-2" : "pointer-events-none grid gap-4 opacity-45 sm:grid-cols-2"} aria-disabled={!enabled}>
-        {planning ? (
-          <Field label="Periodicidade" htmlFor={`${prefix}-cadence`} hint="Um plano por mês.">
+        {fixedMonthly ? (
+          <Field label="Periodicidade" htmlFor={`${prefix}-cadence`} hint={planning ? "Um plano por mês." : "Um relatório por mês."}>
             <Select id={`${prefix}-cadence`} value="monthly" disabled>
               <option value="monthly">Mensal</option>
             </Select>

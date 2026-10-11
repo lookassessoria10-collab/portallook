@@ -3,7 +3,7 @@ import { env } from "@/lib/env";
 import { createId, normalizeText } from "@/lib/ids";
 import { NotFoundError, UserFacingError, logError } from "@/lib/errors";
 import { formatCurrency, formatInteger } from "@/lib/format/number";
-import { formatPeriod, periodKey, type Period } from "@/lib/dates/period";
+import { formatPeriod, periodKey, todayISO, type Period } from "@/lib/dates/period";
 import { paths } from "@/lib/storage/paths";
 import { getStorage } from "@/lib/storage";
 import { readJSON, writeJSON } from "@/lib/storage/json";
@@ -28,16 +28,19 @@ import { TrafficDataSchema, platformLabel, type TrafficData } from "@/features/t
 import { computeMediaPlanMetrics } from "@/features/media-plan/metrics";
 import { normalizeMediaPlan } from "@/features/media-plan/normalize";
 import { MediaPlanDataSchema } from "@/features/media-plan/schema";
+import { computeSocialMetrics, socialLabel } from "@/features/social/metrics";
+import { normalizeSocial, selectClientSheet } from "@/features/social/normalize";
+import { SocialDataSchema } from "@/features/social/schema";
 import { getRepositories } from "@/server/repositories";
 import { IssueCollector } from "./issues";
 import { ParsedImportSchema, type ParsedImport, type ParsedPeriod } from "./parsed";
 import { CSV_CONTENT_OPTIONS, type CsvContent, type FileFormat, type ImportMode, type ImportPreview, type ImportRecord, type PreviewPeriod, type UploadPlatform } from "./schema";
 
 /** Schema final de cada tipo de relatório — nada inconsistente vira rascunho. */
-const DATA_SCHEMA = { commercial: CommercialDataSchema, traffic: TrafficDataSchema, media_plan: MediaPlanDataSchema } as const;
+const DATA_SCHEMA = { commercial: CommercialDataSchema, traffic: TrafficDataSchema, social: SocialDataSchema, media_plan: MediaPlanDataSchema } as const;
 
 /** Nome da tabela colada sem título em cada tipo de relatório. */
-const DEFAULT_TABLE: Record<ReportType, string> = { commercial: "Funil", traffic: "Campanhas", media_plan: "Plano" };
+const DEFAULT_TABLE: Record<ReportType, string> = { commercial: "Funil", traffic: "Campanhas", social: "Rede social", media_plan: "Plano" };
 
 const CONTENT_TYPES: Record<FileFormat, string> = {
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -200,14 +203,14 @@ export async function receiveFile(importId: string, body: Buffer) {
   await logEvent("upload.received", { clientId: record.clientId, summary: `Arquivo ${record.fileName} recebido.`, meta: { importId } });
 }
 
-type CommercialCsv = Exclude<CsvContent, "traffic" | "media_plan">;
+type CommercialCsv = Exclude<CsvContent, "traffic" | "social" | "media_plan">;
 
 function csvRole(content: CsvContent): SheetRole {
   const map: Record<CommercialCsv, SheetRole> = { funnel: "funnel", financial: "financial", channels: "channels", insights: "insights", dimension: "dimension" };
   return map[content as CommercialCsv];
 }
 
-const CSV_SHEET_NAME: Record<CsvContent, string> = { funnel: "Funil", financial: "Financeiro", channels: "Canais", insights: "Insights", dimension: "Dimensão", traffic: "Campanhas", media_plan: "Plano" };
+const CSV_SHEET_NAME: Record<CsvContent, string> = { funnel: "Funil", financial: "Financeiro", channels: "Canais", insights: "Insights", dimension: "Dimensão", traffic: "Campanhas", social: "Rede social", media_plan: "Plano" };
 
 /**
  * Etapa 2: lê o arquivo, valida conteúdo (assinatura, colunas, períodos),
@@ -258,25 +261,31 @@ export async function processImport(importId: string): Promise<ImportRecord> {
           else parsed = { kind: "document", reportType: record.reportType, sourceType: "html_legacy", period: record.requestedPeriod, title: record.title ?? html.title, pages: null };
         }
       } else {
+        const clientNames = [client.name, client.shortName, client.slug];
         const workbook: RawWorkbook =
           expected === "csv"
             ? readCsv(body, CSV_SHEET_NAME[record.csvContent ?? "funnel"])
             : expected === "md"
               ? readPastedData(body, DEFAULT_TABLE[record.reportType])
-              : readExcel(body, sniffed === "xlsx" ? "xlsx" : "xls");
+              : // Rede social: a planilha da Look tem uma aba por cliente — lê só a deste cliente.
+                readExcel(body, sniffed === "xlsx" ? "xlsx" : "xls", record.reportType === "social" ? { select: selectClientSheet(clientNames) } : {});
         if (record.reportType === "commercial") {
           const result = normalizeCommercial(workbook, { ...periodCtx, csvRole: record.csvContent ? csvRole(record.csvContent) : undefined, csvDimensionLabel: record.csvDimensionLabel }, issues);
           sheets = result.sheets;
           // Os valores do arquivo estão na moeda do cliente (é a que o portal exibe).
           for (const p of result.periods) (p.data as { currency?: string }).currency = client.currency;
           parsed = { kind: "dataset", reportType: "commercial", sourceType: expected, partial: Boolean(record.csvContent), periods: result.periods };
+        } else if (record.reportType === "social") {
+          const result = normalizeSocial(workbook, { requestedPeriod: record.requestedPeriod, clientNames, today: todayISO(env().APP_TIMEZONE) }, issues);
+          sheets = result.sheets;
+          parsed = { kind: "dataset", reportType: "social", sourceType: expected, partial: false, periods: result.periods };
         } else if (record.reportType === "media_plan") {
           const result = normalizeMediaPlan(workbook, { requestedPeriod: record.requestedPeriod }, issues);
           sheets = result.sheets;
           for (const p of result.periods) (p.data as { currency?: string }).currency = client.currency;
           parsed = { kind: "dataset", reportType: "media_plan", sourceType: expected, partial: false, periods: result.periods };
         } else {
-          const result = normalizeTraffic(workbook, { ...periodCtx, clientNames: [client.name, client.shortName, client.slug], csv: expected === "csv", platform: record.platform, currency: client.currency }, issues);
+          const result = normalizeTraffic(workbook, { ...periodCtx, clientNames, csv: expected === "csv", platform: record.platform, currency: client.currency }, issues);
           sheets = result.sheets;
           parsed = { kind: "dataset", reportType: "traffic", sourceType: expected, partial: false, periods: result.periods };
         }
@@ -337,9 +346,11 @@ function parseStructuredHtml(payload: unknown, record: ImportRecord, clientNames
         ? "commercial"
         : obj.type === "media_plan" || obj.type === "plano_de_midia" || obj.type === "plano-de-midia"
           ? "media_plan"
-          : null;
+          : obj.type === "social" || obj.type === "rede_social" || obj.type === "rede-social"
+            ? "social"
+            : null;
   if (!type) {
-    issues.error("invalid_structure", 'O HTML estruturado precisa informar "type": "commercial", "traffic" ou "media_plan".');
+    issues.error("invalid_structure", 'O HTML estruturado precisa informar "type": "commercial", "traffic", "social" ou "media_plan".');
     return null;
   }
   if (type !== record.reportType) {
@@ -407,6 +418,23 @@ function periodMetrics(reportType: ReportType, p: ParsedPeriod): { metrics: Prev
       ...m.platforms.map((pl) => `${pl.label}: ${formatCurrency(pl.budget)}`),
       ...(parsed.data.goals.length ? [`${parsed.data.goals.length} meta(s) do mês`] : []),
       ...(p.insights.length ? [`${p.insights.length} insight(s)`] : []),
+    ];
+    return { metrics, details };
+  }
+  if (reportType === "social") {
+    const parsed = SocialDataSchema.safeParse(p.data);
+    if (!parsed.success) return { metrics: [], details: [] };
+    const { values } = computeSocialMetrics(parsed.data);
+    const label = (k: string) => socialLabel(k, parsed.data.labels);
+    const metrics: PreviewPeriod["metrics"] = (["followers", "newFollowers", "reach", "views", "engagement", "interactions"] as const)
+      .filter((k) => values[k] !== null)
+      .slice(0, 4)
+      .map((k) => ({ label: label(k), value: formatInteger(values[k]) }));
+    const missing = (["followers", "reach", "interactions"] as const).filter((k) => values[k] === null).map((k) => label(k).toLowerCase());
+    const details = [
+      ...(values.netFollowers !== null ? [`Saldo de seguidores: ${values.netFollowers > 0 ? "+" : ""}${formatInteger(values.netFollowers)}`] : []),
+      ...(missing.length ? [`Sem ${missing.join(", ")}`] : []),
+      ...(parsed.data.extraMetrics.length ? [`${parsed.data.extraMetrics.length} indicador(es) adicional(is)`] : []),
     ];
     return { metrics, details };
   }
@@ -651,6 +679,7 @@ export async function confirmImport(importId: string, options: { periodKeys: str
         data = { type: "traffic", data: merged.data };
         base = merged.base;
       } else if (parsed.reportType === "media_plan") data = { type: "media_plan", data: MediaPlanDataSchema.parse(p.data) };
+      else if (parsed.reportType === "social") data = { type: "social", data: SocialDataSchema.parse(p.data) };
       else data = { type: "traffic", data: TrafficDataSchema.parse(p.data) };
       // Atualização parcial: mantém os insights já escritos no relatório-base e acrescenta os do arquivo.
       if (base) insights = mergeInsights(base.insights, insights);
@@ -666,7 +695,8 @@ export async function confirmImport(importId: string, options: { periodKeys: str
         originalExtension: ext,
         data,
         insights: mergeInsights([], insights),
-        warnings,
+        // "Sem período anterior" fala de um mês só: num envio de vários meses, fica só no relatório desse mês.
+        warnings: warnings.filter((w) => w.code !== "no_previous" || w.message.includes(` a ${formatPeriod(p.period)} `)),
         allowDownload: record.allowDownload,
         importId,
         retroactive: record.mode === "retroactive",

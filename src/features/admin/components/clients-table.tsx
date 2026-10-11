@@ -29,7 +29,7 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
 ];
 
 function matches(row: ClientRow, filter: Filter): boolean {
-  const states = (["commercial", "traffic", "media_plan"] as const).filter((t) => row.modules[t].enabled).map((t) => row.modules[t].state);
+  const states = (["commercial", "traffic", "social", "media_plan"] as const).filter((t) => row.modules[t].enabled).map((t) => row.modules[t].state);
   switch (filter) {
     case "all":
       return row.status !== "archived";
@@ -48,7 +48,8 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
   const [toDelete, setToDelete] = useState<ClientRow | null>(null);
   const router = useRouter();
   const counts = useMemo(() => Object.fromEntries(FILTERS.map((f) => [f.key, rows.filter((r) => matches(r, f.key)).length])) as Record<Filter, number>, [rows]);
-  // A coluna de plano de mídia só aparece quando algum cliente tem o módulo.
+  // As colunas de rede social e plano de mídia só aparecem quando algum cliente tem o módulo.
+  const showSocial = rows.some((r) => r.modules.social.enabled);
   const showPlan = rows.some((r) => r.modules.media_plan.enabled);
   const visible = useMemo(() => {
     const q = normalizeText(query);
@@ -129,6 +130,7 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
                   <th scope="col" className="px-5 py-3 font-semibold">Cliente</th>
                   <th scope="col" className="px-3 py-3 font-semibold">Comercial</th>
                   <th scope="col" className="px-3 py-3 font-semibold">Tráfego</th>
+                  {showSocial ? <th scope="col" className="px-3 py-3 font-semibold">Rede social</th> : null}
                   {showPlan ? <th scope="col" className="px-3 py-3 font-semibold">Plano de mídia</th> : null}
                   <th scope="col" className="px-3 py-3 font-semibold">Última atualização</th>
                   <th scope="col" className="px-3 py-3 font-semibold">Próxima entrega</th>
@@ -156,6 +158,11 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
                     <td className="px-3 py-3.5">
                       <ModuleStatus cell={r.modules.traffic} />
                     </td>
+                    {showSocial ? (
+                      <td className="px-3 py-3.5">
+                        <ModuleStatus cell={r.modules.social} />
+                      </td>
+                    ) : null}
                     {showPlan ? (
                       <td className="px-3 py-3.5">
                         <ModuleStatus cell={r.modules.media_plan} />
@@ -202,6 +209,14 @@ export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: 
                       <ModuleStatus cell={r.modules.traffic} />
                     </dd>
                   </div>
+                  {r.modules.social.enabled ? (
+                    <div>
+                      <dt className="mb-1 text-xs font-semibold text-text-3">Rede social</dt>
+                      <dd>
+                        <ModuleStatus cell={r.modules.social} />
+                      </dd>
+                    </div>
+                  ) : null}
                   {r.modules.media_plan.enabled ? (
                     <div>
                       <dt className="mb-1 text-xs font-semibold text-text-3">Plano de mídia</dt>

@@ -28,6 +28,8 @@ export const ClientInputSchema = z.object({
   roiMetric: z.enum(["roas", "roiPercent"]).default("roas"),
   commercial: moduleInput,
   traffic: moduleInput,
+  /** Rede social é sempre mensal. Ausente = mantém a configuração atual. */
+  social: moduleInput.optional(),
   /** Plano de mídia é sempre mensal: o prazo é um dia do próprio mês. Ausente = mantém a configuração atual. */
   media_plan: moduleInput.optional(),
 });
@@ -56,6 +58,12 @@ export function clientInputFromForm(form: FormData): unknown {
       cadence: str("traffic.cadence") || "weekly",
       dueDay: str("traffic.dueDay") || "1",
       allowOriginalDownload: bool("traffic.allowOriginalDownload"),
+    },
+    social: {
+      enabled: bool("social.enabled"),
+      cadence: "monthly",
+      dueDay: str("social.dueDay") || "5",
+      allowOriginalDownload: bool("social.allowOriginalDownload"),
     },
     media_plan: {
       enabled: bool("media_plan.enabled"),

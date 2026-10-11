@@ -9,7 +9,7 @@ import { computeDelivery, type DeliveryStatus } from "@/features/reports/deliver
 import { REPORT_TYPES, type ClientIndex, type ReportType } from "@/features/reports/schema";
 import { getRepositories } from "@/server/repositories";
 import type { ClientInput } from "./input";
-import { MEDIA_PLAN_MODULE_DEFAULT, type Client, type ClientStatus } from "./schema";
+import { MEDIA_PLAN_MODULE_DEFAULT, SOCIAL_MODULE_DEFAULT, type Client, type ClientStatus } from "./schema";
 import { ensureAccessToken } from "./access";
 
 export const getClient = cache(async (clientId: string): Promise<Client | null> => getRepositories().clients.get(clientId));
@@ -25,12 +25,17 @@ export const listClients = cache(async () => getRepositories().clients.list());
 export const getClientIndex = cache(async (clientId: string): Promise<ClientIndex> => getRepositories().reports.getIndex(clientId));
 
 function modulesFromInput(input: ClientInput, current?: Client["modules"]): Client["modules"] {
-  return { commercial: input.commercial, traffic: input.traffic, media_plan: input.media_plan ?? current?.media_plan ?? MEDIA_PLAN_MODULE_DEFAULT };
+  return {
+    commercial: input.commercial,
+    traffic: input.traffic,
+    social: input.social ?? current?.social ?? SOCIAL_MODULE_DEFAULT,
+    media_plan: input.media_plan ?? current?.media_plan ?? MEDIA_PLAN_MODULE_DEFAULT,
+  };
 }
 
 function requireSomeModule(input: ClientInput) {
-  if (!input.commercial.enabled && !input.traffic.enabled && !input.media_plan?.enabled) {
-    throw new UserFacingError("Ative pelo menos um módulo (Comercial, Tráfego ou Plano de mídia).");
+  if (!input.commercial.enabled && !input.traffic.enabled && !input.social?.enabled && !input.media_plan?.enabled) {
+    throw new UserFacingError("Ative pelo menos um módulo (Comercial, Tráfego, Rede social ou Plano de mídia).");
   }
 }
 

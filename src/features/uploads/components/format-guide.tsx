@@ -15,6 +15,12 @@ export function pasteExample(type: ReportType, cadence: Cadence, platform: Uploa
   const period = cadence === "weekly" ? { head: "Período", values: ["21/09/2026 a 27/09/2026", "28/09/2026 a 04/10/2026"] } : { head: "Mês", values: ["01/2026", "02/2026"] };
   const table = (cols: string[], rows: string[][]) => [`| ${cols.join(" | ")} |`, `|${cols.map(() => "---").join("|")}|`, ...rows.map((r) => `| ${r.join(" | ")} |`)].join("\n");
   if (type === "media_plan") return MEDIA_PLAN_EXAMPLE(table);
+  if (type === "social") {
+    return table(["Mês", "Seguidores", "Novos seguidores", "Perdas", "Alcance", "Visualizações", "Engajamento", "Visitas", "Interações", "Curtidas", "Comentários", "Compartilhamentos", "Salvos", "Toques em links"], [
+      ["Agosto", "1.271", "56", "17", "14.556", "35.893", "144", "", "264", "199", "8", "19", "16", "2"],
+      ["Setembro", "1.285", "29", "15", "8.649", "18.295", "50", "", "66", "58", "0", "1", "6", "1"],
+    ]);
+  }
   if (type === "commercial") {
     return [
       "## Funil",
@@ -156,11 +162,42 @@ export function FormatGuide({
           ) : (
             <li>
               XLSX, XLS ou CSV com a 1ª linha de cabeçalho.{" "}
-              {type === "commercial" ? "Cada aba é uma seção (Funil, Financeiro, Canais…)." : type === "media_plan" ? "Cada aba é uma seção do plano (Plano, Apresentação, Resumo, Metas, Conteúdo…)." : "Pode ser a exportação do Meta Ads ou do Google Ads, ou o modelo de tráfego."} A ordem das colunas não importa.
+              {type === "commercial"
+                ? "Cada aba é uma seção (Funil, Financeiro, Canais…)."
+                : type === "media_plan"
+                  ? "Cada aba é uma seção do plano (Plano, Apresentação, Resumo, Metas, Conteúdo…)."
+                  : type === "social"
+                    ? "Pode ser a planilha inteira de análise de dados, com uma aba por cliente: o portal lê só a aba com o nome deste cliente (sem acento, maiúsculas ou “Dra.”). Uma planilha com uma aba só também serve."
+                    : "Pode ser a exportação do Meta Ads ou do Google Ads, ou o modelo de tráfego."}{" "}
+              A ordem das colunas não importa.
             </li>
           )}
 
-          {type === "media_plan" ? (
+          {type === "social" ? (
+            <>
+              <li>
+                <strong>Mês</strong> em cada linha (<Code>Janeiro</Code>, <Code>jan</Code> ou <Code>01/2026</Code>) e as métricas do mês: <strong>Seguidores</strong> (total no fim do mês), Novos seguidores, Perdas, Alcance, <strong>Visualizações</strong> (ou Impressões), Engajamento, Visitas, Interações, Curtidas, Comentários, Salvos, Compartilhamentos e <strong>Toques em links</strong> (ou Toque no site). Nenhuma é obrigatória sozinha; outras colunas com números aparecem com o nome que vieram.
+              </li>
+              <li>
+                {paste ? (
+                  <>
+                    Pode colar junto a linha do título (<Code>ANÁLISE DE DADOS - INSTAGRAM - 2026</Code>): ela diz a rede e o ano.
+                  </>
+                ) : (
+                  <>
+                    A linha de título acima do cabeçalho (<Code>ANÁLISE DE DADOS - INSTAGRAM - 2026</Code>) diz a rede e o ano.
+                  </>
+                )}{" "}
+                Sem ano no título, vale o ano do mês escolhido no passo anterior ou, sem ele, o ano atual.
+              </li>
+              <li>
+                Meses ainda sem números são ignorados: dá para {paste ? "colar" : "enviar"} a tabela do ano todo e escolher na prévia os meses que entram. A linha <strong>OBSERVAÇÃO</strong> vira um aviso interno (não aparece para o cliente) e o glossário abaixo da tabela é ignorado.
+              </li>
+              <li>
+                Taxa de engajamento (engajamento ÷ alcance), saldo de seguidores e crescimento são calculados pelo portal — colunas de taxa ou média não são lidas.
+              </li>
+            </>
+          ) : type === "media_plan" ? (
             <>
               <li>
                 {paste ? "Uma tabela por seção, cada uma com o título na linha de cima. " : null}

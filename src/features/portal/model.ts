@@ -65,7 +65,7 @@ export interface PortalModel {
   mode: "client" | "preview";
 }
 
-const HISTORY_POINTS: Record<ReportType, number> = { commercial: 12, traffic: 8, media_plan: 12 };
+const HISTORY_POINTS: Record<ReportType, number> = { commercial: 12, traffic: 8, social: 12, media_plan: 12 };
 /** A visão geral reúne até 12 períodos (um ano, para relatórios mensais). */
 const OVERVIEW_POINTS = 12;
 

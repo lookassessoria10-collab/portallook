@@ -6,7 +6,7 @@ export const FileFormatSchema = z.enum(["xlsx", "xls", "csv", "pdf", "html", "md
 export type FileFormat = z.infer<typeof FileFormatSchema>;
 
 /** CSV não tem abas: o ADM informa qual conteúdo o arquivo representa. */
-export const CsvContentSchema = z.enum(["funnel", "financial", "channels", "traffic", "insights", "dimension", "media_plan"]);
+export const CsvContentSchema = z.enum(["funnel", "financial", "channels", "traffic", "insights", "dimension", "social", "media_plan"]);
 export type CsvContent = z.infer<typeof CsvContentSchema>;
 
 export const CSV_CONTENT_OPTIONS: Array<{ value: CsvContent; label: string; reportType: ReportType }> = [
@@ -16,6 +16,7 @@ export const CSV_CONTENT_OPTIONS: Array<{ value: CsvContent; label: string; repo
   { value: "dimension", label: "Dimensão adicional (serviços, profissionais, unidades, produtos…)", reportType: "commercial" },
   { value: "insights", label: "Insights", reportType: "commercial" },
   { value: "traffic", label: "Tráfego (campanhas)", reportType: "traffic" },
+  { value: "social", label: "Rede social (uma linha por mês)", reportType: "social" },
   { value: "media_plan", label: "Plano de mídia (linhas do plano)", reportType: "media_plan" },
 ];
 

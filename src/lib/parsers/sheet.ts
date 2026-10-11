@@ -42,5 +42,6 @@ export function matrixToSheet(name: string, matrix: unknown[][], lineNumbers?: n
     headers.forEach((h, j) => (cells[h] = r[j] ?? null));
     out.push({ line: lineNumbers?.[i] ?? i + 1, cells });
   }
-  return { name, headers, rows: out };
+  const preamble = rows.slice(0, headerIndex).flatMap((r) => r.filter((c): c is string => typeof c === "string"));
+  return preamble.length ? { name, headers, rows: out, preamble } : { name, headers, rows: out };
 }

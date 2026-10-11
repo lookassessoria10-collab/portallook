@@ -7,15 +7,17 @@ import { addDays, monthPeriod, weekPeriod, type Period } from "@/lib/dates/perio
 import type { CommercialDataInput } from "@/features/commercial/schema";
 import type { TrafficDataInput } from "@/features/traffic/schema";
 import type { MediaPlanDataInput } from "@/features/media-plan/schema";
+import type { SocialDataInput } from "@/features/social/schema";
 import type { Insight, ReportStatus } from "@/features/reports/schema";
 import type { Client } from "@/features/clients/schema";
 
 export interface DemoReport {
-  type: "commercial" | "traffic" | "media_plan";
+  type: "commercial" | "traffic" | "social" | "media_plan";
   period: Period;
   status: ReportStatus;
   commercial?: CommercialDataInput;
   traffic?: TrafficDataInput;
+  social?: SocialDataInput;
   mediaPlan?: MediaPlanDataInput;
   insights?: Array<Omit<Insight, "id" | "source">>;
   document?: { kind: "pdf" | "html_legacy"; title: string; allowDownload: boolean };
@@ -194,6 +196,54 @@ function isaborMediaPlan(): DemoReport[] {
       insights: [{ type: "recommendation", title: "Responder em até 15 minutos", description: "A meta de agendamentos depende de resposta rápida às conversas que o Meta Ads vai gerar." }],
     },
   ];
+}
+
+/**
+ * Rede social (Instagram) mês a mês, no formato da planilha de análise de dados.
+ * `months`: [mês, seguidores, novos, perdas, alcance, visualizações, engajamento, interações, curtidas, comentários, compartilhamentos, salvos, toques em links].
+ */
+function socialMonths(months: Array<[number, ...number[]]>, insights: DemoReport["insights"] = []): DemoReport[] {
+  return months.map(([m, followers, newFollowers, lostFollowers, reach, views, engagement, interactions, likes, comments, shares, saves, linkClicks], i) => {
+    const period = monthPeriod(2026, m);
+    return {
+      type: "social",
+      period,
+      status: "published",
+      social: {
+        schemaVersion: 1,
+        period,
+        network: "instagram",
+        metrics: { followers, newFollowers, lostFollowers, reach, views, engagement, profileVisits: null, interactions, likes, comments, shares, saves, linkClicks },
+        labels: { views: "Visualizações", linkClicks: "Toques em links" },
+      },
+      insights: i === months.length - 1 ? insights : [],
+    } satisfies DemoReport;
+  });
+}
+
+function isaborSocial(): DemoReport[] {
+  return socialMonths(
+    [
+      [4, 1108, 31, 12, 2210, 6120, 48, 92, 74, 4, 6, 8, 3],
+      [5, 1131, 35, 12, 2480, 6890, 55, 104, 83, 5, 7, 9, 4],
+      [6, 1162, 44, 13, 4120, 10340, 66, 118, 92, 6, 9, 11, 6],
+      [7, 1219, 71, 14, 8930, 27650, 151, 236, 181, 9, 18, 28, 5],
+      [8, 1262, 58, 15, 12410, 33120, 139, 251, 190, 11, 21, 29, 7],
+      [9, 1288, 41, 15, 9120, 21480, 97, 176, 133, 8, 14, 21, 6],
+    ],
+    [
+      { type: "positive", title: "Reels seguem puxando o alcance", description: "Os vídeos curtos sobre exames responderam por mais da metade das visualizações do mês." },
+      { type: "recommendation", title: "Mais conteúdo salvável", description: "Os salvamentos cresceram nos posts com orientações de preparo. Vamos transformar as dúvidas mais frequentes em carrosséis." },
+    ],
+  );
+}
+
+function ilSocial(): DemoReport[] {
+  return socialMonths([
+    [7, 4520, 186, 41, 38200, 96400, 412, 690, 548, 37, 61, 44, 58],
+    [8, 4688, 214, 46, 45100, 118700, 455, 802, 627, 44, 73, 58, 71],
+    [9, 4790, 149, 47, 31800, 84300, 318, 571, 449, 29, 52, 41, 49],
+  ]);
 }
 
 // ————————————————————————————————————————————————————————————————————————
@@ -520,6 +570,7 @@ function landimCommercial(): DemoReport[] {
 const commercialModule = (enabled: boolean) => ({ enabled, cadence: "monthly" as const, dueDay: 5, allowOriginalDownload: true });
 const trafficModule = (enabled: boolean) => ({ enabled, cadence: "weekly" as const, dueDay: 1, allowOriginalDownload: false });
 const mediaPlanModule = (enabled: boolean) => ({ enabled, cadence: "monthly" as const, dueDay: 1, allowOriginalDownload: false });
+const socialModule = (enabled: boolean) => ({ enabled, cadence: "monthly" as const, dueDay: 5, allowOriginalDownload: false });
 
 export function buildDemoClients(): DemoClient[] {
   return [
@@ -533,7 +584,7 @@ export function buildDemoClients(): DemoClient[] {
         segment: "Gastroenterologia",
         status: "active",
         currency: "BRL",
-        modules: { commercial: commercialModule(true), traffic: trafficModule(true), media_plan: mediaPlanModule(true) },
+        modules: { commercial: commercialModule(true), traffic: trafficModule(true), social: socialModule(true), media_plan: mediaPlanModule(true) },
         dashboard: { roiMetric: "roas", highlightMetrics: [] },
         notes: "Relatório comercial consolidado pela secretária até o dia 3. Tráfego: Meta + Google.",
       },
@@ -541,6 +592,7 @@ export function buildDemoClients(): DemoClient[] {
         ...isaborCommercial(),
         ...isaborTraffic(),
         ...isaborMediaPlan(),
+        ...isaborSocial(),
         {
           type: "commercial",
           period: monthPeriod(2026, 8),
@@ -565,7 +617,7 @@ export function buildDemoClients(): DemoClient[] {
         segment: "Terapias e bem-estar",
         status: "active",
         currency: "BRL",
-        modules: { commercial: commercialModule(true), traffic: trafficModule(false), media_plan: mediaPlanModule(false) },
+        modules: { commercial: commercialModule(true), traffic: trafficModule(false), social: socialModule(false), media_plan: mediaPlanModule(false) },
         dashboard: { roiMetric: "roiPercent", highlightMetrics: [] },
         notes: "Receita por terapeuta vem da planilha interna do espaço.",
       },
@@ -581,7 +633,7 @@ export function buildDemoClients(): DemoClient[] {
         segment: "Móveis planejados",
         status: "active",
         currency: "BRL",
-        modules: { commercial: commercialModule(true), traffic: trafficModule(true), media_plan: mediaPlanModule(false) },
+        modules: { commercial: commercialModule(true), traffic: trafficModule(true), social: socialModule(false), media_plan: mediaPlanModule(false) },
         dashboard: { roiMetric: "roas", highlightMetrics: [] },
         notes: "Fonte: CRM da landing page. Etapas intermediárias nem sempre são registradas.",
       },
@@ -608,11 +660,11 @@ export function buildDemoClients(): DemoClient[] {
         segment: "Distribuição",
         status: "active",
         currency: "BRL",
-        modules: { commercial: commercialModule(false), traffic: trafficModule(true), media_plan: mediaPlanModule(false) },
+        modules: { commercial: commercialModule(false), traffic: trafficModule(true), social: socialModule(true), media_plan: mediaPlanModule(false) },
         dashboard: { roiMetric: "roas", highlightMetrics: [] },
         notes: "Campanhas com objetivo de conversas no WhatsApp por unidade.",
       },
-      reports: ilTraffic(),
+      reports: [...ilTraffic(), ...ilSocial()],
     },
     {
       createdAt: "2026-06-05T12:00:00.000Z",
@@ -624,7 +676,7 @@ export function buildDemoClients(): DemoClient[] {
         segment: "Clínica médica",
         status: "active",
         currency: "BRL",
-        modules: { commercial: commercialModule(true), traffic: trafficModule(false), media_plan: mediaPlanModule(false) },
+        modules: { commercial: commercialModule(true), traffic: trafficModule(false), social: socialModule(false), media_plan: mediaPlanModule(false) },
         dashboard: { roiMetric: "roas", highlightMetrics: [] },
         notes: "Conversões podem acontecer em clínicas parceiras (indiretas).",
       },

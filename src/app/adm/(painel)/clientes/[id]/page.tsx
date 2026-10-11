@@ -39,6 +39,7 @@ export default async function ClientOverviewPage(props: PageProps<"/adm/clientes
       <div className="grid gap-4 md:grid-cols-2 xl:col-span-8">
         <ModuleStatusCard clientId={id} type="commercial" module={o.client.modules.commercial} delivery={o.delivery.commercial} today={date} />
         <ModuleStatusCard clientId={id} type="traffic" module={o.client.modules.traffic} delivery={o.delivery.traffic} today={date} />
+        {o.client.modules.social.enabled ? <ModuleStatusCard clientId={id} type="social" module={o.client.modules.social} delivery={o.delivery.social} today={date} /> : null}
         {o.client.modules.media_plan.enabled ? <ModuleStatusCard clientId={id} type="media_plan" module={o.client.modules.media_plan} delivery={o.delivery.media_plan} today={date} /> : null}
 
         <Card className="md:col-span-2">

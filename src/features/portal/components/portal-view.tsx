@@ -19,6 +19,10 @@ import { TrafficOverview } from "@/features/traffic/components/traffic-overview"
 import { buildTrafficOverview } from "@/features/traffic/overview";
 import { MediaPlanDashboard } from "@/features/media-plan/components/media-plan-dashboard";
 import { buildMediaPlanViewModel } from "@/features/media-plan/view-model";
+import { SocialDashboard } from "@/features/social/components/social-dashboard";
+import { buildSocialViewModel } from "@/features/social/view-model";
+import { SocialOverview } from "@/features/social/components/social-overview";
+import { buildSocialOverview } from "@/features/social/overview";
 import type { PortalModel } from "@/features/portal/model";
 import { PeriodNav, ScaleSwitch } from "./period-nav";
 import { PortalTabs, TAB_LABEL } from "./portal-tabs";
@@ -64,8 +68,8 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 mt-5 border-b border-border bg-[rgb(6_14_28/0.94)] px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:gap-4">
-          <PortalTabs tabs={model.tabs} active={model.tab} basePath={basePath} className={model.tabs.length > 2 ? "md:w-[420px] md:shrink-0" : model.tabs.includes("media_plan") ? "md:w-[340px] md:shrink-0" : "md:w-[280px] md:shrink-0"} />
+        <div className={model.tabs.length > 3 ? "flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4" : "flex flex-col gap-2.5 md:flex-row md:items-center md:gap-4"}>
+          <PortalTabs tabs={model.tabs} active={model.tab} basePath={basePath} className={tabsWidth(model.tabs)} />
           {model.tabs.length < 2 ? <p className="hidden shrink-0 text-sm font-bold text-text-2 md:block">{tabLabel}</p> : null}
           <div className="flex min-w-0 gap-2 md:flex-1">
             <ScaleSwitch options={scaleItems} />
@@ -80,7 +84,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
         ) : !model.periods.length ? (
           <EmptyState
             icon={<Inbox />}
-            title={model.tab === "media_plan" ? "Ainda não há plano de mídia publicado" : `Ainda não há relatórios de ${tabLabel.toLowerCase()}`}
+            title={model.tab === "media_plan" ? "Ainda não há plano de mídia publicado" : model.tab === "social" ? "Ainda não há relatórios de rede social" : `Ainda não há relatórios de ${tabLabel.toLowerCase()}`}
             description={model.tab === "media_plan" ? "O plano do mês aparecerá aqui assim que for publicado pela equipe da Look." : "Os relatórios aparecerão aqui assim que forem publicados pela equipe da Look."}
           />
         ) : model.view === "overview" && model.overview ? (
@@ -97,7 +101,9 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
                 <span className="shrink-0 font-semibold text-info">Abrir →</span>
               </Link>
             ) : null}
-            {model.tab === "traffic" ? (
+            {model.tab === "social" ? (
+              <SocialOverview vm={buildSocialOverview(model.overview)} periodHref={links.period} />
+            ) : model.tab === "traffic" ? (
               <TrafficOverview vm={buildTrafficOverview(model.overview, client.currency)} currency={client.currency} periodHref={links.period} />
             ) : (
               <CommercialOverview vm={buildCommercialOverview(model.overview, { dashboard: client.dashboard, currency: client.currency })} currency={client.currency} periodHref={links.period} />
@@ -112,6 +118,8 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
                   insights={selection.insights}
                   currency={client.currency}
                 />
+              ) : selection.dataset.data.type === "social" ? (
+                <SocialDashboard vm={buildSocialViewModel(selection.dataset.data.data, { previous: model.previous, history: model.history })} insights={selection.insights} />
               ) : selection.dataset.data.type === "media_plan" ? (
                 <MediaPlanDashboard
                   vm={buildMediaPlanViewModel(selection.dataset.data.data, { previous: model.previous, history: model.history, actual: model.relatedTraffic, today: model.today })}
@@ -153,4 +161,11 @@ export function PortalView({ model, basePath, links, logoUrl, banner }: { model:
       </footer>
     </div>
   );
+}
+
+/** Largura do seletor de áreas no desktop, conforme a quantidade e o tamanho dos rótulos. */
+function tabsWidth(tabs: PortalModel["tabs"]): string {
+  if (tabs.length > 3) return "lg:w-[560px] lg:shrink-0";
+  if (tabs.length > 2) return "md:w-[420px] md:shrink-0";
+  return tabs.includes("media_plan") || tabs.includes("social") ? "md:w-[340px] md:shrink-0" : "md:w-[280px] md:shrink-0";
 }

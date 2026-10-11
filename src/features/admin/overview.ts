@@ -36,7 +36,7 @@ const emptyCounts = (): ModuleCounts => ({ updated: 0, pending: 0, draft: 0, err
 
 export function buildAdminOverview(overviews: ClientOverview[]): AdminOverview {
   const active = overviews.filter((o) => o.client.status === "active");
-  const modules: Record<ReportType, ModuleCounts> = { commercial: emptyCounts(), traffic: emptyCounts(), media_plan: emptyCounts() };
+  const modules: Record<ReportType, ModuleCounts> = { commercial: emptyCounts(), traffic: emptyCounts(), social: emptyCounts(), media_plan: emptyCounts() };
   const attention: AttentionItem[] = [];
 
   for (const o of active) {

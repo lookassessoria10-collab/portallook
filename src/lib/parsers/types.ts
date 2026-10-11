@@ -12,11 +12,15 @@ export interface RawSheet {
   rows: RawRow[];
   /** Tabela colada sem título acima dela (o nome é o padrão do tipo de relatório). */
   untitled?: boolean;
+  /** Textos acima do cabeçalho (ex.: título "ANÁLISE DE DADOS - INSTAGRAM - 2024"). */
+  preamble?: string[];
 }
 
 export interface RawWorkbook {
   format: "xlsx" | "xls" | "csv" | "md";
   sheets: RawSheet[];
+  /** Todas as abas do arquivo, inclusive as que não foram lidas (ver `select` em readExcel). */
+  sheetNames?: string[];
 }
 
 /** Falha de leitura com mensagem pronta para o usuário. */

@@ -21,7 +21,7 @@ export interface KpiView {
   icon: KpiIcon;
 }
 
-export type KpiIcon = "leads" | "conversions" | "revenue" | "investment" | "roas" | "rate" | "ticket" | "cost" | "sales";
+export type KpiIcon = "leads" | "conversions" | "revenue" | "investment" | "roas" | "rate" | "ticket" | "cost" | "sales" | "followers" | "newFollowers" | "reach" | "views" | "engagement" | "interactions" | "visits" | "clicks";
 
 export interface ChannelView extends ChannelMetrics {
   meta: string[];

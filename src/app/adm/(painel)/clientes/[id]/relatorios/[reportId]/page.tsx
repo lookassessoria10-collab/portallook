@@ -23,6 +23,8 @@ import { getReportManifest } from "@/features/reports/service";
 import { REPORT_TYPE_LABEL, REPORT_TYPE_PATH, SOURCE_TYPE_LABEL } from "@/features/reports/schema";
 import { MediaPlanDashboard } from "@/features/media-plan/components/media-plan-dashboard";
 import { buildMediaPlanViewModel } from "@/features/media-plan/view-model";
+import { SocialDashboard } from "@/features/social/components/social-dashboard";
+import { buildSocialViewModel } from "@/features/social/view-model";
 
 export const metadata: Metadata = { title: "Relatório" };
 
@@ -109,6 +111,8 @@ export default async function AdminReportPage(props: PageProps<"/adm/clientes/[i
             {dataset ? (
               dataset.data.type === "commercial" ? (
                 <CommercialDashboard vm={buildCommercialViewModel(dataset.data.data, { previous: model.previous, history: model.history, dashboard: client.dashboard })} insights={manifest.insights} currency={client.currency} />
+              ) : dataset.data.type === "social" ? (
+                <SocialDashboard vm={buildSocialViewModel(dataset.data.data, { previous: model.previous, history: model.history })} insights={manifest.insights} />
               ) : dataset.data.type === "media_plan" ? (
                 <MediaPlanDashboard
                   vm={buildMediaPlanViewModel(dataset.data.data, { previous: model.previous, history: model.history, actual: model.relatedTraffic, today: model.today })}

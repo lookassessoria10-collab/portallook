@@ -10,10 +10,16 @@ import { trafficSummary } from "@/features/traffic/metrics";
 import { TrafficDataSchema, type TrafficData } from "@/features/traffic/schema";
 import { mediaPlanSummary } from "@/features/media-plan/metrics";
 import { MediaPlanDataSchema, type MediaPlanData } from "@/features/media-plan/schema";
+import { socialSummary } from "@/features/social/metrics";
+import { SocialDataSchema, type SocialData } from "@/features/social/schema";
 import { getRepositories } from "@/server/repositories";
 import { InsightSchema, REPORT_TYPE_LABEL, REPORT_TYPES, type Insight, type ReportKind, type ReportManifest, type ReportType, type SourceFile, type ValidationIssue } from "./schema";
 
-export type ReportData = { type: "commercial"; data: CommercialData } | { type: "traffic"; data: TrafficData } | { type: "media_plan"; data: MediaPlanData };
+export type ReportData =
+  | { type: "commercial"; data: CommercialData }
+  | { type: "traffic"; data: TrafficData }
+  | { type: "social"; data: SocialData }
+  | { type: "media_plan"; data: MediaPlanData };
 
 export const getReportManifest = cache(async (clientId: string, reportId: string): Promise<ReportManifest | null> => {
   const repos = getRepositories();
@@ -51,6 +57,10 @@ export function parseReportData(type: ReportType, raw: unknown): ReportData | nu
     const parsed = MediaPlanDataSchema.safeParse(raw);
     return parsed.success ? { type, data: parsed.data } : null;
   }
+  if (type === "social") {
+    const parsed = SocialDataSchema.safeParse(raw);
+    return parsed.success ? { type, data: parsed.data } : null;
+  }
   const parsed = TrafficDataSchema.safeParse(raw);
   return parsed.success ? { type, data: parsed.data } : null;
 }
@@ -58,6 +68,7 @@ export function parseReportData(type: ReportType, raw: unknown): ReportData | nu
 export function summarize(data: ReportData) {
   if (data.type === "commercial") return commercialSummary(data.data);
   if (data.type === "media_plan") return mediaPlanSummary(data.data);
+  if (data.type === "social") return socialSummary(data.data);
   return trafficSummary(data.data);
 }
 

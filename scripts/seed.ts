@@ -12,6 +12,7 @@ import { buildDemoClients } from "@/features/demo/data";
 import { CommercialDataSchema } from "@/features/commercial/schema";
 import { TrafficDataSchema } from "@/features/traffic/schema";
 import { MediaPlanDataSchema } from "@/features/media-plan/schema";
+import { SocialDataSchema } from "@/features/social/schema";
 import { buildPortalPath, portalBaseUrl, rotateAccessToken } from "@/features/clients/access";
 import { createDraftReport, newInsightId, publishReport, type ReportData } from "@/features/reports/service";
 import { upsertImportEntry } from "@/features/reports/index-entry";
@@ -77,7 +78,9 @@ async function main() {
             ? { type: "commercial", data: CommercialDataSchema.parse(r.commercial) }
             : r.type === "media_plan"
               ? { type: "media_plan", data: MediaPlanDataSchema.parse(r.mediaPlan) }
-              : { type: "traffic", data: TrafficDataSchema.parse(r.traffic) };
+              : r.type === "social"
+                ? { type: "social", data: SocialDataSchema.parse(r.social) }
+                : { type: "traffic", data: TrafficDataSchema.parse(r.traffic) };
         const json = Buffer.from(JSON.stringify(data.data));
         manifest = await createDraftReport({
           clientId: client.id,

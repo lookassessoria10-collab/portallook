@@ -1,4 +1,4 @@
-import { BadgeDollarSign, Eye, Megaphone, Percent, Receipt, ShoppingCart, TrendingUp, UserCheck, Users, Wallet } from "lucide-react";
+import { BadgeDollarSign, CircleUserRound, Eye, Heart, Megaphone, MessageCircleHeart, MousePointerClick, Percent, Play, Receipt, ShoppingCart, TrendingUp, UserCheck, UserPlus, Users, Wallet } from "lucide-react";
 import type { KpiIcon as KpiIconName } from "@/features/commercial/view-model";
 
 const ICONS: Record<KpiIconName, typeof Users> = {
@@ -11,6 +11,14 @@ const ICONS: Record<KpiIconName, typeof Users> = {
   ticket: Receipt,
   cost: BadgeDollarSign,
   sales: ShoppingCart,
+  followers: Users,
+  newFollowers: UserPlus,
+  reach: Eye,
+  views: Play,
+  engagement: Heart,
+  interactions: MessageCircleHeart,
+  visits: CircleUserRound,
+  clicks: MousePointerClick,
 };
 
 export function KpiIcon({ name }: { name: KpiIconName }) {

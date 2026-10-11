@@ -255,6 +255,59 @@ export function mediaPlanTemplateWorkbook(): XLSX.WorkBook {
   return wb;
 }
 
+/**
+ * Rede social no formato da planilha de análise de dados da Look: uma aba por
+ * cliente (com o nome do cliente), título com a rede e o ano, meses nas linhas,
+ * observação e glossário embaixo (ver social/normalize). Valores fictícios.
+ */
+export function socialTemplateWorkbook(): XLSX.WorkBook {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Modelo Portal Look — Rede social"],
+        ["Uma aba por cliente, com o nome do cliente como está no portal (ex.: CLÍNICA EXEMPLO). Dá para enviar a planilha com todas as abas: o portal lê só a do cliente escolhido."],
+        ["Título acima do cabeçalho: ANÁLISE DE DADOS - INSTAGRAM - 2026. O ano é opcional; sem ele, vale o ano do mês escolhido no assistente ou o ano atual."],
+        ["Uma linha por mês (JANEIRO a DEZEMBRO). Meses sem números são ignorados. Taxa de engajamento, saldo e crescimento de seguidores são calculados pelo portal."],
+        ["A linha OBSERVAÇÃO é interna (aparece só para a equipe) e o glossário abaixo da tabela é ignorado."],
+      ],
+      [120],
+    ),
+    "Instruções",
+  );
+  const months = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
+  const data: Array<Array<number | null>> = [
+    [1146, 26, 15, 1967, 5052, 51, null, 99, 82, 2, 6, 3, 0],
+    [1167, 30, 9, 4655, 10872, 62, null, 87, 76, 2, 1, 7, 5],
+    [1231, 76, 12, 9711, 30291, 173, null, 264, 207, 6, 11, 27, 4],
+  ];
+  const glossary: Array<[string, string]> = [
+    ["ALCANCE:", "O número de contas únicas que viram o seu conteúdo pelo menos uma vez, inclusive anúncios."],
+    ["VISUALIZAÇÕES:", "O número de vezes que as suas publicações, stories, reels e vídeos apareceram na tela, incluindo em anúncios."],
+    ["ENGAJAMENTO:", "O número de contas que interagiram com o seu conteúdo, inclusive anúncios."],
+    ["VISITAS:", "O número de vezes que o seu perfil foi acessado."],
+    ["INTERAÇÕES:", "O número total de interações com publicações, stories, reels e vídeos, incluindo conteúdo turbinado."],
+    ["TOQUES EM LINKS:", "O número de vezes que os links do perfil foram tocados."],
+  ];
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        [null, "ANÁLISE DE DADOS - INSTAGRAM - 2026"],
+        ["MÊS", "SEGUIDORES", "NOVOS SEGUIDORES", "PERDAS", "ALCANCE", "VISUALIZAÇÕES", "ENGAJAMENTO", "VISITAS", "INTERAÇÕES", "CURTIDAS", "COMENTÁRIOS", "COMPARTILHAMENTOS", "SALVOS", "TOQUES EM LINKS"],
+        ...months.map((m, i) => [m, ...(i >= 6 && i < 9 ? data[i - 6] : [])]),
+        ["OBSERVAÇÃO", "Cadastrado no Mlabs em 01/07/2026."],
+        [],
+        ...glossary.map(([k, v]) => [k, v]),
+      ],
+      [16, 12, 18, 10, 10, 15, 14, 9, 12, 10, 13, 19, 9, 17],
+    ),
+    "CLÍNICA EXEMPLO",
+  );
+  return wb;
+}
+
 export function workbookBuffer(wb: XLSX.WorkBook, bookType: "xlsx" | "xls" = "xlsx"): Buffer {
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType }) as Buffer);
 }

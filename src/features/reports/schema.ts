@@ -12,15 +12,16 @@ export const PeriodSchema = z
   })
   .refine((p) => p.start <= p.end, "O início do período precisa ser anterior ao fim.");
 
-export const ReportTypeSchema = z.enum(["commercial", "traffic", "media_plan"]);
+export const ReportTypeSchema = z.enum(["commercial", "traffic", "social", "media_plan"]);
 export type ReportType = z.infer<typeof ReportTypeSchema>;
 
 /** Ordem das áreas no painel e no portal. */
-export const REPORT_TYPES: readonly ReportType[] = ["commercial", "traffic", "media_plan"];
+export const REPORT_TYPES: readonly ReportType[] = ["commercial", "traffic", "social", "media_plan"];
 
 export const REPORT_TYPE_LABEL: Record<ReportType, string> = {
   commercial: "Comercial",
   traffic: "Tráfego",
+  social: "Rede social",
   media_plan: "Plano de mídia",
 };
 
@@ -28,6 +29,7 @@ export const REPORT_TYPE_LABEL: Record<ReportType, string> = {
 export const REPORT_TYPE_PATH: Record<ReportType, string> = {
   commercial: "comercial",
   traffic: "trafego",
+  social: "rede-social",
   media_plan: "plano-de-midia",
 };
 

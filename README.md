@@ -5,7 +5,7 @@ Portal de relatórios e dashboards dos clientes da **Look Assessoria de Comunica
 **A mesma aplicação, com dados e configurações diferentes, gera um dashboard personalizado para cada cliente.** Não é preciso criar páginas novas para um cliente novo.
 
 - **Painel da Look (`/adm`):** cadastro de clientes, periodicidade das entregas, upload de relatórios, validação, rascunho → publicação, status de pendências, links exclusivos e histórico.
-- **Portal do cliente (`/c/{slug}/{token}`):** sem login. O cliente abre um link exclusivo e vê Comercial, Tráfego e Plano de mídia, período a período, pensado primeiro para o celular.
+- **Portal do cliente (`/c/{slug}/{token}`):** sem login. O cliente abre um link exclusivo e vê Comercial, Tráfego, Rede social e Plano de mídia, período a período, pensado primeiro para o celular.
 
 ---
 
@@ -102,10 +102,10 @@ O seed cria 5 clientes de demonstração com dados fictícios:
 
 | Cliente | O que o seed demonstra |
 | --- | --- |
-| Dra. Isabor | Funil de 3 etapas, canais, mais tráfego Meta e Google semanal, PDF e HTML legado |
+| Dra. Isabor | Funil de 3 etapas, canais, mais tráfego Meta e Google semanal, rede social (Instagram), PDF e HTML legado |
 | Serenity | Serviços, profissionais, novos x recorrentes, ROI%; agosto fica em **rascunho** |
 | Larplan | Funil de 4 etapas com etapas "não registradas"; tráfego **com erro** de importação |
-| IL Distribuidora | Só tráfego, com resultado em conversas no WhatsApp |
+| IL Distribuidora | Tráfego com resultado em conversas no WhatsApp, mais rede social |
 | Instituto Landim | Funil de 2 etapas, dimensões, indicadores avulsos e banner de contexto; agosto **pendente** |
 
 ```bash
@@ -157,7 +157,8 @@ Os testes cobrem as partes críticas:
 - controle de acesso (um cliente não abre outro; rascunhos invisíveis);
 - storage com path traversal e ETag;
 - parsers e normalizadores;
-- fluxo completo de importação (XLSX, CSV parcial, PDF, HTML legado e estruturado, arquivo com extensão falsa).
+- fluxo completo de importação (XLSX, CSV parcial, PDF, HTML legado e estruturado, arquivo com extensão falsa);
+- planilha de rede social: aba do cliente numa planilha com dezenas de abas, ano do título, abas antigas (Impressões/Toque no site), observação e glossário.
 
 ---
 
@@ -202,9 +203,9 @@ clients/{clientId}/client.json            perfil e configuração
 clients/{clientId}/access.json            token do link (hash HMAC + cópia cifrada)
 clients/{clientId}/index.json             resumo de relatórios e uploads (reconstruível)
 clients/{clientId}/logo.{png|jpg|webp}
-clients/{clientId}/reports/{commercial|traffic}/{reportId}/manifest.json
-clients/{clientId}/reports/{commercial|traffic}/{reportId}/data.json
-clients/{clientId}/reports/{commercial|traffic}/{reportId}/original.{ext}
+clients/{clientId}/reports/{commercial|traffic|social|media_plan}/{reportId}/manifest.json
+clients/{clientId}/reports/{commercial|traffic|social|media_plan}/{reportId}/data.json
+clients/{clientId}/reports/{commercial|traffic|social|media_plan}/{reportId}/original.{ext}
 slugs/{slug}.json                         slug → clientId (reserva atômica)
 imports/{importId}/record.json            registro do upload (status, erros, prévia)
 imports/{importId}/original.{ext}         arquivo temporário até a confirmação
@@ -296,9 +297,9 @@ public/modelos   modelos de importação (XLSX, CSV, HTML estruturado)
 
 Todos os schemas estão em `src/features/*/schema.ts` (Zod).
 
-- **Client:** `id`, `slug`, `name`, `shortName`, `greetingName`, `segment`, `status` (active/inactive/archived), `logo`, `currency`, `modules.{commercial,traffic,media_plan}` (`enabled`, `cadence` monthly/weekly, `dueDay`, `allowOriginalDownload`; `media_plan` é sempre mensal e, em clientes antigos sem a chave, entra desativado), `dashboard` (`roiMetric`: roas/roiPercent; `highlightMetrics`), `notes`, datas e `version`.
+- **Client:** `id`, `slug`, `name`, `shortName`, `greetingName`, `segment`, `status` (active/inactive/archived), `logo`, `currency`, `modules.{commercial,traffic,social,media_plan}` (`enabled`, `cadence` monthly/weekly, `dueDay`, `allowOriginalDownload`; `social` e `media_plan` são sempre mensais e, em clientes antigos sem a chave, entram desativados), `dashboard` (`roiMetric`: roas/roiPercent; `highlightMetrics`), `notes`, datas e `version`.
 - **ClientAccess:** `enabled`, `token { hash, ciphertext, hint, createdAt } | null` e `history`.
-- **ReportManifest:** `id`, `clientId`, `type` (commercial/traffic/media_plan), `kind` (dataset/document), `period { start, end, granularity }`, `periodKey`, `status`, `source` (arquivo original), `dataPath`, `insights`, `warnings`, `summary`, `labels`, `allowDownload`, `retroactive` (enviado como mês anterior), `createdAt`, `publishedAt` etc.
+- **ReportManifest:** `id`, `clientId`, `type` (commercial/traffic/social/media_plan), `kind` (dataset/document), `period { start, end, granularity }`, `periodKey`, `status`, `source` (arquivo original), `dataPath`, `insights`, `warnings`, `summary`, `labels`, `allowDownload`, `retroactive` (enviado como mês anterior), `createdAt`, `publishedAt` etc.
   - Os status possíveis são draft, published, unpublished, superseded e archived.
   - `summary` guarda os indicadores usados em histórico e comparação.
 - **CommercialData:**
@@ -311,6 +312,7 @@ Todos os schemas estão em `src/features/*/schema.ts` (Zod).
 - **TrafficData:** `campaigns[] { platform, name, investment, impressions, reach, clicks, linkClicks, results, resultType, resultLabel, conversions, attributedRevenue }`.
   - `resultType` pode ser whatsapp, lead, form, purchase, appointment, call, conversion, visit ou other. Tipos diferentes nunca são somados como se fossem iguais.
 - **MediaPlanData** (modelo "Estratégia de Mídia"): `header { title, tagline, summary, tags[], updatedAt }`; `highlights[]` e `goals[]` (`label`, `value`, `display` — texto como foi escrito, ex.: "60–125", "≥ 30%" —, `format`, `description`); `items[] { platform, name, objective, funnel, audience, offers, format, start, end, budget, dailyBudget, resultType, resultLabel, resultTarget, costPerResultTarget, impressionsTarget, reachTarget, clicksTarget, notes }`; `platforms[] { platform, description }`; `sections[] { title, placement (top/bottom), blocks[] }` com blocos `text`, `callout`, `card`, `step`, `item`, `quote`, `warning`, `phase` e `table` (`columns`, `rows`).
+- **SocialData** (rede social, um relatório por mês): `network` (instagram, facebook, tiktok, linkedin, youtube), `metrics { followers, newFollowers, lostFollowers, reach, views, engagement, profileVisits, interactions, likes, comments, saves, shares, linkClicks }` (`null` = não informado), `labels` (nome usado na planilha quando varia: "Impressões" × "Visualizações", "Toque no site" × "Toques em links") e `extraMetrics[]` (outras colunas numéricas, com o nome que vieram). Taxa de engajamento (engajamento ÷ alcance) e saldo de seguidores são calculados.
 - **Insight:** `type` (positive, attention, neutral, recommendation), `title`, `description` e `source` (manual, import ou auto). Insights automáticos aparecem sinalizados. O MVP não gera recomendações automáticas.
 - **ImportRecord:** status do upload, erros e avisos, prévia por período e IDs dos rascunhos criados.
   - Os status são awaiting_file, uploaded, validated, invalid, imported, discarded e failed.
@@ -321,7 +323,7 @@ Todos os schemas estão em `src/features/*/schema.ts` (Zod).
 
 1. **Painel → Clientes → Novo cliente.**
 2. Preencha nome, endereço (slug), saudação e segmento.
-3. Ative os módulos. Para cada um, escolha a periodicidade e o prazo. Exemplos: Comercial *mensal até o dia 5*; Tráfego *semanal até segunda-feira*; Plano de mídia *até o dia 1 do próprio mês* (o plano é entregue antes ou no começo do mês).
+3. Ative os módulos. Para cada um, escolha a periodicidade e o prazo. Exemplos: Comercial *mensal até o dia 5*; Tráfego *semanal até segunda-feira*; Rede social *mensal até o dia 5*; Plano de mídia *até o dia 1 do próprio mês* (o plano é entregue antes ou no começo do mês).
 4. Salve. O **link exclusivo é gerado na hora** e aparece na visão geral do cliente e na aba **Acesso**.
 5. Opcional: envie o logo em **Configurações**.
 
@@ -332,7 +334,7 @@ Todos os schemas estão em `src/features/*/schema.ts` (Zod).
 **Painel → Novo upload** (ou "Enviar relatório" em qualquer pendência, que já chega com cliente, tipo e período preenchidos).
 
 1. **Cliente**
-2. **Tipo** (Comercial, Tráfego, Tráfego · meses anteriores ou Plano de mídia)
+2. **Tipo** (Comercial, Tráfego, Tráfego · meses anteriores, Rede social ou Plano de mídia)
 3. **Período.** Planilhas podem "detectar pelo arquivo". PDF exige o período. No plano de mídia, os próximos meses aparecem primeiro; no tráfego retroativo este passo é pulado (os meses vêm dos dados).
 4. **Arquivo:** arraste e solte ou selecione, ou use **Colar dados** (tabela em Markdown ou células copiadas da planilha). Para CSV, informe o conteúdo (funil, financeiro, canais, dimensão ou tráfego). Em tráfego, escolha a **plataforma** quando o arquivo for de uma só (ver abaixo).
 5. **Validação:**
@@ -351,6 +353,8 @@ Arquivos maiores que `SERVER_UPLOAD_MAX_MB` vão direto do navegador para o Blob
 **Tráfego · meses anteriores (retroativo):** em **Cliente → Tráfego → Meses anteriores** (ou no tipo "Tráfego · meses anteriores" do assistente), envie de uma vez os meses passados — planilha, exportação do Meta/Google dividida por mês ou dados colados, sempre com a coluna Mês (ou Início/Fim). As linhas são lidas como **meses**, mesmo que o cliente receba tráfego semanal. Na prévia, os meses que ainda não estão no sistema vêm marcados; os que já existem vêm **desmarcados e não são alterados**, a menos que o ADM marque. Os relatórios criados levam a marca "Retroativo" no ADM. Para o cliente, aparecem na mesma aba de Tráfego, com visão geral e comparação mês a mês; se o tráfego dele for semanal, o portal mostra o seletor **Meses | Semanas** (as duas escalas nunca se misturam).
 
 **Plano de mídia:** segue a organização do modelo "Estratégia de Mídia" da Look e é enviado como os outros (planilha, CSV, dados colados, PDF ou HTML). Abas/tabelas reconhecidas: **Plano** ou **Campanhas** (obrigatória: Campanha, Plataforma, Verba; opcionais Objetivo, Funil, Diário, Público, Ofertas, Formato, Início, Fim, Meta/Tipo de resultado, Custo por resultado, Observações — o % de cada campanha é calculado), **Apresentação** (Campo | Valor: Título, Chamada, Resumo, Etiquetas separadas por `;`, Atualizado em), **Resumo** e **Metas** (Indicador | Valor | Descrição; faixas como `60–125` e `≥ 30%` aparecem como foram escritas), **Plataformas** (Plataforma | Descrição), **Conteúdo** (Seção | Formato | Título | Texto | Etiqueta | Posição; formatos Texto, Destaque, Cartão, Passo, Item, Mensagem, Alerta, Fase e Tabela; Posição "Topo" põe a seção logo depois do resumo) e **Insights**. Qualquer outra tabela (ex.: "Matriz de criativos") aparece no plano como veio, no lugar marcado no Conteúdo com o formato Tabela. No portal, o plano mostra apresentação, resumo, orçamento por plataforma e por campanha, campanhas, cronograma (quando há datas), metas, as seções de conteúdo e, quando o tráfego do mesmo mês está publicado, o **planejado × realizado** por plataforma e por resultado. Modelo: `public/modelos/modelo-plano-de-midia.xlsx`.
+
+**Rede social:** segue a planilha de análise de dados da Look — **uma aba por cliente**, com o nome do cliente. Dá para enviar a planilha inteira (todas as abas): o portal lê só a aba do cliente escolhido, reconhecendo o nome sem acento, maiúsculas ou "Dra./Dr." ("Dra. Isabor" encontra a aba "ISABOR SANTANNA"). Se nenhuma aba (ou mais de uma) corresponder, o erro lista as abas encontradas. Também aceita uma planilha só com a aba do cliente, CSV ou dados colados. Formato da aba: título acima do cabeçalho (`ANÁLISE DE DADOS - INSTAGRAM - 2026` — a rede e o ano saem dele), coluna **Mês** (`JANEIRO`… ou `01/2026`) e as métricas Seguidores, Novos seguidores, Perdas, Alcance, Visualizações (ou Impressões), Engajamento, Visitas, Interações, Curtidas, Comentários, Salvos, Compartilhamentos e Toques em links (ou Toque no site); outras colunas com números aparecem com o nome que vieram. Cada mês preenchido vira um rascunho (meses vazios são ignorados); na prévia vêm marcados os meses que ainda não estão no sistema (ou o mês escolhido no assistente). Sem ano no título, vale o ano do mês escolhido no assistente ou o ano atual (se a planilha tiver meses depois do mês atual, é lida como do ano anterior, com aviso). A linha **OBSERVAÇÃO** vira aviso interno (não aparece para o cliente) e o glossário abaixo da tabela é ignorado. No portal: visão geral de todos os meses (seguidores do último mês, contagens somadas, alcance e engajamento em média — contas únicas não se somam) e, em cada mês, resumo com comparação, seguidores que chegaram e saíram, interações por tipo, comparativo, evolução, insights e o glossário das métricas. Modelo: `public/modelos/modelo-rede-social.xlsx`.
 
 **Publicar todos:** publica os rascunhos da importação que ainda estão em rascunho, pulando os que já têm uma versão mais nova do mesmo período. Ao publicar qualquer versão, a publicada anterior e os rascunhos mais antigos do mesmo período viram "substituídos".
 
@@ -382,7 +386,7 @@ Outras ações:
 | **CSV** | Uma tabela por arquivo; o ADM informa o conteúdo. Separador `;` ou `,`, UTF-8 ou Windows-1252. |
 | **Dados colados / .md** | Tabelas Markdown (uma aba por tabela, nomeada pelo título acima dela) ou células copiadas da planilha. Mesmas colunas das planilhas. |
 | **PDF** | Documento visual, sem extração de dados no MVP. Visualizador com páginas, zoom e download opcional. |
-| **HTML estruturado** | Contém `<script type="application/json" id="portal-look-data">` com `{ type, client, data, insights }`, onde `data` segue `CommercialData` ou `TrafficData` (exemplo em `public/modelos/exemplo-html-estruturado.html`). Vira dashboard. |
+| **HTML estruturado** | Contém `<script type="application/json" id="portal-look-data">` com `{ type, client, data, insights }`, onde `type` é `commercial`, `traffic`, `social` ou `media_plan` e `data` segue o modelo correspondente (`CommercialData`, `TrafficData`, `SocialData`, `MediaPlanData`) (exemplo em `public/modelos/exemplo-html-estruturado.html`). Vira dashboard. |
 | **HTML legado** | Qualquer outro HTML. Exibido isolado em iframe sandbox. |
 
 **Planilha comercial:**

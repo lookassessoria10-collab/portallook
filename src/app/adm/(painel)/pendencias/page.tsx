@@ -17,6 +17,7 @@ const TYPE_FILTERS = [
   { key: "", label: "Todos" },
   { key: "commercial", label: "Comercial" },
   { key: "traffic", label: "Tráfego" },
+  { key: "social", label: "Rede social" },
   { key: "media_plan", label: "Plano de mídia" },
 ];
 

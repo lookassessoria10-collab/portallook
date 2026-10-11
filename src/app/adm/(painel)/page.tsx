@@ -15,6 +15,12 @@ import type { ModuleCounts } from "@/features/admin/overview";
 
 export const metadata: Metadata = { title: "Visão geral" };
 
+const TILE_GRID: Record<number, string> = {
+  4: "grid grid-cols-2 gap-3 lg:grid-cols-4",
+  5: "grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-5",
+  6: "grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6",
+};
+
 function longToday(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
   return `${WEEKDAYS_PT[isoWeekday(iso) - 1]}, ${d} de ${MONTHS_PT[m - 1]} de ${y}`;
@@ -25,15 +31,18 @@ export default async function AdminHome() {
   const o = buildAdminOverview(overviews);
   const date = today();
   const tz = env().APP_TIMEZONE;
+  // Clientes ativos + comercial + tráfego + arquivos com erro, mais rede social e plano de mídia quando algum cliente usa.
+  const tileCount = 4 + (o.modules.social.total ? 1 : 0) + (o.modules.media_plan.total ? 1 : 0);
 
   return (
     <>
       <PageHeader eyebrow={longToday(date)} title="Visão geral" description="Entregas, pendências e últimos envios de todos os clientes." />
 
-      <section aria-label="Indicadores" className={o.modules.media_plan.total ? "grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-5" : "grid grid-cols-2 gap-3 lg:grid-cols-4"}>
+      <section aria-label="Indicadores" className={TILE_GRID[tileCount] ?? TILE_GRID[4]}>
         <StatTile icon={<Users />} label="Clientes ativos" value={o.activeClients} hint={o.inactiveClients ? `${o.inactiveClients} inativo(s)` : "Todos ativos"} href="/adm/clientes" />
         <ModuleTile type="commercial" counts={o.modules.commercial} />
         <ModuleTile type="traffic" counts={o.modules.traffic} />
+        {o.modules.social.total ? <ModuleTile type="social" counts={o.modules.social} /> : null}
         {o.modules.media_plan.total ? <ModuleTile type="media_plan" counts={o.modules.media_plan} /> : null}
         <StatTile
           icon={<FileWarning />}

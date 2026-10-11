@@ -36,6 +36,7 @@ const TYPE_CHOICES: Array<{ type: ReportType; mode: ImportMode; label: string; h
   { type: "commercial", mode: "regular", label: "Comercial" },
   { type: "traffic", mode: "regular", label: "Tráfego" },
   { type: "traffic", mode: "retroactive", label: "Tráfego · meses anteriores", hint: "Retroativo: vários meses de uma vez, para comparação" },
+  { type: "social", mode: "regular", label: "Rede social", hint: "Planilha de análise do Instagram · um relatório por mês" },
   { type: "media_plan", mode: "regular", label: "Plano de mídia" },
 ];
 const PLATFORM_SHORT: Record<UploadPlatform, string> = { meta_ads: "Meta Ads", google_ads: "Google Ads" };
@@ -294,8 +295,14 @@ export function UploadWizard({
 
         {step === 2 && mod ? (
           <StepFrame
-            title={type === "media_plan" ? "Para qual mês é o plano?" : "Qual o período?"}
-            description={type === "media_plan" ? "O plano pode ser enviado antes do mês começar. Com a coluna Mês no arquivo, dá para enviar vários meses de uma vez." : "Para planilhas, você pode deixar o sistema detectar os períodos pelo arquivo."}
+            title={type === "media_plan" ? "Para qual mês é o plano?" : type === "social" ? "Qual mês?" : "Qual o período?"}
+            description={
+              type === "media_plan"
+                ? "O plano pode ser enviado antes do mês começar. Com a coluna Mês no arquivo, dá para enviar vários meses de uma vez."
+                : type === "social"
+                  ? "A planilha de rede social traz o ano todo: todos os meses preenchidos são lidos e, na prévia, você escolhe quais importar. Escolha um mês para já deixá-lo marcado."
+                  : "Para planilhas, você pode deixar o sistema detectar os períodos pelo arquivo."
+            }
             onBack={() => setStep(1)}
             onNext={() => setStep(3)}
           >
@@ -449,6 +456,9 @@ export function UploadWizard({
                 </a>
                 <a className="inline-flex items-center gap-1 font-semibold text-primary hover:underline" href="/modelos/modelo-trafego.xlsx" download>
                   <Download className="size-3.5" aria-hidden /> Tráfego (XLSX)
+                </a>
+                <a className="inline-flex items-center gap-1 font-semibold text-primary hover:underline" href="/modelos/modelo-rede-social.xlsx" download>
+                  <Download className="size-3.5" aria-hidden /> Rede social (XLSX)
                 </a>
                 <a className="inline-flex items-center gap-1 font-semibold text-primary hover:underline" href="/modelos/modelo-plano-de-midia.xlsx" download>
                   <Download className="size-3.5" aria-hidden /> Plano de mídia (XLSX)
