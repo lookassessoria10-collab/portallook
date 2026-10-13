@@ -431,6 +431,28 @@ describe("auditoria Serenity: casos de setembro e fórmulas", () => {
     expect(signedPercent(-0.4)).toBe("−40,0%");
   });
 
+  it("percentuais de Isabor e Serenity usam a escala correta mesmo misturados na aba", () => {
+    const r = read({
+      Funil: [["Mês", "Leads", "Comparecimentos"], ["08/2026", 257, 8]],
+      Indicadores: [
+        ["Mês", "Indicador", "Valor", "Formato"],
+        ["08/2026", "ROI Meta Ads", 4.786, "Percentual"],
+        ["08/2026", "Crescimento da receita", 1.513, "Percentual"],
+        ["08/2026", "Taxa de conversão", 3.1, "Percentual"],
+        ["08/2026", "Taxa de resposta", 0.244, "Percentual"],
+        ["08/2026", "ROI Sites", 945.5, "Percentual"],
+        ["08/2026", "Conversão escrita", "6,5%", "Percentual"],
+      ],
+    });
+    const values = Object.fromEntries(r.data(0).extraMetrics.map((m) => [m.label, m.value]));
+    expect(values["ROI Meta Ads"]).toBeCloseTo(4.786, 8);
+    expect(values["Crescimento da receita"]).toBeCloseTo(1.513, 8);
+    expect(values["Taxa de conversão"]).toBeCloseTo(0.031, 8);
+    expect(values["Taxa de resposta"]).toBeCloseTo(0.244, 8);
+    expect(values["ROI Sites"]).toBeCloseTo(9.455, 8);
+    expect(values["Conversão escrita"]).toBeCloseTo(0.065, 8);
+  });
+
   it("linhas de total não entram de novo nas somas (massagens e canais pagos de setembro)", () => {
     const r = read({
       Funil: [["Mês", "Leads", "Comparecimentos"], ["09/2026", 41, 36]],
