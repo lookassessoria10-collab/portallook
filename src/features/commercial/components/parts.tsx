@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Repeat, Megaphone, Percent, Receipt, Star, UserCheck, Users, Wallet } from "lucide-react";
-import { EMPTY_VALUE, formatCurrency, formatHeadlineValue, formatValue, isFiniteNumber, type ValueFormat } from "@/lib/format/number";
+import { EMPTY_VALUE, formatCurrency, formatHeadlineValue, formatPercent, formatValue, isFiniteNumber, type ValueFormat } from "@/lib/format/number";
 import { LazyDistributionChart, LazyXYChart } from "@/components/charts/lazy";
 import { cn } from "@/lib/cn";
 import type { Accent, BadgeTone, BannerKpi, CardIcon, ChartPoint, ChartSpec, Delta, DistributionSpec } from "@/features/commercial/dashboard";
@@ -40,10 +40,10 @@ export function headline(value: number | null | undefined, format: ValueFormat, 
   return formatHeadlineValue(value, format, currency);
 }
 
-/** ROI com sinal: "+329%", "−40,0%". */
+/** ROI com sinal e sempre uma casa: "+261,4%", "−40,0%" (a fração 2,614 é 261,4%). */
 export function signedPercent(value: number | null | undefined): string {
   if (!isFiniteNumber(value)) return EMPTY_VALUE;
-  const text = formatValue(Math.abs(value), "percent");
+  const text = formatPercent(Math.abs(value), 1);
   return value > 0 ? `+${text}` : value < 0 ? `−${text}` : text;
 }
 

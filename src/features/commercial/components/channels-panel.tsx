@@ -5,10 +5,15 @@ import { SECTION_PARAM } from "@/features/portal/params";
 import type { CommercialDashboardVM, RoiFigures } from "@/features/commercial/dashboard";
 import { notesFor } from "@/features/commercial/notes";
 import { ChartPanel, DistributionPanel, NoteBox, Panel, Pill, SectionLabel, TableFrame, cell, perReal, signedPercent } from "./parts";
+import { FreeTable } from "./shared-blocks";
 
 /** Canais (de onde vieram leads e receita) e retorno dos canais com investimento. */
 export function ChannelsPanel({ vm, currency }: { vm: CommercialDashboardVM; currency: string }) {
   const ch = vm.channels;
+  const unattributed = ch?.table.rows.some((r) => r.unattributed) ?? false;
+  const footnote = ch?.hasLeads
+    ? `Colunas dos meses: ${ch.leadsLabel.toLowerCase()} de cada canal. Vazio = não informado na planilha.${unattributed ? ` Sem atribuição: ${ch.leadsLabel.toLowerCase()} do funil sem canal informado (o total do funil menos a soma dos canais), para o total bater com a visão geral.` : ""}`
+    : undefined;
   return (
     <div className="space-y-9">
       {ch ? (
@@ -29,7 +34,7 @@ export function ChannelsPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
 
           <section aria-labelledby="canais-tabela-titulo">
             <SectionLabel id="canais-tabela-titulo">{ch.hasConversions ? "Conversão e receita por canal" : "Leads e receita por canal"}</SectionLabel>
-            <TableFrame caption="Resultados por canal" footnote={ch.hasLeads ? `Colunas dos meses: ${ch.leadsLabel.toLowerCase()} de cada canal. Vazio = não informado na planilha.` : undefined}>
+            <TableFrame caption="Resultados por canal" footnote={footnote}>
               <thead>
                 <tr>
                   <th scope="col">Canal</th>
@@ -47,7 +52,7 @@ export function ChannelsPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
                     <th scope="row" className="text-left">
                       <span className="inline-flex items-center gap-2">
                         <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: r.color }} aria-hidden />
-                        <span className="font-bold">{r.label}</span>
+                        <span className={r.unattributed ? "font-semibold italic text-text-2" : "font-bold"}>{r.label}</span>
                         {r.kind !== "other" && normalizeText(r.kindLabel) !== normalizeText(r.label) ? <Pill tone={r.kind === "paid" ? "primary" : r.kind === "recurring" ? "attention" : "neutral"}>{r.kindLabel}</Pill> : null}
                       </span>
                     </th>
@@ -80,6 +85,13 @@ export function ChannelsPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
           </section>
         </>
       ) : null}
+
+      {vm.channelTables.map((t) => (
+        <section key={t.key} aria-labelledby={`canais-tabela-${t.key}`}>
+          <SectionLabel id={`canais-tabela-${t.key}`}>{t.title}</SectionLabel>
+          <FreeTable table={t} />
+        </section>
+      ))}
 
       {vm.roi ? <RoiSection vm={vm} currency={currency} /> : null}
     </div>

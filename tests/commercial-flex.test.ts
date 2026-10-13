@@ -9,6 +9,7 @@ import { CommercialDataSchema, type CommercialData } from "@/features/commercial
 import { commercialSummary } from "@/features/commercial/metrics";
 import { buildCommercialDashboard, returnTone } from "@/features/commercial/dashboard";
 import { notesFor, unplacedNotes } from "@/features/commercial/notes";
+import { signedPercent } from "@/features/commercial/components/parts";
 import type { ReportIndexEntry } from "@/features/reports/schema";
 
 type Row = Array<string | number | null>;
@@ -400,5 +401,120 @@ describe("painel comercial: modelo funil (Isabor)", () => {
     expect(vm.actionPlans[0].table.columns).toEqual(["#", "Ação", "Impacto esperado", "Urgência"]);
     expect(fv.growth).toMatchObject({ peakName: "Agosto", peakLeads: 257, projected: 35, revenue: 15070, extra: 17, peakInvestment: 1208.17 });
     expect(fv.growth?.growth).toBeCloseTo(15070 / 7750 - 1, 6);
+  });
+});
+
+describe("auditoria Serenity: casos de setembro e fórmulas", () => {
+  it("ROI em percentual na escala certa: frações da planilha não são divididas por 100 de novo", () => {
+    const fractions = read({
+      Funil: [["Mês", "Leads", "Comparecimentos"], ["01/2026", 41, 10]],
+      Indicadores: [
+        ["Mês", "Indicador", "Valor", "Formato"],
+        ["01/2026", "Conversão Lead → Comparecimento", 0.244, "Percentual"],
+        ["01/2026", "ROI Sites de Massagem", 2.614, "Percentual"],
+        ["01/2026", "ROI Mix dos canais pagos", "652,5%", "Percentual"],
+        ["01/2026", "Dias registrados", 16, "Número"],
+      ],
+    });
+    const byLabel = Object.fromEntries(fractions.data(0).extraMetrics.map((e) => [e.label, e.value]));
+    expect(byLabel["ROI Sites de Massagem"]).toBeCloseTo(2.614, 9);
+    expect(byLabel["ROI Mix dos canais pagos"]).toBeCloseTo(6.525, 9);
+    expect(byLabel["Conversão Lead → Comparecimento"]).toBeCloseTo(0.244, 9);
+    expect(fractions.data(0).days).toBe(16);
+    // Planilha de 0 a 100: 24,4 continua sendo 24,4%.
+    const hundred = read({ Funil: [["Mês", "Leads", "Comparecimentos"], ["01/2026", 41, 10]], Indicadores: [["Mês", "Indicador", "Valor", "Formato"], ["01/2026", "Taxa de resposta", 24.4, "Percentual"], ["01/2026", "Taxa de retorno", 261.4, "Percentual"]] });
+    expect(hundred.data(0).extraMetrics.map((e) => e.value)).toEqual([0.244, 2.614]);
+    // ROI exibido com uma casa e na escala certa (fração 2,614 = 261,4%).
+    expect(signedPercent((795 - 220) / 220)).toBe("+261,4%");
+    expect(signedPercent((2150 - 371.56) / 371.56)).toBe("+478,6%");
+    expect(signedPercent((2300 - 220) / 220)).toBe("+945,5%");
+    expect(signedPercent(-0.4)).toBe("−40,0%");
+  });
+
+  it("linhas de total não entram de novo nas somas (massagens e canais pagos de setembro)", () => {
+    const r = read({
+      Funil: [["Mês", "Leads", "Comparecimentos"], ["09/2026", 41, 36]],
+      "Desempenho por massagem": [
+        ["Mês", "Massagem", "Atendimentos", "Receita"],
+        ["09/2026", "Total informado", 24, 9240],
+        ["09/2026", "Nuru", 9, 4040],
+        ["09/2026", "Vivência", 7, 2800],
+        ["09/2026", "Tailandesa", 8, 2400],
+      ],
+      Canais: [
+        ["Mês", "Canal", "Receita", "Investimento"],
+        ["09/2026", "Instagram (Meta Ads)", 600, 357.73],
+        ["09/2026", "Sites de Massagem", 850, 220],
+        ["09/2026", "Total dos canais pagos", 1450, 577.73],
+        ["09/2026", "Sites de Massagem", 850, 220],
+      ],
+    });
+    const sep = r.data(0);
+    const massagens = sep.dimensions[0].rows;
+    expect(massagens.map((x) => x.label)).toEqual(["Nuru", "Vivência", "Tailandesa"]);
+    expect(massagens.reduce((s, x) => s + (x.quantity ?? 0), 0)).toBe(24);
+    expect(massagens.reduce((s, x) => s + (x.revenue ?? 0), 0)).toBe(9240);
+    expect(sep.channels.map((c) => c.label)).toEqual(["Instagram (Meta Ads)", "Sites de Massagem"]);
+    const vm = buildCommercialDashboard({ history: [entry(sep)], previous: null, data: sep, insights: [], dashboard: { ...dashboard, roiMetric: "roiPercent" } });
+    expect(vm.roi?.total).toMatchObject({ revenue: 1450, investment: 577.73 });
+    expect(vm.dimensions[0].total).toMatchObject({ quantity: 24, revenue: 9240 });
+    const codes = r.issues.warnings.map((w) => w.code);
+    expect(codes).toContain("summary_rows_skipped");
+    expect(codes).toContain("duplicate_item");
+  });
+
+  it("leads do funil sem canal informado viram 'Sem atribuição', sem ajustar os canais", () => {
+    const r = read({
+      Funil: [["Mês", "Leads", "Comparecimentos", "Dias"], ["01/2026", 41, 10, 16], ["02/2026", 132, 26, 28]],
+      Canais: [
+        ["Mês", "Canal", "Leads", "Receita"],
+        ["01/2026", "ADS (Meta)", 14, 251],
+        ["01/2026", "Google", 25, 624],
+        ["02/2026", "ADS (Meta)", 62, 839],
+        ["02/2026", "Google", 70, 1825],
+      ],
+    });
+    const [jan, fev] = [r.data(0), r.data(1)];
+    const vm = buildCommercialDashboard({ history: [entry(jan), entry(fev)], previous: entry(jan), data: fev, insights: [], dashboard });
+    const rows = vm.channels!.table.rows;
+    expect(rows.find((x) => x.label === "ADS (Meta)")?.leads).toBe(76);
+    expect(rows.find((x) => x.unattributed)).toMatchObject({ label: "Sem atribuição", leads: 2, byPeriod: { "2026-01": 2, "2026-02": null } });
+    expect(vm.channels!.table.total.byPeriod).toEqual({ "2026-01": 41, "2026-02": 132 });
+    expect(vm.monthTable.columns[0]).toMatchObject({ key: "days", label: "Dias" });
+    expect(vm.monthTable.total?.days).toBe(44);
+  });
+
+  it("etapas com nomes diferentes em um mês (setembro) continuam alinhadas com os outros meses", () => {
+    const before = read({ Funil: [["Mês", "Leads", "Agendamentos", "Comparecimentos"], ["07/2026", 170, 47, 41], ["08/2026", 172, 43, 37]] });
+    const [jul, ago] = [before.data(0), before.data(1)];
+    const set = read({ Funil: [["Mês", "Leads registrados", "Agendamentos válidos", "Comparecimentos válidos"], ["09/2026", 41, 36, 36]] }).data(0);
+    const vm = buildCommercialDashboard({ history: [entry(jul), entry(ago), entry(set)], previous: entry(ago), data: set, insights: [], dashboard });
+    // O nome mais usado no ano vale para a coluna; setembro entra nela.
+    expect(vm.monthTable.columns.filter((c) => c.key.startsWith("stage.")).map((c) => c.label)).toEqual(["Leads", "Agendamentos", "Comparecimentos"]);
+    expect(vm.monthTable.rows.map((x) => x.values["stage.agendamentos"])).toEqual([47, 43, 36]);
+    expect(vm.monthTable.total?.["stage.comparecimentos"]).toBe(114);
+    expect(vm.banner.find((b) => b.key === "stage.agendamentos")?.delta?.text).toBe("−16,3%");
+    expect(vm.comparison?.rows.find((x) => x.label === "Agendamentos")).toMatchObject({ previous: 43, current: 36 });
+  });
+
+  it("notas do mês no cartão de ROI e tabela de canais na aba de canais", () => {
+    const r = read({
+      Funil: [["Mês", "Leads", "Comparecimentos"], ["07/2026", 170, 41], ["08/2026", 172, 37]],
+      Canais: [
+        ["Mês", "Canal", "Tipo", "Receita", "Investimento"],
+        ["07/2026", "ADS (Meta)", "Mídia paga", 2045, 369.49],
+        ["08/2026", "ADS (Meta)", "Mídia paga", 2150, 371.56],
+      ],
+      Notas: [["Mês", "Seção", "Texto"], ["07/2026", "ROI do mês", "Instagram recupera forte."], ["08/2026", "ROI do mês", "Melhor mês."]],
+      "Tabela Conversão por canal": [["Mês", "Canal", "Comparecimentos (15/01 a 31/08)"], ["08/2026", "ADS (Meta)", "42+"]],
+    });
+    expect(r.issues.errors).toEqual([]);
+    const [jul, ago] = [r.data(0), r.data(1)];
+    expect(ago.tables[0].title).toBe("Conversão por canal");
+    const vm = buildCommercialDashboard({ history: [entry(jul), entry(ago)], previous: entry(jul), data: ago, insights: [], dashboard: { ...dashboard, roiMetric: "roiPercent" } });
+    expect(vm.roi?.months.map((m) => m.note)).toEqual(["Instagram recupera forte.", "Melhor mês."]);
+    expect(vm.channelTables.map((t) => t.title)).toEqual(["Conversão por canal"]);
+    expect(vm.tables).toEqual([]);
+    expect(unplacedNotes(vm.notes, "detalhamentos")).toEqual([]);
   });
 });

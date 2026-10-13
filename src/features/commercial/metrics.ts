@@ -1,5 +1,6 @@
 import { safeDivide, sumMaybe } from "@/lib/metrics/safe-math";
 import { isFiniteNumber } from "@/lib/format/number";
+import { slugify } from "@/lib/ids";
 import type { ReportSummary } from "@/features/reports/schema";
 import type { ChannelRow, CommercialData, FunnelStage } from "./schema";
 
@@ -151,6 +152,12 @@ export function commercialSummary(data: CommercialData): { summary: ReportSummar
   const labels: Record<string, string> = { firstStage: m.firstStageLabel, finalStage: m.finalStageLabel };
   // Aviso do período (ex.: "Janeiro parcial") marca o mês na tabela mês a mês.
   if (data.context) labels.context = data.context.title;
+  if (data.days != null) summary.days = data.days;
+  // Notas por seção (ex.: a do cartão de ROI do mês), para aparecerem também quando outro mês está em foco.
+  for (const n of data.sectionNotes) {
+    const key = `nota.${slugify(n.section)}`;
+    labels[key] = labels[key] ? `${labels[key]} ${n.text}` : n.text;
+  }
   for (const s of m.stages) {
     summary[`stage.${s.key}`] = s.value;
     labels[`stage.${s.key}`] = s.label;

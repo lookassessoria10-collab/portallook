@@ -3,10 +3,11 @@ import { averageKey, ratioOfSums, sumKey } from "@/lib/metrics/aggregate";
 import { safeDivide } from "@/lib/metrics/safe-math";
 import { MONTHS_PT, MONTHS_SHORT_PT, comparePeriods, formatPeriod, formatPeriodRange, nextPeriod, periodKey, periodSeriesLabels, periodUnit, type Period, type PeriodUnit } from "@/lib/dates/period";
 import { lowerFirst, singularizePt } from "@/lib/format/text";
-import { normalizeText } from "@/lib/ids";
+import { normalizeText, slugify } from "@/lib/ids";
 import type { CommercialLayout, DashboardConfig } from "@/features/clients/schema";
 import type { Insight, InsightType, ReportIndexEntry } from "@/features/reports/schema";
 import { commercialSummary } from "./metrics";
+import { stageCanonical } from "./stages";
 import { ChannelKindSchema, type ChannelKind, type CommercialData } from "./schema";
 
 /**
@@ -56,6 +57,8 @@ export interface ChartSeries {
   label: string;
   format: ValueFormat;
   color: string;
+  /** Casas decimais no detalhe do gráfico (ROI em % usa uma). */
+  digits?: number;
 }
 
 export interface ChartSpec {
@@ -80,7 +83,7 @@ export interface DistributionSpec {
   title: string;
   unit: string;
   format: ValueFormat;
-  /** Rosca até 8 fatias; acima disso, barras horizontais. */
+  /** Rosca até 9 fatias; acima disso, barras horizontais. */
   kind: "donut" | "bars";
   slices: Slice[];
   /** Largura dos rótulos nas barras horizontais (px). */
@@ -136,6 +139,8 @@ export interface ChannelRowView {
   revenue: number | null;
   revenueShare: number | null;
   investment: number | null;
+  /** Linha "Sem atribuição": leads do funil sem canal informado. */
+  unattributed?: boolean;
 }
 
 export interface RoiFigures {
@@ -275,6 +280,7 @@ export interface FocusChannelRow {
   key: string;
   label: string;
   color: string;
+  unattributed?: boolean;
   leads: number | null;
   conversions: number | null;
   conversionRate: number | null;
@@ -367,6 +373,8 @@ export interface CommercialDashboardVM {
   actionPlans: Array<{ key: string; title: string; items: ActionCard[]; table: CommercialData["tables"][number] }>;
   opportunities: OpportunityView[];
   tables: CommercialData["tables"];
+  /** Tabelas livres sobre canais (ex.: "Comparecimentos por canal"), exibidas em Canais & ROI. */
+  channelTables: CommercialData["tables"];
   /** Destaques da Look por seção (aba Notas). */
   notes: CommercialData["sectionNotes"];
   /** "Outubro": o mês seguinte ao foco (null em semanas). */
@@ -392,7 +400,7 @@ type Values = Record<string, number | null>;
 /** Paleta categórica do painel (canais, serviços, profissionais); a 9ª em diante vira "Outros". */
 export const PALETTE = ["var(--dash-1)", "var(--dash-2)", "var(--dash-3)", "var(--dash-4)", "var(--dash-5)", "var(--dash-6)", "var(--dash-7)", "var(--dash-8)"];
 const OTHER_COLOR = "var(--dash-other)";
-const MAX_SLICES = 8;
+const MAX_SLICES = 9;
 const MAX_STACK = 7;
 
 const KIND_LABEL: Record<ChannelKind, string> = {
@@ -466,6 +474,46 @@ export function statusTone(status: string | null): BadgeTone {
 
 const ticketBase = (s: ReportIndexEntry["summary"]) => s.sales ?? s.conversions ?? null;
 
+/** Etapas de um período, na ordem do funil dele. */
+function stagesOf(e: ReportIndexEntry): Array<{ canon: string; label: string; value: number | null }> {
+  return Object.keys(e.labels)
+    .filter((k) => k.startsWith("stage."))
+    .map((k) => ({ canon: stageCanonical(e.labels[k]), label: e.labels[k], value: e.summary[k] ?? null }));
+}
+
+/** Valores do resumo com as etapas pela chave comum ("stage.agendamentos"). */
+function withStages(e: ReportIndexEntry): Values {
+  const v: Values = { ...e.summary, ticketBase: ticketBase(e.summary) };
+  for (const s of stagesOf(e)) v[`stage.${s.canon}`] = s.value;
+  return v;
+}
+
+/** O rótulo mais usado no período (no empate, o mais recente). */
+function mostUsed(labels: Array<string | null | undefined>): string | null {
+  const count = new Map<string, number>();
+  labels.forEach((l) => l && count.set(l, (count.get(l) ?? 0) + 1));
+  let best: string | null = null;
+  for (const l of labels.filter((x): x is string => Boolean(x))) if (best === null || (count.get(l) ?? 0) >= (count.get(best) ?? 0)) best = l;
+  return best;
+}
+
+/** Nota de uma seção gravada no índice do período (aba Notas), por um dos nomes aceitos. */
+function entryNote(e: ReportIndexEntry, aliases: readonly string[]): string | null {
+  for (const a of aliases) {
+    const note = e.labels[`nota.${slugify(a)}`];
+    if (note) return note;
+  }
+  return null;
+}
+
+/** Notas do cartão de ROI de cada mês (aba Notas, seção "ROI do mês"). */
+export const ROI_MONTH_NOTE = ["roi do mes", "roi mensal", "roi por mes", "roi mes a mes"];
+
+/** Tabelas livres sobre canais aparecem em Canais & ROI (ex.: "Comparecimentos por canal"). */
+function isChannelTable(title: string): boolean {
+  return /\bcana(l|is)\b/.test(normalizeText(title));
+}
+
 /** Entrada de índice do próprio relatório, quando ele ainda não está no histórico (ex.: prévia). */
 function entryOf(data: CommercialData): ReportIndexEntry {
   const { summary, labels } = commercialSummary(data);
@@ -486,19 +534,28 @@ export function buildCommercialDashboard(input: BuildCommercialDashboardInput): 
   const unit = periodUnit(data.period.granularity);
   const labels = periodSeriesLabels(entries.map((e) => e.period));
   const first = entries[0].period;
-  const firstStageLabel = labelOf(entries, "firstStage") ?? "Leads";
-  const finalStageLabel = labelOf(entries, "finalStage") ?? "Conversões";
+  const firstStageLabel = mostUsed(entries.map((e) => e.labels.firstStage)) ?? "Leads";
+  const finalStageLabel = mostUsed(entries.map((e) => e.labels.finalStage)) ?? "Conversões";
   const summaries = entries.map((e) => e.summary);
-  const rows: Values[] = entries.map((e) => ({ ...e.summary, ticketBase: ticketBase(e.summary) }));
+  const rows: Values[] = entries.map(withStages);
   const focus = rows[rows.length - 1];
-  const prev: Values | null = previous ? { ...previous.summary } : null;
+  const prev: Values | null = previous ? withStages(previous) : null;
   const href = (key: string) => periodHref?.(key) ?? null;
 
-  // Etapas do funil na ordem do mês em foco (os rótulos são do cliente).
-  const stageKeys = Object.keys(focusEntry.labels)
-    .filter((k) => k.startsWith("stage."))
-    .map((k) => k.slice(6));
-  const stageLabel = (key: string) => labelOf(entries, `stage.${key}`) ?? key;
+  // Etapas do funil: as do mês em foco, na ordem dele; etapas que só aparecem em outros meses entram
+  // depois da etapa que as precede lá. Rótulos levemente diferentes ("Leads registrados") contam como
+  // a mesma etapa, para nenhum mês ficar com a coluna vazia.
+  const stageLists = entries.map(stagesOf);
+  const stageKeys = stageLists[stageLists.length - 1].map((s) => s.canon);
+  for (let i = stageLists.length - 2; i >= 0; i--) {
+    stageLists[i].forEach((s, j) => {
+      if (stageKeys.includes(s.canon)) return;
+      const before = j > 0 ? stageKeys.indexOf(stageLists[i][j - 1].canon) : -1;
+      stageKeys.splice(before + 1, 0, s.canon);
+    });
+  }
+  const stageLabelOf = new Map(stageKeys.map((k) => [k, mostUsed(stageLists.flatMap((list) => list.filter((s) => s.canon === k).map((s) => s.label))) ?? k]));
+  const stageLabel = (key: string) => stageLabelOf.get(key) ?? key;
 
   const has = (key: string) => rows.some((r) => isFiniteNumber(r[key]));
   const totals: Values = {
@@ -510,6 +567,7 @@ export function buildCommercialDashboard(input: BuildCommercialDashboardInput): 
     averageTicket: ratioOfSums(rows, "revenue", "ticketBase"),
     newCustomers: sumKey(rows, "newCustomers"),
     returningCustomers: sumKey(rows, "returningCustomers"),
+    days: sumKey(rows, "days"),
   };
   for (const s of stageKeys) totals[`stage.${s}`] = sumKey(rows, `stage.${s}`);
 
@@ -603,6 +661,7 @@ export function buildCommercialDashboard(input: BuildCommercialDashboardInput): 
   };
   const monthColumns: TableColumn[] = (
     [
+      { key: "days", label: "Dias", format: "integer" },
       ...stageKeys.map((s) => ({ key: `stage.${s}`, label: stageLabel(s), format: "integer" as const })),
       { key: "conversionRate", label: "Conversão", format: "percent", badge: true },
       { key: "revenue", label: "Receita", format: "currency", strong: true },
@@ -616,7 +675,7 @@ export function buildCommercialDashboard(input: BuildCommercialDashboardInput): 
     rows: entries.map((e, i) => {
       const badges: TableRow["badges"] = [];
       const note = e.labels.context;
-      if (note) badges.push(/parcial|incomplet/i.test(note) ? { text: "Parcial", tone: "attention", title: note } : { text: note.length <= 22 ? note : "Obs.", tone: "attention", title: note });
+      if (note) badges.push(/parcial|incomplet/i.test(note) ? { text: "Parcial", tone: "attention", title: note } : { text: note.length <= 28 ? note : "Obs.", tone: "attention", title: note });
       if (i === entries.length - 1) badges.push({ text: "Em foco", tone: "primary" });
       return { key: e.periodKey, label: labels[i].row, href: href(e.periodKey) ?? undefined, badges, values: rows[i], tones: { conversionRate: rateTone(rows[i].conversionRate ?? null) }, highlight: i === entries.length - 1 };
     }),
@@ -661,7 +720,7 @@ export function buildCommercialDashboard(input: BuildCommercialDashboardInput): 
 
   // ── Insights ──
   const insights: InsightCard[] = input.insights.map((i) => ({ id: i.id, type: i.type, tag: i.tag?.trim() || INSIGHT_LABEL[i.type], title: i.title, description: i.description }));
-  const comparison = previous ? buildComparison(focusEntry, previous, stageKeys, stageLabel, firstStageLabel, finalStageLabel, data.comparisonNotes) : null;
+  const comparison = previous && prev ? buildComparison(focusEntry, previous, focus, prev, stageKeys, stageLabel, firstStageLabel, finalStageLabel, data.comparisonNotes) : null;
   const nextName = data.period.granularity === "month" ? cap(MONTHS_PT[monthIndex(nextPeriod(data.period))]) : null;
   const actionPlans = data.tables
     .filter((t) => isActionPlan(t.title))
@@ -671,7 +730,9 @@ export function buildCommercialDashboard(input: BuildCommercialDashboardInput): 
   const opportunities: OpportunityView[] = data.tables
     .filter((t) => isOpportunity(t.title))
     .map((t) => ({ key: t.key, title: nextName ? `Agendamentos já marcados para ${nextName}` : t.title, table: t, count: t.rows.length, ticket, potential: isFiniteNumber(ticket) ? t.rows.length * ticket : null }));
-  const tables = data.tables.filter((t) => !isActionPlan(t.title) && !isOpportunity(t.title));
+  const free = data.tables.filter((t) => !isActionPlan(t.title) && !isOpportunity(t.title));
+  const tables = free.filter((t) => !isChannelTable(t.title));
+  const channelTables = free.filter((t) => isChannelTable(t.title));
 
   return {
     unit,
@@ -703,6 +764,7 @@ export function buildCommercialDashboard(input: BuildCommercialDashboardInput): 
     actionPlans,
     opportunities,
     tables,
+    channelTables,
     notes: data.sectionNotes,
     nextName,
     layout,
@@ -765,6 +827,13 @@ function buildChannels(entries: readonly ReportIndexEntry[], axis: string[], fir
   const rows: ChannelRowView[] = base
     .map((c) => ({ ...c, kindLabel: KIND_LABEL[c.kind], color: color.get(c.key)!, revenueShare: safeDivide(c.revenue, totalRevenue) }))
     .sort((a, b) => (b.leads ?? -1) - (a.leads ?? -1) || (b.revenue ?? -1) - (a.revenue ?? -1));
+  // Leads do funil sem canal informado: a diferença entre o total do funil e a soma dos canais, nos
+  // meses em que os canais trazem leads. Fica visível como "Sem atribuição" em vez de sumir da conta.
+  const unattributed = unattributedLeads(entries, keys);
+  const unattributedTotal = sumKey(Object.values(unattributed).map((x) => ({ x })), "x");
+  if (unattributedTotal) {
+    rows.push({ key: UNATTRIBUTED, label: "Sem atribuição", kind: "other", kindLabel: "Sem canal informado", color: OTHER_COLOR, byPeriod: unattributed, leads: unattributedTotal, conversions: null, conversionRate: null, revenue: null, revenueShare: null, investment: null, unattributed: true });
+  }
 
   const hasLeads = rows.some((r) => isFiniteNumber(r.leads));
   const hasRevenue = rows.some((r) => isFiniteNumber(r.revenue));
@@ -785,9 +854,11 @@ function buildChannels(entries: readonly ReportIndexEntry[], axis: string[], fir
     if (grouped.length) entries.forEach((e, i) => (chartValues[i]["channel.__outros.revenue"] = sumKey(grouped.map((c) => ({ x: e.summary[`channel.${c.key}.revenue`] })), "x")));
   }
 
-  const periodTotal = Object.fromEntries(entries.map((e) => [e.periodKey, sumKey(keys.map((k) => ({ x: e.summary[`channel.${k}.leads`] })), "x")]));
+  const periodTotal = Object.fromEntries(entries.map((e) => [e.periodKey, sumKey([...keys.map((k) => ({ x: e.summary[`channel.${k}.leads`] })), { x: unattributed[e.periodKey] }], "x")]));
   const leads = sumKey(rows.map((r) => ({ x: r.leads })), "x");
   const conversions = sumKey(rows.map((r) => ({ x: r.conversions })), "x");
+  // Conversão total: só sobre os leads dos canais que informam conversões.
+  const leadsWithConversions = sumKey(rows.filter((r) => isFiniteNumber(r.conversions)).map((r) => ({ x: r.leads })), "x");
   return {
     leadsLabel: firstLabel,
     conversionsLabel: hasConversions ? finalLabel : null,
@@ -796,12 +867,25 @@ function buildChannels(entries: readonly ReportIndexEntry[], axis: string[], fir
     table: {
       periods: entries.map((e, i) => ({ key: e.periodKey, label: axis[i] })),
       rows,
-      total: { byPeriod: periodTotal, leads, conversions, conversionRate: safeDivide(conversions, leads), revenue: totalRevenue, revenueShare: totalRevenue ? 1 : null, investment: sumKey(rows.map((r) => ({ x: r.investment })), "x") },
+      total: { byPeriod: periodTotal, leads, conversions, conversionRate: safeDivide(conversions, leadsWithConversions), revenue: totalRevenue, revenueShare: totalRevenue ? 1 : null, investment: sumKey(rows.map((r) => ({ x: r.investment })), "x") },
     },
     hasConversions,
     hasRevenue,
     hasLeads,
   };
+}
+
+const UNATTRIBUTED = "__sem-atribuicao";
+
+/** Por período: leads do funil que nenhum canal explica (só quando os canais trazem leads naquele período). */
+function unattributedLeads(entries: readonly ReportIndexEntry[], keys: string[]): Record<string, number | null> {
+  return Object.fromEntries(
+    entries.map((e) => {
+      const channels = sumKey(keys.map((k) => ({ x: e.summary[`channel.${k}.leads`] })), "x");
+      const funnel = e.summary.leads ?? null;
+      return [e.periodKey, isFiniteNumber(channels) && isFiniteNumber(funnel) && funnel > channels ? funnel - channels : null];
+    }),
+  );
 }
 
 function figures(investment: number | null, revenue: number | null): RoiFigures {
@@ -831,7 +915,7 @@ function buildRoi(entries: readonly ReportIndexEntry[], rowLabels: string[], foc
     const months = withInv.map((e) => {
       const i = entries.indexOf(e);
       const f = figures(e.summary.investment ?? null, e.summary.attributedRevenue ?? null);
-      return { key: e.periodKey, label: rowLabels[i], href: href(e.periodKey), best: false, focus: e.periodKey === focusKey, channels: [], bar: 0, note: null, ...f };
+      return { key: e.periodKey, label: rowLabels[i], href: href(e.periodKey), best: false, focus: e.periodKey === focusKey, channels: [], bar: 0, note: entryNote(e, ROI_MONTH_NOTE), ...f };
     });
     markBest(months);
     return {
@@ -843,7 +927,7 @@ function buildRoi(entries: readonly ReportIndexEntry[], rowLabels: string[], foc
       channels: [],
       table: [],
       months,
-      chart: months.length > 1 ? { key: "roi", title: metric === "roas" ? "Retorno por R$ 1 investido" : "ROI por mês", unit: metric === "roas" ? "x" : "%", kind: "line", series: [{ key: metric === "roas" ? "roas" : "roiPercent", label: metric === "roas" ? "Retorno" : "ROI", format: metric === "roas" ? "multiplier" : "percent", color: "var(--primary)" }] } : null,
+      chart: months.length > 1 ? { key: "roi", title: metric === "roas" ? "Retorno por R$ 1 investido" : "ROI por mês", unit: metric === "roas" ? "x" : "%", kind: "line", series: [{ key: metric === "roas" ? "roas" : "roiPercent", label: metric === "roas" ? "Retorno" : "ROI", format: metric === "roas" ? "multiplier" : "percent", digits: 1, color: "var(--primary)" }] } : null,
     };
   }
 
@@ -888,7 +972,8 @@ function buildRoi(entries: readonly ReportIndexEntry[], rowLabels: string[], foc
         focus: e.periodKey === focusKey,
         channels: perCh.map((c) => ({ key: c.key, label: c.label, roi: c.roi, roas: c.roas })),
         bar: 0,
-        note: top ? `Melhor canal: ${top.label} (${new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(top.roas ?? 0)}x)` : null,
+        // A leitura da Look para o mês (aba Notas, "ROI do mês"); sem ela, o canal de melhor retorno.
+        note: entryNote(e, ROI_MONTH_NOTE) ?? (top ? `Melhor canal: ${top.label} (${new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(top.roas ?? 0)}x)` : null),
         ...f,
       };
     });
@@ -908,7 +993,7 @@ function buildRoi(entries: readonly ReportIndexEntry[], rowLabels: string[], foc
           title: metric === "roas" ? "Retorno por canal pago" : "ROI por canal pago",
           unit: metric === "roas" ? "x" : "%",
           kind: "line",
-          series: paid.map((k) => ({ key: chartKey(k), label: label(k), format: metric === "roas" ? "multiplier" : "percent", color: colorOf.get(k) ?? OTHER_COLOR })),
+          series: paid.map((k) => ({ key: chartKey(k), label: label(k), format: metric === "roas" ? "multiplier" : "percent", digits: 1, color: colorOf.get(k) ?? OTHER_COLOR })),
         }
       : null;
 
@@ -1037,14 +1122,14 @@ function paidReturn(entry: ReportIndexEntry): number | null {
 function buildComparison(
   focus: ReportIndexEntry,
   previous: ReportIndexEntry,
+  cur: Values,
+  prev: Values,
   stageKeys: string[],
   stageLabel: (key: string) => string,
   firstLabel: string,
   finalLabel: string,
   notes: CommercialData["comparisonNotes"],
 ): NonNullable<CommercialDashboardVM["comparison"]> {
-  const cur = focus.summary;
-  const prev = previous.summary;
   const row = (key: string, label: string, c: number | null | undefined, p: number | null | undefined, format: ValueFormat, extra: Partial<ComparisonRow> = {}): ComparisonRow => ({
     key,
     label,
@@ -1206,6 +1291,10 @@ function buildFunnelView(ctx: FunnelContext): FunnelLayoutView {
     revenue: v(focusEntry, k, "revenue"),
     investment: v(focusEntry, k, "investment"),
   }));
+  const focusUnattributed = unattributedLeads([focusEntry], focusKeys)[focusEntry.periodKey];
+  if (focusUnattributed) {
+    channelRows.push({ key: UNATTRIBUTED, label: "Sem atribuição", color: OTHER_COLOR, unattributed: true, leads: focusUnattributed, conversions: null, conversionRate: null, revenue: null, investment: null });
+  }
   const paid = channelRows.filter((c) => (c.investment ?? 0) > 0);
   const sumOf = (list: FocusChannelRow[], m: "leads" | "conversions" | "revenue" | "investment") => sumKey(list.map((c) => ({ x: c[m] })), "x");
   const focusChannels: FunnelLayoutView["focusChannels"] = channelRows.length
@@ -1245,7 +1334,7 @@ function buildFunnelView(ctx: FunnelContext): FunnelLayoutView {
     story.push(
       metric === "roas"
         ? `Cada R$ 1,00 investido em mídia retornou ${formatCurrency(overallTotal.roas)} em receita.`
-        : `O retorno sobre o investimento em mídia foi de ${formatPercent(overallTotal.roi)} (${formatCurrency(overallTotal.roas)} para cada R$ 1,00 investido).`,
+        : `O retorno sobre o investimento em mídia foi de ${formatPercent(overallTotal.roi, 1)} (${formatCurrency(overallTotal.roas)} para cada R$ 1,00 investido).`,
     );
   }
   if (roiMonths.length > 2) {
@@ -1288,8 +1377,8 @@ function buildFunnelView(ctx: FunnelContext): FunnelLayoutView {
                 unit: metric === "roas" ? "x" : "%",
                 kind: "line",
                 series: [
-                  { key: "roi.geral", label: "Geral", format: roiFormat, color: "var(--primary)" },
-                  ...paidKeys.map((k) => ({ key: `roi.${k}`, label: labelOf(entries, `channel.${k}`) ?? k, format: roiFormat, color: colors.get(k) ?? OTHER_COLOR })),
+                  { key: "roi.geral", label: "Geral", format: roiFormat, digits: 1, color: "var(--primary)" },
+                  ...paidKeys.map((k) => ({ key: `roi.${k}`, label: labelOf(entries, `channel.${k}`) ?? k, format: roiFormat, digits: 1, color: colors.get(k) ?? OTHER_COLOR })),
                 ],
               }
             : null,

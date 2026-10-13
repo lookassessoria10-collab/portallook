@@ -22,6 +22,7 @@ import { REPORT_TYPE_LABEL, type ImportIndexEntry, type Insight, type ReportInde
 import { computeCommercialMetrics } from "@/features/commercial/metrics";
 import { normalizeCommercial, type SheetRole } from "@/features/commercial/normalize";
 import { CommercialDataSchema, type CommercialData } from "@/features/commercial/schema";
+import { stageCanonical } from "@/features/commercial/stages";
 import { buildTrafficView } from "@/features/traffic/metrics";
 import { normalizeTraffic } from "@/features/traffic/normalize";
 import { TrafficDataSchema, platformLabel, type TrafficData } from "@/features/traffic/schema";
@@ -583,7 +584,34 @@ function buildPreview(parsed: ParsedImport, existingReports: ReportIndexEntry[],
       issues.warn("no_previous", `Não há período anterior a ${p.label} para comparação — o dashboard não mostrará variações.`);
     }
   }
+  if (record.reportType === "commercial") warnFunnelChanges(parsed.periods, published, issues);
   return { kind: "dataset", sourceType: parsed.sourceType, sheets, periods, suggestedPeriodKeys: suggested, documentPages: null, periodMismatch };
+}
+
+/**
+ * Etapas do funil diferentes das do mês anterior publicado (ex.: "Leads registrados", "Agendamentos
+ * válidos" e uma etapa a mais): o portal alinha nomes parecidos, mas etapas novas ficam vazias nos
+ * outros meses — vale avisar antes de publicar.
+ */
+function warnFunnelChanges(periods: readonly ParsedPeriod[], published: readonly ReportIndexEntry[], issues: IssueCollector) {
+  for (const p of periods) {
+    const labels = ((p.data as { funnel?: Array<{ label: string }> }).funnel ?? []).map((s) => s.label);
+    if (!labels.length) continue;
+    const before = published
+      .filter((r) => r.kind === "dataset" && r.period.granularity === p.period.granularity && r.period.start < p.period.start)
+      .sort((a, b) => (a.period.start < b.period.start ? 1 : -1))[0];
+    if (!before) continue;
+    const previous = Object.keys(before.labels)
+      .filter((k) => k.startsWith("stage."))
+      .map((k) => before.labels[k]);
+    const same = previous.length === labels.length && labels.every((l, i) => stageCanonical(l) === stageCanonical(previous[i]));
+    if (!same && previous.length) {
+      issues.warn(
+        "funnel_stages_changed",
+        `As etapas do funil de ${formatPeriod(p.period)} (${labels.join(", ")}) não são as mesmas de ${formatPeriod(before.period)} (${previous.join(", ")}). Use os mesmos nomes e a mesma ordem para o portal comparar os meses: etapa nova fica com a coluna vazia nos outros meses.`,
+      );
+    }
+  }
 }
 
 /** "Mantém do relatório atual: Google Ads (R$ 1.216,22)" — lido do resumo do índice, sem abrir o data.json. */
@@ -653,6 +681,7 @@ async function mergePartialCommercial(clientId: string, p: ParsedPeriod): Promis
     dimensions: p.sections.includes("dimensions") ? [...(base.dimensions ?? []).filter((d) => !(incoming.dimensions ?? []).some((i) => i.key === d.key)), ...(incoming.dimensions ?? [])] : (base.dimensions ?? []),
     extraMetrics: base.extraMetrics ?? [],
     customers: p.sections.includes("customers") ? incoming.customers : (base.customers ?? null),
+    days: incoming.days ?? base.days ?? null,
     tables: p.sections.includes("tables") ? incoming.tables : (base.tables ?? []),
     comparisonNotes: p.sections.includes("comparisonNotes") ? incoming.comparisonNotes : (base.comparisonNotes ?? []),
     sectionNotes: p.sections.includes("sectionNotes") ? incoming.sectionNotes : (base.sectionNotes ?? []),

@@ -262,7 +262,7 @@ export function FormatGuide({
                 <strong>Modelo único:</strong> todas as abas são opcionais, menos o Funil — a aba que o cliente não usa pode ser apagada ou ficar vazia, e a seção some do portal. Os nomes seguem o cliente (Terapeutas ou Profissionais, Massagens ou Serviços, Consultas ou Comparecimentos).
               </li>
               <li>
-                <strong>Funil:</strong> as colunas além do período são as etapas, na ordem (Leads, Agendamentos, Comparecimentos…); colunas de taxa ou total são ignoradas. <strong>Financeiro:</strong> Receita, Investimento em mídia, Vendas e Receita atribuída (só a receita dos canais pagos, quando o retorno deve considerar só a mídia). <strong>Clientes:</strong> Novos clientes e Clientes recorrentes.
+                <strong>Funil:</strong> as colunas além do período são as etapas, na ordem (Leads, Agendamentos, Comparecimentos…) — use os mesmos nomes todo mês; colunas de taxa ou total são ignoradas e <strong>Dias</strong> (opcional) diz quantos dias o mês teve de dados (ex.: janeiro parcial). <strong>Financeiro:</strong> Receita, Investimento em mídia, Vendas e Receita atribuída (só a receita dos canais pagos, quando o retorno deve considerar só a mídia). <strong>Clientes:</strong> Novos clientes e Clientes recorrentes.
               </li>
               <li>
                 <strong>Canais:</strong> Canal, Tipo (Mídia paga, Orgânico, Indicação…), Leads, Comparecimentos (ou Vendas), Receita e Investimento — o retorno de cada canal pago e a participação de cada canal são calculados.
@@ -271,19 +271,19 @@ export function FormatGuide({
                 <strong>Detalhamentos</strong> (qualquer aba com números: Serviços, Terapeutas, Massagens, Procedimentos…): o nome do item, Atendimentos (ou Quantidade), Receita e, se quiser, <strong>Status</strong> (Ativa, Inativa, Destaque). Cada um vira uma aba do painel com o nome da aba (ranking acumulado no ano, gráficos e coluna por mês). Linha só com Status, sem números, atualiza o status no ranking.
               </li>
               <li>
-                <strong>Plano de ação</strong> (Prioridade | Ação | Detalhes) vira cartões na aba Insights. Outras tabelas sem números (Oportunidades, Motivos de perda…) aparecem como vieram. <strong>Indicadores:</strong> só o que o portal não calcula — acumulados, conversões do funil, ticket médio, ROI e participação dos canais já são calculados (formato <Code>Multiplicador</Code> mostra “7,42x”).
+                <strong>Plano de ação</strong> (Prioridade | Ação | Detalhes) vira cartões na aba Insights. Outras tabelas sem números (Oportunidades, Motivos de perda…) aparecem como vieram. <strong>Indicadores:</strong> só o que o portal não calcula — acumulados, conversões do funil, ticket médio, ROI e participação dos canais já são calculados (formato <Code>Multiplicador</Code> mostra “7,42x”; percentuais como fração, <Code>2,614</Code>, ou com o símbolo, <Code>261,4%</Code>).
               </li>
               <li>
                 <strong>Insights:</strong> Tipo (Positivo, Atenção, Recomendação ou Neutro — define a cor), <strong>Tema</strong> opcional (o selo do cartão: Recorrência, Terapeutas, ROI…), Título e Descrição. <strong>Comparativo:</strong> Indicador | Leitura — a leitura da Look ao lado de cada indicador no comparativo com o mês anterior (Leads, Receita, Ticket médio, ROI canais pagos…). <strong>Contexto:</strong> aviso do mês (ex.: <Code>Janeiro parcial</Code>), que também marca o mês na tabela.
               </li>
               <li>
-                <strong>Notas</strong> (Seção | Texto): o destaque da Look ao lado de uma parte do painel — <Code>Funil</Code>, <Code>Receita por canal</Code>, <Code>Leads por canal</Code>, <Code>ROI</Code>, <Code>Canal a canal</Code>, <Code>Acumulado</Code> ou o nome de um detalhamento. <strong>Oportunidades</strong> (Origem | Data agendada | Situação): agenda já marcada para o mês seguinte; o portal calcula a receita potencial.
+                <strong>Notas</strong> (Seção | Texto): o destaque da Look ao lado de uma parte do painel — <Code>Funil</Code>, <Code>Receita por canal</Code>, <Code>Leads por canal</Code>, <Code>ROI</Code>, <Code>Canal a canal</Code>, <Code>Acumulado</Code> ou o nome de um detalhamento. <strong>Oportunidades</strong> (Origem | Data agendada | Situação): agenda já marcada para o mês seguinte; o portal calcula a receita potencial. Aba com nome começando por <Code>Tabela</Code> (ex.: <Code>Tabela Conversão por canal</Code>) entra como tabela, do jeito que veio; com “canal” no nome, aparece em Canais & ROI.
               </li>
             </>
           )}
 
           <li>
-            Números como <Code>1.234,56</Code> ou <Code>1234.56</Code>; pode ter <Code>R$</Code> e <Code>%</Code>. Célula vazia ou com <Code>-</Code> é “não informado”, não zero. Linhas de <strong>Total</strong> são ignoradas.
+            Números como <Code>1.234,56</Code> ou <Code>1234.56</Code>; pode ter <Code>R$</Code> e <Code>%</Code>. Célula vazia ou com <Code>-</Code> é “não informado”, não zero. Linhas de <strong>Total</strong> ou <strong>Subtotal</strong> (ex.: “Total informado”, “Total dos canais pagos”) são ignoradas: o portal soma os itens.
           </li>
         </ul>
         {paste && onUseExample ? (

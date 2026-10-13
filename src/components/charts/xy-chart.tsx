@@ -3,7 +3,7 @@
 import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatAxisValue, isFiniteNumber, type ValueFormat } from "@/lib/format/number";
 import { sumMaybe } from "@/lib/metrics/safe-math";
-import { ChartTooltipCard } from "./chart-tooltip";
+import { ChartTooltipCard, type TooltipRow } from "./chart-tooltip";
 import type { SeriesPoint } from "./types";
 
 export interface XYSeries {
@@ -11,6 +11,7 @@ export interface XYSeries {
   label: string;
   format: ValueFormat;
   color: string;
+  digits?: number;
 }
 
 export type XYKind = "bar" | "stacked" | "line" | "area";
@@ -51,7 +52,7 @@ export default function XYChart({ points, series, kind, highlight, currency, hei
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null;
               const row = payload[0].payload as Record<string, number | null | string>;
-              const rows = series.map((s) => ({ label: s.label, value: (row[s.key] as number | null) ?? null, format: s.format, color: s.color }));
+              const rows: TooltipRow[] = series.map((s) => ({ label: s.label, value: (row[s.key] as number | null) ?? null, format: s.format, color: s.color, digits: s.digits }));
               if (kind === "stacked" && series.length > 1) rows.push({ label: "Total", value: (row.total as number | null) ?? null, format, color: "transparent" });
               return <ChartTooltipCard title={String(row.fullLabel)} currency={currency} rows={rows} />;
             }}

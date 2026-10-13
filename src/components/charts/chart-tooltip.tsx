@@ -1,12 +1,14 @@
 "use client";
 
-import { formatValue, type ValueFormat } from "@/lib/format/number";
+import { formatPercent, formatValue, type ValueFormat } from "@/lib/format/number";
 
 export interface TooltipRow {
   label: string;
   value: number | null;
   format: ValueFormat;
   color: string;
+  /** Casas decimais de percentuais (ex.: ROI com uma casa); sem ela, o padrão do formato. */
+  digits?: number;
 }
 
 export function ChartTooltipCard({ title, rows, currency }: { title: string; rows: TooltipRow[]; currency: string }) {
@@ -20,7 +22,7 @@ export function ChartTooltipCard({ title, rows, currency }: { title: string; row
               <span className="size-2 rounded-full" style={{ background: r.color }} aria-hidden />
               {r.label}
             </span>
-            <span className="tabular font-bold text-text">{formatValue(r.value, r.format, currency)}</span>
+            <span className="tabular font-bold text-text">{r.format === "percent" && r.digits != null ? formatPercent(r.value, r.digits) : formatValue(r.value, r.format, currency)}</span>
           </li>
         ))}
       </ul>

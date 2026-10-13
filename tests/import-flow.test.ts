@@ -1,3 +1,4 @@
+import * as XLSX from "xlsx";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
 import { useMemoryStorage } from "./helpers/setup";
@@ -66,6 +67,23 @@ describe("fluxo de importação (upload → validação → rascunho → publica
     const index = await getRepositories().reports.getIndex(client.id);
     expect(index.reports.find((r) => r.id === manifest.id)?.status).toBe("published");
     expect(index.imports[0].status).toBe("imported");
+  });
+
+  it("avisa quando as etapas do funil mudam de nome em relação ao mês publicado", async () => {
+    const client = await createClient(clientInput("serenity", "Serenity Terapias"), null);
+    const book = (rows: Array<Array<string | number>>) => {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Funil");
+      return workbookBuffer(wb);
+    };
+    const august = await upload(client.id, "commercial", "agosto.xlsx", book([["Mês", "Leads", "Agendamentos", "Comparecimentos"], ["08/2026", 172, 43, 37]]), { contentType: XLSX_MIME, period: monthPeriod(2026, 8) });
+    const done = await confirmImport(august.id, { periodKeys: ["2026-08"] });
+    await publishReport(client.id, done.reportIds[0], null);
+
+    const same = await upload(client.id, "commercial", "setembro.xlsx", book([["Mês", "Leads registrados", "Agendamentos válidos", "Comparecimentos"], ["09/2026", 41, 36, 36]]), { contentType: XLSX_MIME, period: monthPeriod(2026, 9) });
+    expect(same.issues.map((i) => i.code)).not.toContain("funnel_stages_changed");
+    const changed = await upload(client.id, "commercial", "setembro.xlsx", book([["Mês", "Leads registrados", "Agendamentos válidos", "Presenças"], ["09/2026", 41, 36, 36]]), { contentType: XLSX_MIME, period: monthPeriod(2026, 9) });
+    expect(changed.issues.find((i) => i.code === "funnel_stages_changed")?.message).toContain("(Leads, Agendamentos, Comparecimentos)");
   });
 
   it("CSV parcial (canais) atualiza só a seção enviada, criando nova versão", async () => {

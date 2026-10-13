@@ -27,7 +27,7 @@ export function CommercialDashboard({ vm, currency, section, embedded = false }:
       { key: "visao-geral", label: "Visão geral", content: <FunnelOverview vm={vm} fv={fv} currency={currency} /> },
       { key: "comparativo", label: "Comparativo mensal", content: <FunnelComparativo vm={vm} fv={fv} currency={currency} /> },
     ];
-    if (fv.roi) tabs.push({ key: "canais", label: "ROI & Canais", content: <FunnelRoi vm={vm} fv={fv} currency={currency} /> });
+    if (fv.roi || vm.channelTables.length) tabs.push({ key: "canais", label: "ROI & Canais", content: <FunnelRoi vm={vm} fv={fv} currency={currency} /> });
     tabs.push(...dimensionTabs(tabs));
     tabs.push({ key: "insights", label: "Diagnóstico", content: <FunnelDiagnostico vm={vm} fv={fv} currency={currency} /> });
     return (
@@ -46,7 +46,7 @@ export function CommercialDashboard({ vm, currency, section, embedded = false }:
   }
 
   const tabs: SectionTab[] = [{ key: "visao-geral", label: "Visão geral", content: <OverviewPanel vm={vm} currency={currency} /> }];
-  if (vm.channels || vm.roi) {
+  if (vm.channels || vm.roi || vm.channelTables.length) {
     tabs.push({ key: "canais", label: vm.channels && vm.roi ? "Canais & ROI" : vm.channels ? "Canais" : "Retorno", content: <ChannelsPanel vm={vm} currency={currency} /> });
   }
   tabs.push(...dimensionTabs(tabs));

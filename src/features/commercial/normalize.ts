@@ -43,6 +43,23 @@ export function classifySheet(name: string): SheetRole | "ignored" {
 
 const PERIOD = ["periodo", "mes", "mes de referencia", "competencia", "referencia", "period", "month", "semana", "week", "data"];
 
+/** Dias com dados no período (ex.: janeiro parcial, 16 dias): coluna no Funil/Financeiro ou indicador. */
+const DAYS = ["dias", "dias registrados", "dias no periodo", "dias do periodo", "dias com dados", "dias de operacao"];
+
+/**
+ * Linha de total ou subtotal ("Total", "Total informado", "Total dos canais pagos", "Subtotal",
+ * "Soma") não é um item: se entrasse como canal, serviço ou profissional, seria somada duas vezes.
+ */
+function isSummaryRow(label: string | null): boolean {
+  return Boolean(label) && (isTotalLabel(label) || /^(sub ?)?(total|totais)\b|^soma\b/.test(normalizeText(label!)));
+}
+
+function warnSummaryRows(issues: IssueCollector, sheet: RawSheet, labels: Set<string>) {
+  if (!labels.size) return;
+  const list = [...labels].map((l) => `"${l}"`).join(", ");
+  issues.warn("summary_rows_skipped", `Na aba ${sheet.name}, ${labels.size === 1 ? "a linha" : "as linhas"} ${list} ${labels.size === 1 ? "foi tratada" : "foram tratadas"} como total e não ${labels.size === 1 ? "entrou" : "entraram"} nas somas — o portal soma os itens sozinho.`, { sheet: sheet.name });
+}
+
 interface Acc {
   period: Period;
   funnel: Map<string, { label: string; order: number; value: number | null }>;
@@ -51,6 +68,7 @@ interface Acc {
   dimensions: Map<string, { label: string; quantityLabel: string | null; rows: NonNullable<CommercialDataInput["dimensions"]>[number]["rows"] }>;
   extraMetrics: NonNullable<CommercialDataInput["extraMetrics"]>;
   customers: { new: number | null; returning: number | null } | null;
+  days: number | null;
   tables: Map<string, { title: string; columns: string[]; rows: string[][] }>;
   context: CommercialDataInput["context"];
   comparisonNotes: Array<{ label: string; text: string }>;
@@ -89,7 +107,7 @@ export function normalizeCommercial(
     const key = periodKey(p);
     let a = accs.get(key);
     if (!a) {
-      a = { period: p, funnel: new Map(), financial: null, channels: [], dimensions: new Map(), extraMetrics: [], customers: null, tables: new Map(), context: null, comparisonNotes: [], sectionNotes: [], insights: [], sections: new Set() };
+      a = { period: p, funnel: new Map(), financial: null, channels: [], dimensions: new Map(), extraMetrics: [], customers: null, days: null, tables: new Map(), context: null, comparisonNotes: [], sectionNotes: [], insights: [], sections: new Set() };
       accs.set(key, a);
     }
     return a;
@@ -109,7 +127,7 @@ export function normalizeCommercial(
       sheets.push({ name: sheet.name, rows: sheet.rows.length, recognizedAs: null });
       continue;
     }
-    sheets.push({ name: sheet.name, rows: sheet.rows.length, recognizedAs: role === "dimension" ? (hasDimensionMeasures(sheet) ? `Detalhamento: ${ctx.csvDimensionLabel ?? sheet.name}` : `Tabela: ${sheet.name}`) : role === "table" ? `Tabela: ${sheet.name}` : ROLE_LABEL[role] });
+    sheets.push({ name: sheet.name, rows: sheet.rows.length, recognizedAs: role === "dimension" ? (hasDimensionMeasures(sheet) ? `Detalhamento: ${ctx.csvDimensionLabel ?? sheet.name}` : `Tabela: ${sheet.name}`) : role === "table" ? `Tabela: ${tableTitle(sheet.name)}` : ROLE_LABEL[role] });
     const handlers: Record<SheetRole, () => void> = {
       funnel: () => readFunnel(sheet, ctx, issues, acc),
       financial: () => readFinancial(sheet, ctx, issues, acc),
@@ -151,6 +169,7 @@ export function normalizeCommercial(
       dimensions: [...a.dimensions.entries()].filter(([, d]) => d.rows.length).map(([k, d]) => ({ key: k, label: d.label, quantityLabel: d.quantityLabel, rows: d.rows })),
       extraMetrics: a.extraMetrics,
       customers: a.customers,
+      days: a.days,
       tables: [...a.tables.entries()].filter(([, t]) => t.rows.length).map(([k, t]) => ({ key: k, title: t.title, columns: t.columns, rows: t.rows })),
       comparisonNotes: a.comparisonNotes,
       sectionNotes: a.sectionNotes,
@@ -196,7 +215,8 @@ function readFunnel(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector,
   const derived = h.filter((c) => c !== periodCol && (/^(taxa|conversao|percentual|total)\b/.test(normalizeText(c)) || c.includes("%")));
   if (derived.length) issues.warn("funnel_rate_columns", `As colunas ${derived.map((c) => `"${c}"`).join(", ")} da aba Funil foram ignoradas: taxas e totais são calculados pelo portal.`, { sheet: sheet.name });
   const cust = customerColumns(h, [periodCol]);
-  const candidates = h.filter((c) => c !== periodCol && c !== cust.newCol && c !== cust.returningCol && !derived.includes(c) && !/^(obs|observa|nota|coment)/.test(normalizeText(c)));
+  const daysCol = h.find((c) => DAYS.includes(normalizeText(c))) ?? null;
+  const candidates = h.filter((c) => c !== periodCol && c !== daysCol && c !== cust.newCol && c !== cust.returningCol && !derived.includes(c) && !/^(obs|observa|nota|coment)/.test(normalizeText(c)));
   const numeric = candidates.filter((c) => sheet.rows.some((r) => numberCell(r.cells[c]).value !== null));
   const stageCols = numeric.length ? numeric : candidates;
   if (!stageCols.length) return issues.error("missing_column", "A aba Funil não tem colunas de etapas.", { sheet: sheet.name });
@@ -211,6 +231,7 @@ function readFunnel(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector,
     });
     a.sections.add("funnel");
     readCustomerCells(sheet, row, cust, issues, a);
+    readDays(sheet, row, daysCol, issues, a);
   }
 }
 
@@ -244,7 +265,15 @@ function readFinancial(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollect
     };
     a.sections.add("financial");
     readCustomerCells(sheet, row, customerColumns(h, [periodCol, revenueCol, investCol, salesCol, attributedCol, otherCol, ticketCol]), issues, a);
+    readDays(sheet, row, h.find((c) => DAYS.includes(normalizeText(c))) ?? null, issues, a);
   }
+}
+
+function readDays(sheet: RawSheet, row: RawSheet["rows"][number], col: string | null, issues: IssueCollector, a: Acc) {
+  if (!col) return;
+  const n = numberCell(row.cells[col]);
+  if (n.invalid) issues.error("invalid_number", `O valor de "${col}" não é um número (aba ${sheet.name}, linha ${row.line}).`, { sheet: sheet.name, row: row.line, column: col });
+  if (n.value !== null) a.days = Math.max(0, Math.round(n.value));
 }
 
 export function inferChannelKind(name: string, declared: string | null): ChannelKind {
@@ -279,9 +308,13 @@ function readChannels(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollecto
   const convCol = findColumn(h, ["conversoes", "conversao", "fechamentos", "vendas", "comparecimentos", "clientes", "conversions"]);
   const revenueCol = findColumn(h, ["receita", "faturamento", "revenue"]);
   const investCol = findColumn(h, ["investimento", "valor investido", "midia", "investment"]);
+  const skipped = new Set<string>();
   for (const row of sheet.rows) {
     const label = textCell(row.cells[nameCol]);
-    if (isTotalLabel(label)) continue;
+    if (isSummaryRow(label)) {
+      if (!isTotalLabel(label)) skipped.add(label!);
+      continue;
+    }
     const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
     if (!period || !label) continue;
     const read = (col: string | null) => {
@@ -293,6 +326,7 @@ function readChannels(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollecto
     const a = acc(period);
     const key = slugify(label) || `canal-${row.line}`;
     const existing = a.channels.findIndex((c) => c.key === key);
+    if (existing >= 0) issues.warn("duplicate_item", `O canal "${label}" aparece mais de uma vez em ${formatPeriod(period)} (aba ${sheet.name}, linha ${row.line}): vale a última linha, sem somar as duas.`, { sheet: sheet.name, row: row.line });
     const channel = {
       key,
       label,
@@ -306,6 +340,7 @@ function readChannels(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollecto
     else a.channels.push(channel);
     a.sections.add("channels");
   }
+  warnSummaryRows(issues, sheet, skipped);
 }
 
 const DIM_ITEM = ["item", "nome", "descricao", "servico", "profissional", "terapeuta", "massagem", "unidade", "produto", "especialidade", "procedimento", "categoria", "tipo"];
@@ -335,9 +370,13 @@ function readDimensionRows(sheet: RawSheet, rows: RawSheet["rows"], dimLabel: st
     return issues.warn("unrecognized_sheet", `A aba "${sheet.name}" não tem colunas numéricas reconhecidas (Leads, Conversões, Quantidade ou Receita) e foi ignorada.`, { sheet: sheet.name });
   }
   const dimKey = slugify(dimLabel) || "dimensao";
+  const skipped = new Set<string>();
   for (const row of rows) {
     const label = textCell(row.cells[itemCol]);
-    if (isTotalLabel(label)) continue;
+    if (isSummaryRow(label)) {
+      if (!isTotalLabel(label)) skipped.add(label!);
+      continue;
+    }
     const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
     if (!period || !label) continue;
     const read = (col: string | null) => {
@@ -352,14 +391,25 @@ function readDimensionRows(sheet: RawSheet, rows: RawSheet["rows"], dimLabel: st
       d = { label: dimLabel, quantityLabel: qtyCol && normalizeText(qtyCol) !== "quantidade" ? qtyCol : null, rows: [] };
       a.dimensions.set(dimKey, d);
     }
-    d.rows.push({ key: slugify(label) || `item-${row.line}`, label, leads: read(leadsCol), conversions: read(convCol), quantity: read(qtyCol), revenue: read(revenueCol), note: noteCol ? textCell(row.cells[noteCol]) : null });
+    const item = { key: slugify(label) || `item-${row.line}`, label, leads: read(leadsCol), conversions: read(convCol), quantity: read(qtyCol), revenue: read(revenueCol), note: noteCol ? textCell(row.cells[noteCol]) : null };
+    const existing = d.rows.findIndex((r) => r.key === item.key);
+    if (existing >= 0) {
+      issues.warn("duplicate_item", `"${label}" aparece mais de uma vez em ${formatPeriod(period)} (aba ${sheet.name}, linha ${row.line}): vale a última linha, sem somar as duas.`, { sheet: sheet.name, row: row.line });
+      d.rows[existing] = item;
+    } else d.rows.push(item);
     a.sections.add("dimensions");
   }
+  warnSummaryRows(issues, sheet, skipped);
 }
 
 function readDimension(sheet: RawSheet, label: string, ctx: PeriodContext, issues: IssueCollector, acc: (p: Period) => Acc) {
   if (!hasDimensionMeasures(sheet)) return readTable(sheet, ctx, issues, acc);
   readDimensionRows(sheet, sheet.rows, label, ctx, issues, acc, []);
+}
+
+/** "Tabela Conversão por canal" força uma tabela livre mesmo com números; o prefixo sai do título. */
+function tableTitle(name: string): string {
+  return name.trim().replace(/^tabela\s*[:\-–—]?\s*/i, "") || name.trim();
 }
 
 /** Tabela livre: cada linha como veio, por período (coluna Mês ou o período escolhido no assistente). */
@@ -368,7 +418,8 @@ function readTable(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector, 
   const periodCol = findColumn(h, PERIOD);
   const columns = h.filter((c) => c !== periodCol && sheet.rows.some((r) => tableCell(r.cells[c]) !== ""));
   if (!columns.length) return;
-  const key = slugify(sheet.name) || "tabela";
+  const title = tableTitle(sheet.name);
+  const key = slugify(title) || "tabela";
   for (const row of sheet.rows) {
     const cells = columns.map((c) => tableCell(row.cells[c]));
     if (cells.every((c) => !c)) continue;
@@ -377,7 +428,7 @@ function readTable(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector, 
     const a = acc(period);
     let t = a.tables.get(key);
     if (!t) {
-      t = { title: sheet.name.trim().slice(0, 120), columns: columns.map((c) => c.slice(0, 80)), rows: [] };
+      t = { title: title.slice(0, 120), columns: columns.map((c) => c.slice(0, 80)), rows: [] };
       a.tables.set(key, t);
     }
     t.rows.push(cells.map((c) => c.slice(0, 500)));
@@ -467,13 +518,24 @@ function readExtraMetrics(sheet: RawSheet, ctx: PeriodContext, issues: IssueColl
   const computed = new Set<string>();
   const formatCol = findColumn(h, ["formato", "tipo", "format"], [nameCol, valueCol]);
   const dirCol = findColumn(h, ["direcao", "melhor quando", "direction"], [nameCol, valueCol]);
+  const formatOf = (row: RawSheet["rows"][number]) => {
+    const fmt = normalizeText(formatCol ? (textCell(row.cells[formatCol]) ?? "") : "");
+    return /moeda|real|r\$|currency|valor/.test(fmt) ? "currency" : /percent|%|taxa/.test(fmt) ? "percent" : /multiplic|vezes|roas|^x$/.test(fmt) ? "multiplier" : /decimal/.test(fmt) ? "decimal" : "integer";
+  };
+  // Escala dos percentuais da aba: frações (0,244 = 24,4%; 2,614 = 261,4%) ou de 0 a 100 (24,4 = 24,4%).
+  // Se algum percentual numérico está entre 0 e 1, a aba usa frações e nenhum valor é dividido — um ROI
+  // de 261,4% (2,614) não pode virar 2,6%. "261,4%" escrito com o símbolo já é lido como fração.
+  const fractionScale = sheet.rows.some((row) => {
+    const v = row.cells[valueCol];
+    return formatOf(row) === "percent" && typeof v === "number" && v !== 0 && Math.abs(v) < 1;
+  });
   for (const row of sheet.rows) {
     const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
     const label = textCell(row.cells[nameCol]);
     if (!period || !label) continue;
-    const fmt = normalizeText(formatCol ? (textCell(row.cells[formatCol]) ?? "") : "");
-    const format = /moeda|real|r\$|currency|valor/.test(fmt) ? "currency" : /percent|%|taxa/.test(fmt) ? "percent" : /multiplic|vezes|roas|^x$/.test(fmt) ? "multiplier" : /decimal/.test(fmt) ? "decimal" : "integer";
-    const n = numberCell(row.cells[valueCol]);
+    const format = formatOf(row);
+    const raw = row.cells[valueCol];
+    const n = numberCell(raw);
     if (n.invalid) issues.error("invalid_number", `O valor do indicador "${label}" não é um número (aba ${sheet.name}, linha ${row.line}).`, { sheet: sheet.name, row: row.line, column: valueCol });
     const dir = normalizeText(dirCol ? (textCell(row.cells[dirCol]) ?? "") : "");
     const a = acc(period);
@@ -483,11 +545,17 @@ function readExtraMetrics(sheet: RawSheet, ctx: PeriodContext, issues: IssueColl
       if (!n.invalid && n.value !== null) setCustomers(a, NEW_CUSTOMERS.includes(name) ? Math.abs(n.value) : null, RETURNING_CUSTOMERS.includes(name) ? Math.abs(n.value) : null);
       continue;
     }
+    // "Dias registrados" vira a coluna Dias da tabela mês a mês.
+    if (DAYS.includes(name)) {
+      if (!n.invalid && n.value !== null) a.days = Math.max(0, Math.round(n.value));
+      continue;
+    }
     if (COMPUTED_INDICATOR.test(name)) computed.add(label);
+    const alreadyFraction = typeof raw === "string" && raw.includes("%");
     a.extraMetrics.push({
       key: slugify(label) || `indicador-${row.line}`,
       label,
-      value: format === "percent" && n.value !== null && Math.abs(n.value) > 1 ? n.value / 100 : n.value,
+      value: format === "percent" && n.value !== null && !alreadyFraction && !fractionScale ? n.value / 100 : n.value,
       format,
       direction: /menor|baix|lower/.test(dir) ? "lowerIsBetter" : /maior|alt|higher/.test(dir) ? "higherIsBetter" : "neutral",
     });

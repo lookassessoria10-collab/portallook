@@ -143,16 +143,18 @@ export function FunnelOverview({ vm, fv, currency }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {ch.rows.map((c) => (
-                    <tr key={c.key}>
-                      <th scope="row" className="text-left font-semibold">
-                        <Dot color={c.color} />
-                        {c.label}
-                      </th>
-                      {ch.hasConversions ? <td className="tabular text-right">{cell(c.conversions, "integer", currency)}</td> : null}
-                      <td className="tabular text-right">{cell(c.revenue, "currency", currency, true)}</td>
-                    </tr>
-                  ))}
+                  {ch.rows
+                    .filter((c) => !c.unattributed)
+                    .map((c) => (
+                      <tr key={c.key}>
+                        <th scope="row" className="text-left font-semibold">
+                          <Dot color={c.color} />
+                          {c.label}
+                        </th>
+                        {ch.hasConversions ? <td className="tabular text-right">{cell(c.conversions, "integer", currency)}</td> : null}
+                        <td className="tabular text-right">{cell(c.revenue, "currency", currency, true)}</td>
+                      </tr>
+                    ))}
                 </tbody>
                 <tfoot>
                   <tr>
@@ -210,7 +212,7 @@ export function FunnelOverview({ vm, fv, currency }: Props) {
                     .sort((a, b) => (b.leads ?? -1) - (a.leads ?? -1))
                     .map((c) => (
                       <tr key={c.key}>
-                        <th scope="row" className="text-left font-semibold">
+                        <th scope="row" className={cn("text-left font-semibold", c.unattributed && "italic text-text-2")}>
                           <Dot color={c.color} />
                           {c.label}
                         </th>
@@ -309,7 +311,8 @@ const rated = (value: number, format: string) => (format === "percent" ? value +
 
 /** Retorno geral e por canal pago: destaque do acumulado, evolução, tabela mês a mês e cartões canal a canal. */
 export function FunnelRoi({ vm, fv, currency }: Props) {
-  const roi = fv.roi!;
+  if (!fv.roi) return <ChannelTables vm={vm} />;
+  const roi = fv.roi;
   const name = roi.metric === "roas" ? "Retorno" : "ROI";
   const notes = (slot: string) => notesFor(vm.notes, vm.layout, slot);
   return (
@@ -336,6 +339,7 @@ export function FunnelRoi({ vm, fv, currency }: Props) {
       <section aria-labelledby="f-roi-mes">
         <SectionHead id="f-roi-mes" eyebrow={`${name} por ${vm.unit.singular}`} title="Evolução do retorno mês a mês" />
         {roi.chart ? <ChartPanel chart={roi.chart} points={vm.points} currency={currency} height={300} className="mb-4" /> : null}
+        <NoteBox texts={notes("roiMes")} className="mb-4 mt-0" />
         <TableFrame caption={`${name} geral e por canal, por período`}>
           <thead>
             <tr>
@@ -450,6 +454,22 @@ export function FunnelRoi({ vm, fv, currency }: Props) {
           <NoteBox texts={notes("canais")} />
         </section>
       ) : null}
+      <ChannelTables vm={vm} />
+    </div>
+  );
+}
+
+/** Tabelas livres sobre canais (ex.: comparecimentos por canal no acumulado). */
+function ChannelTables({ vm }: { vm: CommercialDashboardVM }) {
+  if (!vm.channelTables.length) return null;
+  return (
+    <div className="space-y-10">
+      {vm.channelTables.map((t) => (
+        <section key={t.key} aria-labelledby={`f-canais-tabela-${t.key}`}>
+          <SectionHead id={`f-canais-tabela-${t.key}`} eyebrow="Canais" title={t.title} />
+          <FreeTable table={t} />
+        </section>
+      ))}
     </div>
   );
 }

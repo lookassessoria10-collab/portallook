@@ -116,6 +116,8 @@ export const CommercialDataSchema = z.object({
   extraMetrics: z.array(ExtraMetricSchema).default([]),
   /** Novos × recorrentes (null = o cliente não acompanha). */
   customers: CustomersSchema.nullable().default(null),
+  /** Dias com dados no período (ex.: janeiro parcial = 16). */
+  days: Count.nullable().default(null),
   tables: z.array(CommercialTableSchema).default([]),
   comparisonNotes: z.array(ComparisonNoteSchema).default([]),
   sectionNotes: z.array(SectionNoteSchema).default([]),
