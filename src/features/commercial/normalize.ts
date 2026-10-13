@@ -13,7 +13,7 @@ import type { ChannelKind, CommercialDataInput } from "./schema";
  * Planilha (qualquer layout razoável) → modelo comercial padronizado.
  * Os componentes visuais nunca veem a planilha: só o CommercialData.
  */
-export type SheetRole = "funnel" | "financial" | "channels" | "customers" | "table" | "dimension" | "dimensions" | "extraMetrics" | "insights" | "context" | "comparison";
+export type SheetRole = "funnel" | "financial" | "channels" | "customers" | "table" | "dimension" | "dimensions" | "extraMetrics" | "insights" | "context" | "comparison" | "notes";
 
 const ROLE_ALIASES: Array<[SheetRole, string[]]> = [
   ["funnel", ["funil", "funnel", "etapas", "pipeline"]],
@@ -28,6 +28,8 @@ const ROLE_ALIASES: Array<[SheetRole, string[]]> = [
   ["context", ["contexto", "context", "avisos"]],
   // Leitura da Look para cada indicador no comparativo com o período anterior.
   ["comparison", ["comparativo", "comparacao", "leituras", "leitura"]],
+  // Destaques escritos pela Look para seções do painel (ex.: ao lado do funil, da receita por canal).
+  ["notes", ["notas", "notas do painel", "notas das secoes", "destaques"]],
 ];
 
 const IGNORED_SHEETS = ["instrucoes", "leia me", "leiame", "readme", "como usar", "exemplo", "modelo", "config"];
@@ -52,6 +54,7 @@ interface Acc {
   tables: Map<string, { title: string; columns: string[]; rows: string[][] }>;
   context: CommercialDataInput["context"];
   comparisonNotes: Array<{ label: string; text: string }>;
+  sectionNotes: Array<{ section: string; text: string }>;
   insights: ParsedInsight[];
   sections: Set<CommercialSection>;
 }
@@ -73,6 +76,7 @@ const ROLE_LABEL: Record<SheetRole, string> = {
   insights: "Insights",
   context: "Contexto",
   comparison: "Comparativo (leituras)",
+  notes: "Notas do painel",
 };
 
 export function normalizeCommercial(
@@ -85,7 +89,7 @@ export function normalizeCommercial(
     const key = periodKey(p);
     let a = accs.get(key);
     if (!a) {
-      a = { period: p, funnel: new Map(), financial: null, channels: [], dimensions: new Map(), extraMetrics: [], customers: null, tables: new Map(), context: null, comparisonNotes: [], insights: [], sections: new Set() };
+      a = { period: p, funnel: new Map(), financial: null, channels: [], dimensions: new Map(), extraMetrics: [], customers: null, tables: new Map(), context: null, comparisonNotes: [], sectionNotes: [], insights: [], sections: new Set() };
       accs.set(key, a);
     }
     return a;
@@ -118,6 +122,7 @@ export function normalizeCommercial(
       insights: () => readInsights(sheet, ctx, issues, acc),
       context: () => readContext(sheet, ctx, issues, acc),
       comparison: () => readComparison(sheet, ctx, issues, acc),
+      notes: () => readSectionNotes(sheet, ctx, issues, acc),
     };
     handlers[role]();
   }
@@ -148,6 +153,7 @@ export function normalizeCommercial(
       customers: a.customers,
       tables: [...a.tables.entries()].filter(([, t]) => t.rows.length).map(([k, t]) => ({ key: k, title: t.title, columns: t.columns, rows: t.rows })),
       comparisonNotes: a.comparisonNotes,
+      sectionNotes: a.sectionNotes,
       context: a.context,
     };
     warnCommercial(data, label, issues, partial);
@@ -538,6 +544,24 @@ function readComparison(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollec
     const a = acc(period);
     a.comparisonNotes.push({ label: label.slice(0, 120), text: text.slice(0, 500) });
     a.sections.add("comparisonNotes");
+  }
+}
+
+/** Aba Notas: o destaque da Look para uma seção do painel (Seção | Texto), por período. */
+function readSectionNotes(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector, acc: (p: Period) => Acc) {
+  const h = sheet.headers;
+  const periodCol = findColumn(h, PERIOD);
+  const sectionCol = findColumn(h, ["secao", "bloco", "grafico", "quadro"], [periodCol]);
+  const textCol = findColumn(h, ["texto", "nota", "destaque", "descricao", "leitura", "comentario"], [periodCol, sectionCol]);
+  if (!sectionCol || !textCol) return issues.error("missing_column", 'A aba Notas precisa das colunas "Seção" e "Texto".', { sheet: sheet.name });
+  for (const row of sheet.rows) {
+    const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
+    const section = textCell(row.cells[sectionCol]);
+    const text = textCell(row.cells[textCol]);
+    if (!period || !section || !text) continue;
+    const a = acc(period);
+    a.sectionNotes.push({ section: section.slice(0, 80), text: text.slice(0, 1000) });
+    a.sections.add("sectionNotes");
   }
 }
 

@@ -3,7 +3,8 @@ import { cn } from "@/lib/cn";
 import { normalizeText } from "@/lib/ids";
 import { SECTION_PARAM } from "@/features/portal/params";
 import type { CommercialDashboardVM, RoiFigures } from "@/features/commercial/dashboard";
-import { ChartPanel, DistributionPanel, Panel, Pill, SectionLabel, TableFrame, cell, perReal, signedPercent } from "./parts";
+import { notesFor } from "@/features/commercial/notes";
+import { ChartPanel, DistributionPanel, NoteBox, Panel, Pill, SectionLabel, TableFrame, cell, perReal, signedPercent } from "./parts";
 
 /** Canais (de onde vieram leads e receita) e retorno dos canais com investimento. */
 export function ChannelsPanel({ vm, currency }: { vm: CommercialDashboardVM; currency: string }) {
@@ -75,6 +76,7 @@ export function ChannelsPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
                 </tr>
               </tfoot>
             </TableFrame>
+            <NoteBox texts={notesFor(vm.notes, vm.layout, "canais")} />
           </section>
         </>
       ) : null}
@@ -119,6 +121,7 @@ function RoiSection({ vm, currency }: { vm: CommercialDashboardVM; currency: str
           {metricName} acumulado
         </SectionLabel>
         <p className="-mt-1 mb-4 max-w-3xl text-xs leading-relaxed text-text-2">{explain}</p>
+        <NoteBox texts={notesFor(vm.notes, vm.layout, "roi")} className="-mt-1 mb-4 max-w-3xl" />
         <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
           <div className="rounded-[var(--radius-lg)] p-5 shadow-[0_18px_40px_-24px_rgb(0_120_220/0.55)] ring-1 ring-inset ring-white/10" style={{ background: "var(--focus-gradient)" }}>
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/60">{metricName} geral · acumulado</p>

@@ -23,6 +23,7 @@ export default async function ClientSettingsPage(props: PageProps<"/adm/clientes
     currency: client.currency,
     notes: client.notes,
     roiMetric: client.dashboard.roiMetric,
+    commercialLayout: client.dashboard.commercialLayout,
     commercial: { ...client.modules.commercial },
     traffic: { ...client.modules.traffic },
     social: { ...client.modules.social },

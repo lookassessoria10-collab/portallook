@@ -655,6 +655,7 @@ async function mergePartialCommercial(clientId: string, p: ParsedPeriod): Promis
     customers: p.sections.includes("customers") ? incoming.customers : (base.customers ?? null),
     tables: p.sections.includes("tables") ? incoming.tables : (base.tables ?? []),
     comparisonNotes: p.sections.includes("comparisonNotes") ? incoming.comparisonNotes : (base.comparisonNotes ?? []),
+    sectionNotes: p.sections.includes("sectionNotes") ? incoming.sectionNotes : (base.sectionNotes ?? []),
     context: base.context ?? null,
   };
   const check = CommercialDataSchema.safeParse(merged);

@@ -7,12 +7,13 @@ import { workbookBuffer } from "@/features/uploads/templates";
 import { normalizeCommercial } from "@/features/commercial/normalize";
 import { CommercialDataSchema, type CommercialData } from "@/features/commercial/schema";
 import { commercialSummary } from "@/features/commercial/metrics";
-import { buildCommercialDashboard } from "@/features/commercial/dashboard";
+import { buildCommercialDashboard, returnTone } from "@/features/commercial/dashboard";
+import { notesFor, unplacedNotes } from "@/features/commercial/notes";
 import type { ReportIndexEntry } from "@/features/reports/schema";
 
 type Row = Array<string | number | null>;
 const monthCtx = { granularity: "month" as const, requestedPeriod: null };
-const dashboard = { roiMetric: "roas" as const, highlightMetrics: [] };
+const dashboard = { roiMetric: "roas" as const, highlightMetrics: [], commercialLayout: "detalhamentos" as const };
 
 function read(sheets: Record<string, Row[]>) {
   const wb = XLSX.utils.book_new();
@@ -137,7 +138,7 @@ describe("comercial flexível: leitura", () => {
 describe("painel comercial (modelo Serenity)", () => {
   const r = read(SERENITY);
   const [jul, aug] = [r.data(0), r.data(1)];
-  const vm = buildCommercialDashboard({ history: [entry(jul), entry(aug)], previous: entry(jul), data: aug, insights: [], dashboard: { roiMetric: "roiPercent", highlightMetrics: [] } });
+  const vm = buildCommercialDashboard({ history: [entry(jul), entry(aug)], previous: entry(jul), data: aug, insights: [], dashboard: { ...dashboard, roiMetric: "roiPercent" } });
 
   it("mês em foco comparado ao anterior e acumulado do ano", () => {
     expect(vm.focus).toMatchObject({ name: "Agosto", previousName: "Julho", title: "Agosto 2026" });
@@ -197,7 +198,7 @@ describe("painel comercial (modelo Serenity)", () => {
   });
 
   it("plano de ação vira cartões para o mês seguinte", () => {
-    expect(vm.actionPlans).toEqual([
+    expect(vm.actionPlans).toMatchObject([
       {
         key: "plano-de-acao",
         title: "Plano de ação para Setembro",
@@ -290,5 +291,114 @@ describe("painel comercial (modelo Serenity)", () => {
     expect(vm4.charts.map((c) => c.key)).toEqual(["receita", "funil", "conversao", "investimento"]);
     // Relatório fora do histórico (ex.: prévia de um rascunho) também monta o painel.
     expect(buildCommercialDashboard({ history: [], previous: null, data: isabor.data(1), insights: [], dashboard }).months).toBe(1);
+  });
+});
+
+/** Formato da Dra. Isabor: funil de 3 etapas, dois canais pagos, agenda já marcada e notas por seção. */
+const ISABOR: Record<string, Row[]> = {
+  Funil: [
+    ["Mês", "Leads", "Agendamentos", "Comparecimentos"],
+    ["05/2026", 115, 13, 10],
+    ["06/2026", 77, 13, 7],
+    ["07/2026", 116, 12, 12],
+    ["08/2026", 257, 14, 8],
+    ["09/2026", 130, 23, 18],
+  ],
+  Financeiro: [
+    ["Mês", "Receita", "Investimento em mídia"],
+    ["05/2026", 4150, 1409.56],
+    ["06/2026", 2950, 1155.02],
+    ["07/2026", 5150, 1184.67],
+    ["08/2026", 3400, 1208.17],
+    ["09/2026", 7750, 1044.45],
+  ],
+  Canais: [
+    ["Mês", "Canal", "Tipo", "Leads", "Comparecimentos", "Receita", "Investimento"],
+    ["08/2026", "Instagram (Meta Ads)", "Mídia paga", 217, 1, 450, 770.45],
+    ["08/2026", "Google Ads", "Mídia paga", 26, 0, 0, 437.72],
+    ["08/2026", "Indicação", "Indicação", null, null, 2500, null],
+    ["09/2026", "Instagram (Meta Ads)", "Mídia paga", 89, 8, 3550, 697.9],
+    ["09/2026", "Google Ads", "Mídia paga", 26, 1, 450, 346.55],
+    ["09/2026", "Indicação", "Indicação", 15, 9, 3750, null],
+  ],
+  Oportunidades: [
+    ["Mês", "Origem", "Data agendada", "Situação"],
+    ["09/2026", "Indicação", "02/10/2026", "Aguardando atendimento"],
+    ["09/2026", "Indicação", "02/10/2026", "Aguardando atendimento"],
+    ["09/2026", "Google", "28/10/2026", "Aguardando atendimento"],
+  ],
+  "Plano de ação": [
+    ["Mês", "#", "Ação", "Impacto esperado", "Urgência"],
+    ["09/2026", 1, "Qualificar o lead antes do contato comercial", "Reduzir as perdas recorrentes", "Alta"],
+  ],
+  Notas: [
+    ["Mês", "Seção", "Texto"],
+    ["09/2026", "Funil", "Menos volume, muito mais qualidade."],
+    ["09/2026", "Receita por canal", "Instagram virou canal de receita."],
+    ["09/2026", "Bastidores", "Nota sem lugar no painel."],
+  ],
+};
+
+describe("painel comercial: modelo funil (Isabor)", () => {
+  const r = read(ISABOR);
+  const months = [0, 1, 2, 3, 4].map((i) => r.data(i));
+  const entries = months.map(entry);
+  const funil = { ...dashboard, commercialLayout: "funil" as const };
+  const vm = buildCommercialDashboard({ history: entries, previous: entries[3], data: months[4], insights: [], dashboard: funil });
+  const fv = vm.funnelView!;
+
+  it("lê a aba Notas e só monta o modelo funil para quem usa esse modelo", () => {
+    expect(r.issues.errors).toEqual([]);
+    expect(r.sheets.find((s) => s.name === "Notas")?.recognizedAs).toBe("Notas do painel");
+    expect(months[4].sectionNotes.map((n) => n.section)).toEqual(["Funil", "Receita por canal", "Bastidores"]);
+    expect(buildCommercialDashboard({ history: entries, previous: entries[3], data: months[4], insights: [], dashboard }).funnelView).toBeNull();
+    expect(vm.layout).toBe("funil");
+    expect(notesFor(vm.notes, "funil", "funil")).toEqual(["Menos volume, muito mais qualidade."]);
+    expect(notesFor(vm.notes, "funil", "receita")).toEqual(["Instagram virou canal de receita."]);
+    expect(unplacedNotes(vm.notes, "funil").map((n) => n.section)).toEqual(["Bastidores"]);
+  });
+
+  it("acumulado, destaque do mês e funil com as taxas entre etapas", () => {
+    expect(fv.rangeArrow).toBe("Mai → Set");
+    const acc = Object.fromEntries(fv.accumulated.map((k) => [k.key, k]));
+    expect(acc["stage.leads"].value).toBe(695);
+    expect(acc["stage.agendamentos"]).toMatchObject({ value: 75, sub: "10,8% dos leads" });
+    expect(acc.revenue).toMatchObject({ value: 23400, highlight: true });
+    expect(acc.investment.sub).toBe("Instagram (Meta Ads) + Google Ads");
+    expect(fv.banner.map((b) => b.label)).toEqual(["Leads", "Comparecimentos", "Receita", "Ticket médio", "Conversão L→C"]);
+    expect(fv.funnel.steps.map((s) => [s.label, s.rate])).toEqual([
+      ["Lead → agendamento", 23 / 130],
+      ["Agendamento → comparecimento", 18 / 23],
+    ]);
+    expect(fv.funnel.overall).toEqual({ label: "Lead → comparecimento", rate: 18 / 130 });
+    expect(fv.focusChannels?.paid.map((c) => c.label)).toEqual(["Instagram (Meta Ads)", "Google Ads"]);
+    expect(fv.focusChannels?.total).toMatchObject({ revenue: 7750, investment: 697.9 + 346.55, conversions: 18 });
+  });
+
+  it("comparativo do ano inteiro e retorno geral sobre a receita total", () => {
+    expect(fv.comparativo.periods).toHaveLength(12);
+    expect(fv.comparativo.periods.find((p) => p.focus)?.key).toBe("2026-09");
+    const retorno = fv.comparativo.groups.find((g) => g.key === "retorno")!;
+    expect(retorno.rows[0].values["2026-09"]).toBeCloseTo(7750 / 1044.45, 6);
+    expect(retorno.rows[0].values["2026-01"]).toBeNull();
+    expect(retorno.rows[0].total).toBeCloseTo(23400 / 6001.87, 6);
+    expect(fv.comparativo.groups.map((g) => g.key)).toEqual(["funil", "conversoes", "financeiro", "midia", "retorno", "receita-canal"]);
+    const roi = fv.roi!;
+    expect(roi.story[0]).toBe("Cada R$ 1,00 investido em mídia retornou R$ 3,90 em receita.");
+    expect(roi.story[1]).toMatch(/^Setembro foi o melhor mês em retorno \(7,42x\) e em receita \(R\$\s7\.750\), com o menor investimento da série \(R\$\s1\.044\)\.$/);
+    expect(roi.story[2]).toBe("Em Setembro, só a receita vinda dos canais pagos já cobriu o investimento 3,83 vezes.");
+    expect(roi.cards.map((c) => `${c.channel} ${c.month}`)).toEqual(["Instagram (Meta Ads) Agosto", "Google Ads Agosto", "Instagram (Meta Ads) Setembro", "Google Ads Setembro"]);
+    expect(returnTone(roi.cards[1].roas)).toBe("negative");
+    expect(returnTone(7.42)).toBe("positive");
+  });
+
+  it("diagnóstico: agenda já marcada e oportunidade com o volume do melhor mês", () => {
+    expect(vm.opportunities).toHaveLength(1);
+    expect(vm.opportunities[0]).toMatchObject({ title: "Agendamentos já marcados para Outubro", count: 3 });
+    expect(vm.opportunities[0].potential).toBeCloseTo(3 * (7750 / 18), 6);
+    expect(vm.tables).toEqual([]);
+    expect(vm.actionPlans[0].table.columns).toEqual(["#", "Ação", "Impacto esperado", "Urgência"]);
+    expect(fv.growth).toMatchObject({ peakName: "Agosto", peakLeads: 257, projected: 35, revenue: 15070, extra: 17, peakInvestment: 1208.17 });
+    expect(fv.growth?.growth).toBeCloseTo(15070 / 7750 - 1, 6);
   });
 });

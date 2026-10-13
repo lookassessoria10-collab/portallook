@@ -35,6 +35,8 @@ export function commercialTemplateWorkbook(): XLSX.WorkBook {
         ["Insights — Tipo: Positivo, Atenção, Recomendação ou Neutro (define a cor). Tema (opcional): o selo do cartão, ex.: Recorrência, Terapeutas, ROI."],
         ["Comparativo — Indicador e Leitura: o comentário da Look ao lado de cada indicador no comparativo com o mês anterior (Leads, Receita, Ticket médio, ROI canais pagos…)."],
         ["Contexto: um aviso no mês em foco (ex.: Janeiro parcial), que também marca o mês na tabela mês a mês."],
+        ["Notas — Seção e Texto: o destaque da Look ao lado de uma parte do painel (Funil, Receita por canal, Leads por canal, ROI, Canal a canal, Acumulado…). Nota sem lugar no painel aparece no fim de Insights."],
+        ["Oportunidades (Origem, Data agendada, Situação): agenda já marcada para o mês seguinte — o portal calcula a receita potencial (quantidade × ticket do mês)."],
       ],
       [130],
     ),
@@ -173,6 +175,18 @@ export function commercialTemplateWorkbook(): XLSX.WorkBook {
       [12, 22, 70],
     ),
     "Comparativo",
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Período", "Seção", "Texto"],
+        ["09/2026", "Funil", "Com menos leads, os comparecimentos subiram: a qualificação no primeiro contato fez diferença."],
+        ["09/2026", "Receita por canal", "Indicação segue como a maior fonte de receita, sem custo de mídia."],
+      ],
+      [12, 20, 90],
+    ),
+    "Notas",
   );
   XLSX.utils.book_append_sheet(wb, sheet([["Período", "Título", "Descrição"], ["08/2026", "Agenda reduzida", "Atendimentos suspensos de 18 a 22/08."]], [12, 24, 60]), "Contexto");
   return wb;

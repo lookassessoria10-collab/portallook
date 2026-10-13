@@ -88,6 +88,13 @@ export const ComparisonNoteSchema = z.object({
 });
 export type ComparisonNote = z.infer<typeof ComparisonNoteSchema>;
 
+/** Nota da Look para uma seção do painel (aba Notas: Seção | Texto), ex.: o destaque ao lado do funil. */
+export const SectionNoteSchema = z.object({
+  section: z.string().min(1).max(80),
+  text: z.string().max(1000),
+});
+export type SectionNote = z.infer<typeof SectionNoteSchema>;
+
 export const ExtraMetricSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
@@ -111,6 +118,7 @@ export const CommercialDataSchema = z.object({
   customers: CustomersSchema.nullable().default(null),
   tables: z.array(CommercialTableSchema).default([]),
   comparisonNotes: z.array(ComparisonNoteSchema).default([]),
+  sectionNotes: z.array(SectionNoteSchema).default([]),
   /** Contexto do período (ex.: "Agenda reduzida em 16 dias"). */
   context: z.object({ title: z.string(), description: z.string().default("") }).nullable().default(null),
 });

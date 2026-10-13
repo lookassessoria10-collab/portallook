@@ -17,7 +17,7 @@ const short = (value: number, format: ValueFormat, currency: string) => (format 
  * Participação de cada item no acumulado: rosca com legenda ao lado (até 6 fatias) ou
  * barras horizontais (muitos itens, ex.: terapeutas), com valor e participação.
  */
-export default function DistributionChart({ slices, kind, format, currency, height = 255 }: { slices: DistributionSlice[]; kind: "donut" | "bars"; format: ValueFormat; currency: string; height?: number }) {
+export default function DistributionChart({ slices, kind, format, currency, height = 255, labelWidth = 104 }: { slices: DistributionSlice[]; kind: "donut" | "bars"; format: ValueFormat; currency: string; height?: number; labelWidth?: number }) {
   const total = slices.reduce((s, x) => s + x.value, 0);
   const tooltip = ({ active, payload }: { active?: boolean; payload?: ReadonlyArray<{ payload?: unknown }> }) => {
     if (!active || !payload?.length) return null;
@@ -32,7 +32,7 @@ export default function DistributionChart({ slices, kind, format, currency, heig
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={slices} layout="vertical" margin={{ top: 4, right: format === "currency" ? 84 : 48, bottom: 4, left: 0 }} barCategoryGap="22%">
             <XAxis type="number" hide tickFormatter={(v: number) => formatAxisValue(v, format, currency)} />
-            <YAxis type="category" dataKey="label" width={104} tickLine={false} axisLine={false} interval={0} tick={{ fill: "var(--text-2)", fontSize: 12 }} />
+            <YAxis type="category" dataKey="label" width={labelWidth} tickLine={false} axisLine={false} interval={0} tick={{ fill: "var(--text-2)", fontSize: 12 }} />
             <Tooltip cursor={{ fill: "rgb(148 176 214 / 0.06)" }} content={tooltip} />
             <Bar dataKey="value" radius={[0, 5, 5, 0]} maxBarSize={18} isAnimationActive={false}>
               {slices.map((s) => (

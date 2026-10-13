@@ -17,6 +17,7 @@ export interface ClientFormValues {
   currency: string;
   notes: string;
   roiMetric: "roas" | "roiPercent";
+  commercialLayout: "detalhamentos" | "funil";
   commercial: { enabled: boolean; cadence: "monthly" | "weekly"; dueDay: number; allowOriginalDownload: boolean };
   traffic: { enabled: boolean; cadence: "monthly" | "weekly"; dueDay: number; allowOriginalDownload: boolean };
   social: { enabled: boolean; cadence: "monthly" | "weekly"; dueDay: number; allowOriginalDownload: boolean };
@@ -32,6 +33,7 @@ export const DEFAULT_CLIENT_VALUES: ClientFormValues = {
   currency: "BRL",
   notes: "",
   roiMetric: "roas",
+  commercialLayout: "detalhamentos",
   commercial: { enabled: true, cadence: "monthly", dueDay: 5, allowOriginalDownload: true },
   traffic: { enabled: true, cadence: "weekly", dueDay: 1, allowOriginalDownload: false },
   social: { enabled: false, cadence: "monthly", dueDay: 5, allowOriginalDownload: false },
@@ -132,6 +134,12 @@ export function ClientForm({
           <Select id="roiMetric" name="roiMetric" defaultValue={initial.roiMetric}>
             <option value="roas">ROAS (ex.: 3,2x — receita ÷ investimento)</option>
             <option value="roiPercent">Retorno percentual (ex.: +220%)</option>
+          </Select>
+        </Field>
+        <Field label="Modelo do painel comercial" htmlFor="commercialLayout" hint="A mesma planilha alimenta os dois modelos; muda só a organização do painel no portal.">
+          <Select id="commercialLayout" name="commercialLayout" defaultValue={initial.commercialLayout}>
+            <option value="detalhamentos">Abas por canal e detalhamento — visão geral, canais e ROI, serviços/profissionais e insights (modelo Serenity)</option>
+            <option value="funil">Funil do mês — funil, comparativo mensal, ROI por canal e diagnóstico (modelo Isabor)</option>
           </Select>
         </Field>
         <Field label="Observações internas" htmlFor="notes" hint="Visível apenas para a equipe Look." optional>

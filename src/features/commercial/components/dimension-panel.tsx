@@ -1,5 +1,6 @@
 import type { CommercialDashboardVM, DimensionTab } from "@/features/commercial/dashboard";
-import { ChartPanel, DistributionPanel, Pill, RankBadge, SectionLabel, TableFrame, cell } from "./parts";
+import { notesFor } from "@/features/commercial/notes";
+import { ChartPanel, DistributionPanel, NoteBox, Pill, RankBadge, SectionLabel, TableFrame, cell } from "./parts";
 
 /** Um detalhamento (serviços, terapeutas…): participação, evolução e ranking acumulado. */
 export function DimensionPanel({ dim, vm, currency }: { dim: DimensionTab; vm: CommercialDashboardVM; currency: string }) {
@@ -91,6 +92,7 @@ export function DimensionPanel({ dim, vm, currency }: { dim: DimensionTab; vm: C
             </tr>
           </tfoot>
         </TableFrame>
+        <NoteBox texts={notesFor(vm.notes, vm.layout, dim.label)} />
       </section>
     </div>
   );

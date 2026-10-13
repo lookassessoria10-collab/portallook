@@ -1,10 +1,10 @@
-import { formatInteger, isFiniteNumber, type ValueFormat } from "@/lib/format/number";
+import { formatCurrency, formatInteger, formatMultiplier, formatPercent, isFiniteNumber, type ValueFormat } from "@/lib/format/number";
 import { averageKey, ratioOfSums, sumKey } from "@/lib/metrics/aggregate";
 import { safeDivide } from "@/lib/metrics/safe-math";
 import { MONTHS_PT, MONTHS_SHORT_PT, comparePeriods, formatPeriod, formatPeriodRange, nextPeriod, periodKey, periodSeriesLabels, periodUnit, type Period, type PeriodUnit } from "@/lib/dates/period";
 import { lowerFirst, singularizePt } from "@/lib/format/text";
 import { normalizeText } from "@/lib/ids";
-import type { DashboardConfig } from "@/features/clients/schema";
+import type { CommercialLayout, DashboardConfig } from "@/features/clients/schema";
 import type { Insight, InsightType, ReportIndexEntry } from "@/features/reports/schema";
 import { commercialSummary } from "./metrics";
 import { ChannelKindSchema, type ChannelKind, type CommercialData } from "./schema";
@@ -83,6 +83,8 @@ export interface DistributionSpec {
   /** Rosca até 8 fatias; acima disso, barras horizontais. */
   kind: "donut" | "bars";
   slices: Slice[];
+  /** Largura dos rótulos nas barras horizontais (px). */
+  labelWidth?: number;
 }
 
 export interface TableColumn {
@@ -252,6 +254,85 @@ export interface ActionCard {
   text: string;
 }
 
+/** Agenda já marcada para depois do mês (aba Oportunidades) e a receita que ela representa. */
+export interface OpportunityView {
+  key: string;
+  title: string;
+  table: CommercialData["tables"][number];
+  count: number;
+  ticket: number | null;
+  potential: number | null;
+}
+
+// ── Modelo "funil" (dashboard da Dra. Isabor) ──
+
+export interface FunnelStep {
+  label: string;
+  rate: number | null;
+}
+
+export interface FocusChannelRow {
+  key: string;
+  label: string;
+  color: string;
+  leads: number | null;
+  conversions: number | null;
+  conversionRate: number | null;
+  revenue: number | null;
+  investment: number | null;
+}
+
+export interface ComparativoRow {
+  key: string;
+  label: string;
+  format: ValueFormat;
+  cents?: boolean;
+  /** Retorno colorido (bom, médio, ruim). */
+  rated?: boolean;
+  values: Record<string, number | null>;
+  total: number | null;
+}
+
+export interface ChannelMonthCard extends RoiFigures {
+  key: string;
+  channel: string;
+  month: string;
+  focus: boolean;
+  leads: number | null;
+  conversions: number | null;
+}
+
+export interface FunnelLayoutView {
+  /** "Mai → Set". */
+  rangeArrow: string;
+  banner: BannerKpi[];
+  accumulated: Array<AccumulatedKpi & { highlight?: boolean }>;
+  funnel: { stages: Array<{ key: string; label: string; value: number | null; width: number }>; steps: FunnelStep[]; overall: FunnelStep | null; rates: DistributionSpec | null };
+  focusChannels: {
+    rows: FocusChannelRow[];
+    paid: FocusChannelRow[];
+    total: { leads: number | null; conversions: number | null; revenue: number | null; investment: number | null };
+    investment: DistributionSpec | null;
+    leads: DistributionSpec | null;
+    hasLeads: boolean;
+    hasConversions: boolean;
+  } | null;
+  comparativo: { periods: Array<{ key: string; label: string; focus: boolean }>; groups: Array<{ key: string; label: string; rows: ComparativoRow[] }> };
+  trendCharts: ChartSpec[];
+  roi: {
+    metric: "roiPercent" | "roas";
+    overall: RoiFigures;
+    story: string[];
+    bars: DistributionSpec | null;
+    chart: ChartSpec | null;
+    channels: Array<{ key: string; label: string; color: string }>;
+    months: Array<{ key: string; label: string; focus: boolean; overall: RoiFigures; channels: Record<string, RoiFigures> }>;
+    total: { overall: RoiFigures; channels: Record<string, RoiFigures> };
+    cards: ChannelMonthCard[];
+  } | null;
+  growth: { peakName: string; peakLeads: number; conversion: number; projected: number; ticket: number; revenue: number; growth: number; extra: number; peakInvestment: number | null } | null;
+}
+
 export interface CommercialDashboardVM {
   unit: PeriodUnit;
   year: number;
@@ -283,8 +364,16 @@ export interface CommercialDashboardVM {
   dimensions: DimensionTab[];
   insights: InsightCard[];
   comparison: { previousName: string; currentName: string; rows: ComparisonRow[]; hasNotes: boolean } | null;
-  actionPlans: Array<{ key: string; title: string; items: ActionCard[] }>;
+  actionPlans: Array<{ key: string; title: string; items: ActionCard[]; table: CommercialData["tables"][number] }>;
+  opportunities: OpportunityView[];
   tables: CommercialData["tables"];
+  /** Destaques da Look por seção (aba Notas). */
+  notes: CommercialData["sectionNotes"];
+  /** "Outubro": o mês seguinte ao foco (null em semanas). */
+  nextName: string | null;
+  layout: CommercialLayout;
+  /** Peças do modelo "funil" (só quando o cliente usa esse modelo). */
+  funnelView: FunnelLayoutView | null;
 }
 
 export interface BuildCommercialDashboardInput {
@@ -563,14 +652,26 @@ export function buildCommercialDashboard(input: BuildCommercialDashboardInput): 
   const channels = buildChannels(entries, labels.map((l) => l.axis), firstStageLabel, finalStageLabel, chartValues);
   const roi = buildRoi(entries, labels.map((l) => l.row), focusEntry.periodKey, dashboard, href, chartValues);
   const dimensions = buildDimensions(entries, labels.map((l) => l.axis), focusEntry.periodKey, chartValues);
+  const layout = dashboard.commercialLayout ?? "detalhamentos";
+  const funnelView =
+    layout === "funil"
+      ? buildFunnelView({ entries, labels, rows, totals, focusEntry, stageKeys, stageLabel, firstStageLabel, finalStageLabel, unit, dashboard, chartValues, paidNames })
+      : null;
   const points: ChartPoint[] = entries.map((e, i) => ({ key: e.periodKey, label: labels[i].axis, fullLabel: labels[i].full, values: { ...rows[i], ...chartValues[i] } }));
 
   // ── Insights ──
   const insights: InsightCard[] = input.insights.map((i) => ({ id: i.id, type: i.type, tag: i.tag?.trim() || INSIGHT_LABEL[i.type], title: i.title, description: i.description }));
   const comparison = previous ? buildComparison(focusEntry, previous, stageKeys, stageLabel, firstStageLabel, finalStageLabel, data.comparisonNotes) : null;
   const nextName = data.period.granularity === "month" ? cap(MONTHS_PT[monthIndex(nextPeriod(data.period))]) : null;
-  const actionPlans = data.tables.filter((t) => isActionPlan(t.title)).map((t) => ({ key: t.key, title: /^plano de a/.test(normalizeText(t.title)) && nextName ? `${t.title} para ${nextName}` : t.title, items: actionCards(t) }));
-  const tables = data.tables.filter((t) => !isActionPlan(t.title));
+  const actionPlans = data.tables
+    .filter((t) => isActionPlan(t.title))
+    .map((t) => ({ key: t.key, title: /^plano de a/.test(normalizeText(t.title)) && nextName ? `${t.title} para ${nextName}` : t.title, items: actionCards(t), table: t }));
+  // Agenda já marcada para depois do mês: quantidade × ticket do mês = receita encaminhada.
+  const ticket = focus.averageTicket ?? null;
+  const opportunities: OpportunityView[] = data.tables
+    .filter((t) => isOpportunity(t.title))
+    .map((t) => ({ key: t.key, title: nextName ? `Agendamentos já marcados para ${nextName}` : t.title, table: t, count: t.rows.length, ticket, potential: isFiniteNumber(ticket) ? t.rows.length * ticket : null }));
+  const tables = data.tables.filter((t) => !isActionPlan(t.title) && !isOpportunity(t.title));
 
   return {
     unit,
@@ -600,12 +701,25 @@ export function buildCommercialDashboard(input: BuildCommercialDashboardInput): 
     insights,
     comparison,
     actionPlans,
+    opportunities,
     tables,
+    notes: data.sectionNotes,
+    nextName,
+    layout,
+    funnelView,
   };
 }
 
 function channelKeysOf(entries: readonly ReportIndexEntry[]): string[] {
   return [...new Set(entries.flatMap((e) => Object.keys(e.summary).flatMap((k) => /^channel\.(.+)\.(leads|revenue|investment|conversions)$/.exec(k)?.[1] ?? [])))];
+}
+
+/** Cor fixa de cada canal (pela receita no ano, depois pelos leads), a mesma em todos os gráficos e tabelas. */
+function channelColors(entries: readonly ReportIndexEntry[]): Map<string, string> {
+  const summaries = entries.map((e) => e.summary);
+  const total = (k: string, m: string) => sumKey(summaries, `channel.${k}.${m}`) ?? -1;
+  const ordered = channelKeysOf(entries).sort((a, b) => total(b, "revenue") - total(a, "revenue") || total(b, "leads") - total(a, "leads"));
+  return new Map(ordered.map((k, i) => [k, PALETTE[i] ?? OTHER_COLOR]));
 }
 
 /** Agrupa o que passa de `max` fatias em "Outros". */
@@ -646,7 +760,7 @@ function buildChannels(entries: readonly ReportIndexEntry[], axis: string[], fir
   });
   // Cor fixa por canal (pela receita, ou pelos leads), a mesma em todos os gráficos.
   const ordered = [...base].sort((a, b) => (b.revenue ?? -1) - (a.revenue ?? -1) || (b.leads ?? -1) - (a.leads ?? -1));
-  const color = new Map(ordered.map((c, i) => [c.key, PALETTE[i] ?? OTHER_COLOR]));
+  const color = channelColors(entries);
   const totalRevenue = sumKey(base.map((c) => ({ x: c.revenue })), "x");
   const rows: ChannelRowView[] = base
     .map((c) => ({ ...c, kindLabel: KIND_LABEL[c.kind], color: color.get(c.key)!, revenueShare: safeDivide(c.revenue, totalRevenue) }))
@@ -706,9 +820,7 @@ function buildRoi(entries: readonly ReportIndexEntry[], rowLabels: string[], foc
   const label = (k: string) => labelOf(entries, `channel.${k}`) ?? k;
   const metric = dashboard.roiMetric === "roiPercent" ? "roiPercent" : "roas";
   const kindOf = (k: string): ChannelKind => ChannelKindSchema.safeParse(labelOf(entries, `channel.${k}.kind`)).data ?? "other";
-  const colorOf = new Map(
-    [...keys].sort((a, b) => (sumKey(summaries, `channel.${b}.revenue`) ?? -1) - (sumKey(summaries, `channel.${a}.revenue`) ?? -1) || (sumKey(summaries, `channel.${b}.leads`) ?? -1) - (sumKey(summaries, `channel.${a}.leads`) ?? -1)).map((k, i) => [k, PALETTE[i] ?? OTHER_COLOR]),
-  );
+  const colorOf = channelColors(entries);
 
   if (!paid.length) {
     if (!(sumKey(summaries, "investment") ?? 0)) return null;
@@ -983,6 +1095,285 @@ function buildComparison(
 
 function isActionPlan(title: string): boolean {
   return /^(plano de acao|plano de acoes|acoes|proximos passos)\b/.test(normalizeText(title));
+}
+
+function isOpportunity(title: string): boolean {
+  return /^(oportunidades?|agendamentos futuros|agenda futura)\b/.test(normalizeText(title));
+}
+
+/** Retorno por R$ 1 em três faixas: abaixo de 1x (não se pagou), até 3x e acima. */
+export function returnTone(roas: number | null | undefined): BadgeTone {
+  if (!isFiniteNumber(roas)) return "neutral";
+  return roas < 1 ? "negative" : roas < 3 ? "attention" : "positive";
+}
+
+interface FunnelContext {
+  entries: readonly ReportIndexEntry[];
+  labels: ReturnType<typeof periodSeriesLabels>;
+  rows: Values[];
+  totals: Values;
+  focusEntry: ReportIndexEntry;
+  stageKeys: string[];
+  stageLabel: (key: string) => string;
+  firstStageLabel: string;
+  finalStageLabel: string;
+  unit: PeriodUnit;
+  dashboard: DashboardConfig;
+  chartValues: Values[];
+  paidNames: string[];
+}
+
+/**
+ * Modelo "funil" (dashboard da Dra. Isabor): o funil do mês com as taxas entre etapas,
+ * mídia e receita por canal no mês, o comparativo de todos os indicadores mês a mês, o
+ * retorno geral e por canal pago e a oportunidade de crescimento.
+ */
+function buildFunnelView(ctx: FunnelContext): FunnelLayoutView {
+  const { entries, labels, rows, totals, focusEntry, stageKeys, stageLabel, firstStageLabel, finalStageLabel, unit, dashboard, chartValues } = ctx;
+  const n = entries.length;
+  const focus = rows[n - 1];
+  const prevRow = n > 1 ? rows[n - 2] : null;
+  const firstPeriod = entries[0].period;
+  const focusPeriod = focusEntry.period;
+  const short = (p: Period) => (p.granularity === "month" ? cap(MONTHS_SHORT_PT[monthIndex(p)]) : formatPeriod(p, "compact"));
+  const rangeArrow = n > 1 ? `${short(firstPeriod)} → ${short(focusPeriod)}` : periodName(focusPeriod);
+  const singular = (label: string) => singularizePt(label);
+  const stepLabel = (from: string, to: string) => `${singular(stageLabel(from))} → ${lowerFirst(singular(stageLabel(to)))}`;
+  const metric = dashboard.roiMetric === "roiPercent" ? "roiPercent" : "roas";
+  const keyOf = (s: string) => `stage.${s}`;
+
+  // Destaque do mês e acumulado (6 cartões, com a receita em evidência).
+  const banner: BannerKpi[] = (
+    [
+      { key: "leads", label: firstStageLabel, format: "integer" },
+      { key: "conversions", label: finalStageLabel, format: "integer" },
+      { key: "revenue", label: "Receita", format: "currency" },
+      { key: "averageTicket", label: "Ticket médio", format: "currency" },
+      { key: "conversionRate", label: `Conversão ${firstStageLabel.charAt(0)}→${finalStageLabel.charAt(0)}`, format: "percent" },
+      { key: "newCustomers", label: "Novos clientes", format: "integer" },
+      { key: "returningCustomers", label: "Recorrentes", format: "integer" },
+    ] satisfies Array<{ key: string; label: string; format: ValueFormat }>
+  )
+    .filter((b) => isFiniteNumber(focus[b.key]))
+    .map((b) => ({ ...b, value: focus[b.key] ?? null, delta: prevRow ? deltaOf(focus[b.key], prevRow[b.key], b.format) : null }));
+
+  const first = totals[keyOf(stageKeys[0])] ?? totals.leads;
+  const accents: Accent[] = ["blue", "sky", "teal", "green"];
+  const accumulated: FunnelLayoutView["accumulated"] = (
+    [
+      ...stageKeys.map((s, i) => ({
+        key: keyOf(s),
+        label: stageLabel(s),
+        value: totals[keyOf(s)] ?? null,
+        format: "integer" as const,
+        sub: i === 0 ? rangeArrow : isFiniteNumber(first) && first > 0 && isFiniteNumber(totals[keyOf(s)]) ? `${formatPercent((totals[keyOf(s)] as number) / first)} dos ${lowerFirst(firstStageLabel)}` : null,
+        accent: accents[Math.min(i, accents.length - 1)],
+        icon: (i === 0 ? "leads" : "conversions") as CardIcon,
+      })),
+      { key: "revenue", label: "Receita total", value: totals.revenue, format: "currency", sub: rangeArrow, accent: "cyan", icon: "revenue", highlight: true },
+      { key: "averageTicket", label: "Ticket médio", value: totals.averageTicket, format: "currency", sub: `média de ${n} ${n === 1 ? unit.singular : unit.plural}`, accent: "gold", icon: "ticket" },
+      { key: "investment", label: "Investimento", value: totals.investment, format: "currency", sub: ctx.paidNames.length ? ctx.paidNames.join(" + ") : null, accent: "purple", icon: "investment" },
+      { key: "newCustomers", label: "Novos clientes", value: totals.newCustomers, format: "integer", sub: null, accent: "blue", icon: "new" },
+      { key: "returningCustomers", label: "Clientes recorrentes", value: totals.returningCustomers, format: "integer", sub: null, accent: "green", icon: "returning" },
+    ] satisfies FunnelLayoutView["accumulated"]
+  ).filter((k) => isFiniteNumber(k.value));
+
+  // Funil do mês em foco: barras com as taxas entre etapas e a conversão de ponta a ponta.
+  const firstValue = focus[keyOf(stageKeys[0])] ?? null;
+  const stages = stageKeys.map((s) => {
+    const value = focus[keyOf(s)] ?? null;
+    const share = isFiniteNumber(value) && isFiniteNumber(firstValue) && firstValue > 0 ? value / firstValue : 0;
+    return { key: s, label: stageLabel(s), value, width: Math.max(0.26, Math.min(1, Math.sqrt(share))) };
+  });
+  const steps: FunnelStep[] = stageKeys.slice(1).map((s, i) => ({ label: stepLabel(stageKeys[i], s), rate: safeDivide(focus[keyOf(s)], focus[keyOf(stageKeys[i])]) }));
+  const overall: FunnelStep | null = stageKeys.length > 2 ? { label: stepLabel(stageKeys[0], stageKeys[stageKeys.length - 1]), rate: focus.conversionRate ?? null } : null;
+  const rateSlices = [...steps, ...(overall ? [overall] : [])]
+    .map((s, i) => ({ key: `taxa-${i}`, label: s.label, value: s.rate, color: i === steps.length ? "var(--primary)" : PALETTE[i % PALETTE.length] }))
+    .filter((s): s is typeof s & { value: number } => isFiniteNumber(s.value));
+  const rates: DistributionSpec | null = rateSlices.length ? { key: "taxas", title: `Taxas de conversão — ${periodName(focusPeriod)}`, unit: "eficiência por etapa", format: "percent", kind: "bars", slices: rateSlices, labelWidth: 190 } : null;
+
+  // Canais no mês em foco: investimento dos pagos, receita e leads de cada canal.
+  const colors = channelColors(entries);
+  const focusKeys = channelKeysOf([focusEntry]);
+  const v = (e: ReportIndexEntry, k: string, m: string) => e.summary[`channel.${k}.${m}`] ?? null;
+  const channelRows: FocusChannelRow[] = focusKeys.map((k) => ({
+    key: k,
+    label: labelOf(entries, `channel.${k}`) ?? k,
+    color: colors.get(k) ?? OTHER_COLOR,
+    leads: v(focusEntry, k, "leads"),
+    conversions: v(focusEntry, k, "conversions"),
+    conversionRate: safeDivide(v(focusEntry, k, "conversions"), v(focusEntry, k, "leads")),
+    revenue: v(focusEntry, k, "revenue"),
+    investment: v(focusEntry, k, "investment"),
+  }));
+  const paid = channelRows.filter((c) => (c.investment ?? 0) > 0);
+  const sumOf = (list: FocusChannelRow[], m: "leads" | "conversions" | "revenue" | "investment") => sumKey(list.map((c) => ({ x: c[m] })), "x");
+  const focusChannels: FunnelLayoutView["focusChannels"] = channelRows.length
+    ? {
+        rows: [...channelRows].sort((a, b) => (b.revenue ?? -1) - (a.revenue ?? -1) || (b.leads ?? -1) - (a.leads ?? -1)),
+        paid,
+        total: { leads: sumOf(channelRows, "leads"), conversions: sumOf(channelRows, "conversions"), revenue: sumOf(channelRows, "revenue"), investment: sumOf(paid, "investment") },
+        investment: paid.length ? distribution("investimento", "Investimento em mídia", "canais pagos", "currency", paid.map((c) => ({ key: c.key, label: c.label, value: c.investment, color: c.color }))) : null,
+        leads: distribution("leads", `${firstStageLabel} por canal`, periodName(focusPeriod), "integer", channelRows.map((c) => ({ key: c.key, label: c.label, value: c.leads, color: c.color }))),
+        hasLeads: channelRows.some((c) => isFiniteNumber(c.leads)),
+        hasConversions: channelRows.some((c) => isFiniteNumber(c.conversions)),
+      }
+    : null;
+
+  // Retorno: geral (Financeiro) e de cada canal pago, mês a mês.
+  const allKeys = channelKeysOf(entries);
+  const paidKeys = allKeys.filter((k) => entries.some((e) => (v(e, k, "investment") ?? 0) > 0));
+  const overallOf = (s: ReportIndexEntry["summary"]) => figures(s.investment ?? null, s.attributedRevenue ?? s.revenue ?? null);
+  const withInvestment = entries.filter((e) => (e.summary.investment ?? 0) > 0);
+  const roiMonths = withInvestment.map((e) => {
+    const i = entries.indexOf(e);
+    return { key: e.periodKey, label: labels[i].row, focus: e.periodKey === focusEntry.periodKey, overall: overallOf(e.summary), channels: Object.fromEntries(paidKeys.map((k) => [k, figures(v(e, k, "investment"), v(e, k, "revenue"))])) };
+  });
+  const channelTotal = (k: string) => {
+    const months = entries.filter((e) => (v(e, k, "investment") ?? 0) > 0);
+    return figures(sumKey(months.map((e) => ({ x: v(e, k, "investment") })), "x"), sumKey(months.map((e) => ({ x: v(e, k, "revenue") })), "x"));
+  };
+  const overallTotal = figures(sumKey(withInvestment.map((e) => e.summary), "investment"), sumKey(withInvestment.map((e) => ({ x: e.summary.attributedRevenue ?? e.summary.revenue })), "x"));
+  const shown = (f: RoiFigures) => (metric === "roas" ? f.roas : f.roi);
+  entries.forEach((e, i) => {
+    chartValues[i]["roi.geral"] = shown(overallOf(e.summary));
+    for (const k of paidKeys) chartValues[i][`roi.${k}`] = shown(figures(v(e, k, "investment"), v(e, k, "revenue")));
+  });
+  const fmtReturn = (f: RoiFigures) => (metric === "roas" ? formatMultiplier(f.roas) : formatPercent(f.roi));
+  const story: string[] = [];
+  if (isFiniteNumber(overallTotal.roas)) {
+    story.push(
+      metric === "roas"
+        ? `Cada R$ 1,00 investido em mídia retornou ${formatCurrency(overallTotal.roas)} em receita.`
+        : `O retorno sobre o investimento em mídia foi de ${formatPercent(overallTotal.roi)} (${formatCurrency(overallTotal.roas)} para cada R$ 1,00 investido).`,
+    );
+  }
+  if (roiMonths.length > 2) {
+    const best = [...roiMonths].sort((a, b) => (b.overall.roas ?? -Infinity) - (a.overall.roas ?? -Infinity))[0];
+    const topRevenue = [...roiMonths].sort((a, b) => (b.overall.revenue ?? -Infinity) - (a.overall.revenue ?? -Infinity))[0];
+    const lowestInvestment = [...roiMonths].sort((a, b) => (a.overall.investment ?? Infinity) - (b.overall.investment ?? Infinity))[0];
+    let sentence = `${best.label} foi o melhor ${unit.singular} em retorno (${fmtReturn(best.overall)})`;
+    if (topRevenue.key === best.key) sentence += ` e em receita (${formatCurrency(best.overall.revenue, "BRL", { noCents: true })})`;
+    if (lowestInvestment.key === best.key) sentence += `, com o menor investimento da série (${formatCurrency(best.overall.investment, "BRL", { noCents: true })})`;
+    story.push(`${sentence}.`);
+  }
+  const focusPaid = figures(sumKey(paidKeys.map((k) => ({ x: v(focusEntry, k, "investment") })), "x"), sumKey(paidKeys.map((k) => ({ x: (v(focusEntry, k, "investment") ?? 0) > 0 ? v(focusEntry, k, "revenue") : null })), "x"));
+  if (paidKeys.length && isFiniteNumber(focusPaid.roas) && focusPaid.roas !== overallOf(focusEntry.summary).roas) {
+    story.push(
+      focusPaid.roas >= 1
+        ? `Em ${periodName(focusPeriod)}, só a receita vinda dos canais pagos já cobriu o investimento ${formatMultiplier(focusPaid.roas).replace("x", "")} vezes.`
+        : `Em ${periodName(focusPeriod)}, a receita vinda dos canais pagos cobriu ${formatPercent(focusPaid.roas)} do investimento.`,
+    );
+  }
+  const cards: ChannelMonthCard[] = entries.flatMap((e, i) =>
+    paidKeys
+      .filter((k) => (v(e, k, "investment") ?? 0) > 0)
+      .map((k) => ({ key: `${e.periodKey}-${k}`, channel: labelOf(entries, `channel.${k}`) ?? k, month: labels[i].row, focus: e.periodKey === focusEntry.periodKey, leads: v(e, k, "leads"), conversions: v(e, k, "conversions"), ...figures(v(e, k, "investment"), v(e, k, "revenue")) })),
+  );
+  const roiFormat: ValueFormat = metric === "roas" ? "multiplier" : "percent";
+  const roi: FunnelLayoutView["roi"] = withInvestment.length
+    ? {
+        metric,
+        overall: overallTotal,
+        story,
+        bars:
+          isFiniteNumber(overallTotal.investment) && isFiniteNumber(overallTotal.revenue)
+            ? { key: "investido-receita", title: "Investido × receita", unit: "acumulado", format: "currency", kind: "bars", labelWidth: 120, slices: [{ key: "investido", label: "Investido", value: overallTotal.investment, color: "var(--dash-4)" }, { key: "receita", label: "Receita gerada", value: overallTotal.revenue, color: "var(--primary)" }] }
+            : null,
+        chart:
+          roiMonths.length > 1
+            ? {
+                key: "roi-mensal",
+                title: `${metric === "roas" ? "Retorno" : "ROI"} geral${paidKeys.length ? " e por canal" : ""}`,
+                unit: metric === "roas" ? "x" : "%",
+                kind: "line",
+                series: [
+                  { key: "roi.geral", label: "Geral", format: roiFormat, color: "var(--primary)" },
+                  ...paidKeys.map((k) => ({ key: `roi.${k}`, label: labelOf(entries, `channel.${k}`) ?? k, format: roiFormat, color: colors.get(k) ?? OTHER_COLOR })),
+                ],
+              }
+            : null,
+        channels: paidKeys.map((k) => ({ key: k, label: labelOf(entries, `channel.${k}`) ?? k, color: colors.get(k) ?? OTHER_COLOR })),
+        months: roiMonths,
+        total: { overall: overallTotal, channels: Object.fromEntries(paidKeys.map((k) => [k, channelTotal(k)])) },
+        cards,
+      }
+    : null;
+
+  // Comparativo: todos os indicadores, mês a mês (o ano inteiro, nos relatórios mensais).
+  const byKey = new Map(entries.map((e, i) => [e.periodKey, i]));
+  const monthly = focusPeriod.granularity === "month";
+  const year = +focusPeriod.start.slice(0, 4);
+  const periods = monthly
+    ? MONTHS_SHORT_PT.map((m, i) => ({ key: `${year}-${String(i + 1).padStart(2, "0")}`, label: cap(m), focus: `${year}-${String(i + 1).padStart(2, "0")}` === focusEntry.periodKey }))
+    : entries.map((e, i) => ({ key: e.periodKey, label: labels[i].axis, focus: e.periodKey === focusEntry.periodKey }));
+  const valuesOf = (fn: (i: number) => number | null | undefined) => Object.fromEntries(periods.map((p) => [p.key, byKey.has(p.key) ? (fn(byKey.get(p.key)!) ?? null) : null]));
+  const row = (key: string, label: string, format: ValueFormat, fn: (i: number) => number | null | undefined, total: number | null, extra: Partial<ComparativoRow> = {}): ComparativoRow => ({ key, label, format, values: valuesOf(fn), total, ...extra });
+  const hasAny = (r: ComparativoRow) => Object.values(r.values).some(isFiniteNumber);
+  const revenueKeys = allKeys.filter((k) => entries.some((e) => isFiniteNumber(v(e, k, "revenue"))));
+  const groups = [
+    { key: "funil", label: "Funil", rows: stageKeys.map((s) => row(keyOf(s), stageLabel(s), "integer", (i) => rows[i][keyOf(s)], totals[keyOf(s)])) },
+    {
+      key: "conversoes",
+      label: "Conversões",
+      rows: [
+        ...stageKeys.slice(1).map((s, j) => row(`taxa.${s}`, stepLabel(stageKeys[j], s), "percent", (i) => safeDivide(rows[i][keyOf(s)], rows[i][keyOf(stageKeys[j])]), safeDivide(totals[keyOf(s)], totals[keyOf(stageKeys[j])]))),
+        ...(stageKeys.length > 2 ? [row("taxa.geral", stepLabel(stageKeys[0], stageKeys[stageKeys.length - 1]), "percent", (i) => rows[i].conversionRate, totals.conversionRate)] : []),
+      ],
+    },
+    {
+      key: "financeiro",
+      label: "Financeiro",
+      rows: [
+        row("revenue", "Receita", "currency", (i) => rows[i].revenue, totals.revenue),
+        row("averageTicket", "Ticket médio", "currency", (i) => rows[i].averageTicket, totals.averageTicket, { cents: true }),
+        row("investment", "Investimento total", "currency", (i) => rows[i].investment, totals.investment, { cents: true }),
+      ],
+    },
+    { key: "clientes", label: "Clientes", rows: [row("newCustomers", "Novos clientes", "integer", (i) => rows[i].newCustomers, totals.newCustomers), row("returningCustomers", "Clientes recorrentes", "integer", (i) => rows[i].returningCustomers, totals.returningCustomers)] },
+    { key: "midia", label: "Mídia paga", rows: paidKeys.map((k) => row(`inv.${k}`, labelOf(entries, `channel.${k}`) ?? k, "currency", (i) => v(entries[i], k, "investment"), channelTotal(k).investment, { cents: true })) },
+    {
+      key: "retorno",
+      label: metric === "roas" ? "Retorno (ROI)" : "ROI",
+      rows: [
+        row("roi.geral", `${metric === "roas" ? "Retorno" : "ROI"} geral`, roiFormat, (i) => shown(overallOf(entries[i].summary)), shown(overallTotal), { rated: true }),
+        ...paidKeys.map((k) => row(`roi.${k}`, `${metric === "roas" ? "Retorno" : "ROI"} ${labelOf(entries, `channel.${k}`) ?? k}`, roiFormat, (i) => shown(figures(v(entries[i], k, "investment"), v(entries[i], k, "revenue"))), shown(channelTotal(k)), { rated: true })),
+      ],
+    },
+    { key: "receita-canal", label: "Receita por canal", rows: revenueKeys.map((k) => row(`rev.${k}`, labelOf(entries, `channel.${k}`) ?? k, "currency", (i) => v(entries[i], k, "revenue"), sumKey(entries.map((e) => ({ x: v(e, k, "revenue") })), "x"))) },
+  ]
+    .map((g) => ({ ...g, rows: g.rows.filter(hasAny) }))
+    .filter((g) => g.rows.length);
+
+  const trendCharts: ChartSpec[] = [];
+  if (rows.some((r) => isFiniteNumber(r.revenue)) || rows.some((r) => isFiniteNumber(r.investment))) {
+    trendCharts.push({
+      key: "receita-investimento",
+      title: "Receita e investimento",
+      unit: `por ${unit.singular} (R$)`,
+      kind: "bar",
+      series: [
+        { key: "revenue", label: "Receita", format: "currency", color: "var(--primary)" },
+        { key: "investment", label: "Investimento", format: "currency", color: "var(--dash-4)" },
+      ].filter((s) => rows.some((r) => isFiniteNumber(r[s.key]))) as ChartSeries[],
+    });
+  }
+  trendCharts.push({ key: "funil-volumes", title: "Funil — volumes", unit: stageKeys.map((s) => stageLabel(s)).join(", "), kind: "bar", series: stageKeys.map((s, i) => ({ key: keyOf(s), label: stageLabel(s), format: "integer", color: ["var(--dash-7)", "var(--dash-1)", "var(--dash-2)", "var(--dash-3)"][i % 4] })) });
+
+  // Oportunidade: o volume do melhor mês de leads com a conversão e o ticket do mês em foco.
+  let growth: FunnelLayoutView["growth"] = null;
+  const peakIdx = rows.reduce((best, r, i) => ((r.leads ?? -1) > (rows[best].leads ?? -1) ? i : best), 0);
+  const peakLeads = rows[peakIdx].leads ?? null;
+  const conversion = focus.conversionRate ?? null;
+  const ticket = focus.averageTicket ?? null;
+  if (peakIdx !== n - 1 && isFiniteNumber(peakLeads) && isFiniteNumber(conversion) && isFiniteNumber(ticket) && isFiniteNumber(focus.revenue) && focus.revenue > 0 && peakLeads > (focus.leads ?? 0)) {
+    const projected = Math.floor(peakLeads * conversion);
+    const revenue = Math.round((projected * ticket) / 10) * 10;
+    const gain = revenue / focus.revenue - 1;
+    if (gain > 0) growth = { peakName: periodName(entries[peakIdx].period), peakLeads, conversion, projected, ticket, revenue, growth: gain, extra: projected - (focus.conversions ?? 0), peakInvestment: rows[peakIdx].investment ?? null };
+  }
+
+  return { rangeArrow, banner, accumulated, funnel: { stages, steps, overall, rates }, focusChannels, comparativo: { periods, groups }, trendCharts, roi, growth };
 }
 
 /** Plano de ação em cartões: Prioridade/Tema → selo, Ação → título, Detalhes → texto. */

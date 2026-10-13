@@ -3,7 +3,7 @@ import { Repeat, Megaphone, Percent, Receipt, Star, UserCheck, Users, Wallet } f
 import { EMPTY_VALUE, formatCurrency, formatHeadlineValue, formatValue, isFiniteNumber, type ValueFormat } from "@/lib/format/number";
 import { LazyDistributionChart, LazyXYChart } from "@/components/charts/lazy";
 import { cn } from "@/lib/cn";
-import type { Accent, BadgeTone, CardIcon, ChartPoint, ChartSpec, Delta, DistributionSpec } from "@/features/commercial/dashboard";
+import type { Accent, BadgeTone, BannerKpi, CardIcon, ChartPoint, ChartSpec, Delta, DistributionSpec } from "@/features/commercial/dashboard";
 
 export const ACCENT: Record<Accent, string> = {
   cyan: "var(--primary)",
@@ -98,9 +98,23 @@ export function DeltaText({ delta, className }: { delta: Delta | null; className
   );
 }
 
-export function AccentCard({ label, value, sub, accent, icon }: { label: string; value: string; sub: string | null; accent: Accent; icon: CardIcon }) {
+export function AccentCard({ label, value, sub, accent, icon, highlight = false }: { label: string; value: string; sub: string | null; accent: Accent; icon: CardIcon; highlight?: boolean }) {
   const Icon = ICON[icon];
   const color = ACCENT[accent];
+  if (highlight) {
+    return (
+      <div className="relative min-w-0 rounded-[var(--radius-lg)] p-5 shadow-[0_18px_40px_-24px_rgb(0_120_220/0.55)] ring-1 ring-inset ring-white/10" style={{ background: "var(--focus-gradient)" }}>
+        <span className="mb-3 grid size-9 place-items-center rounded-[10px] bg-white/12 text-white" aria-hidden>
+          <Icon className="size-[17px]" />
+        </span>
+        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/70">{label}</p>
+        <p className="tabular mt-1.5 truncate text-[1.3rem] font-bold leading-none text-white min-[420px]:text-[1.625rem]" title={value}>
+          {value}
+        </p>
+        {sub ? <p className="mt-2 text-xs text-white/70">{sub}</p> : null}
+      </div>
+    );
+  }
   return (
     <div className="card relative min-w-0 p-5 transition-transform duration-200 hover:-translate-y-px">
       <span className="absolute inset-x-5 top-0 h-[2px] rounded-b-[3px]" style={{ background: color }} aria-hidden />
@@ -155,14 +169,78 @@ export function ChartPanel({ chart, points, currency, height, className }: { cha
   );
 }
 
-export function DistributionPanel({ spec, currency }: { spec: DistributionSpec; currency: string }) {
+export function DistributionPanel({ spec, currency, children, className }: { spec: DistributionSpec; currency: string; children?: ReactNode; className?: string }) {
   return (
-    <Panel>
+    <Panel className={className}>
       <PanelHead title={spec.title} unit={spec.unit} />
-      <figure aria-label={spec.title}>
-        <LazyDistributionChart slices={spec.slices} kind={spec.kind} format={spec.format} currency={currency} />
-      </figure>
+      <DistributionFigure spec={spec} currency={currency} />
+      {children}
     </Panel>
+  );
+}
+
+export function DistributionFigure({ spec, currency, height }: { spec: DistributionSpec; currency: string; height?: number }) {
+  return (
+    <figure aria-label={spec.title}>
+      <LazyDistributionChart slices={spec.slices} kind={spec.kind} format={spec.format} currency={currency} labelWidth={spec.labelWidth} height={height} />
+    </figure>
+  );
+}
+
+/** Destaque escrito pela Look (aba Notas) logo abaixo de um gráfico ou tabela. */
+export function NoteBox({ texts, label = "Destaque", className }: { texts: string[]; label?: string; className?: string }) {
+  if (!texts.length) return null;
+  return (
+    <div className={cn("mt-4 space-y-1.5 rounded-[10px] border-l-[3px] border-primary bg-primary-soft/60 px-3.5 py-2.5 text-xs leading-relaxed text-text-2", className)}>
+      {texts.map((t, i) => (
+        <p key={i}>
+          <strong className="text-text">{label}:</strong> {t}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** Título de seção do modelo "funil": rótulo numerado + título grande. */
+export function SectionHead({ eyebrow, title, id }: { eyebrow: string; title: string; id?: string }) {
+  return (
+    <div className="mb-4">
+      <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
+        <span className="size-1.5 rounded-full bg-primary" aria-hidden />
+        {eyebrow}
+      </p>
+      <h2 id={id} className="mt-1.5 text-lg font-bold tracking-tight text-text sm:text-xl">
+        {title}
+      </h2>
+    </div>
+  );
+}
+
+/** Faixa do mês em foco: o mês e os indicadores com a variação sobre o anterior. */
+export function FocusBanner({ label, title, kpis, currency, suffix }: { label: string; title: string; kpis: BannerKpi[]; currency: string; suffix?: string | null }) {
+  return (
+    <div className="flex flex-col gap-5 rounded-[18px] px-5 py-6 shadow-[0_18px_40px_-24px_rgb(0_120_220/0.55)] ring-1 ring-inset ring-white/10 sm:px-8 md:flex-row md:items-center md:gap-8" style={{ background: "var(--focus-gradient)" }}>
+      <div className="shrink-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">{label}</p>
+        <p className="mt-1 font-serif text-[1.65rem] font-semibold leading-none text-white">{title}</p>
+      </div>
+      <span className="hidden h-14 w-px bg-white/15 md:block" aria-hidden />
+      <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-3 lg:grid-cols-4 xl:flex xl:flex-wrap xl:gap-x-8">
+        {kpis.map((k) => (
+          <div key={k.key} className="min-w-0 xl:min-w-[84px]">
+            <dt className="sr-only">{k.label}</dt>
+            <dd className="tabular text-[1.25rem] font-bold leading-none text-white">{headline(k.value, k.format, currency)}</dd>
+            <dd className="mt-1 text-[9.5px] font-bold uppercase tracking-[0.08em] text-white/55 [overflow-wrap:anywhere]" aria-hidden>
+              {k.label}
+            </dd>
+            <dd className="mt-1.5">
+              <DeltaText delta={k.delta} />
+              {k.delta && suffix ? <span className="ml-1 text-[10px] font-medium text-white/50">{suffix}</span> : null}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 

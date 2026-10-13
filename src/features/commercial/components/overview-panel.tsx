@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Info } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { CommercialDashboardVM } from "@/features/commercial/dashboard";
-import { AccentCard, ChartPanel, DeltaPill, DeltaText, Pill, SectionLabel, TableFrame, cell, headline } from "./parts";
+import { notesFor } from "@/features/commercial/notes";
+import { AccentCard, ChartPanel, DeltaPill, FocusBanner, NoteBox, Pill, SectionLabel, TableFrame, cell, headline } from "./parts";
 
 const word = (vm: CommercialDashboardVM) =>
   vm.unit.singular === "mês" ? { adjective: "mensal", byUnit: "mês a mês" } : vm.unit.singular === "semana" ? { adjective: "semanal", byUnit: "semana a semana" } : { adjective: "por período", byUnit: "período a período" };
@@ -10,33 +11,14 @@ const word = (vm: CommercialDashboardVM) =>
 /** Visão geral: mês em foco × anterior, acumulado do ano, evolução, tabela e variação período a período. */
 export function OverviewPanel({ vm, currency }: { vm: CommercialDashboardVM; currency: string }) {
   const w = word(vm);
+  const notes = (slot: string) => notesFor(vm.notes, vm.layout, slot);
   return (
     <div className="space-y-9">
       <section aria-labelledby="foco-titulo">
         <SectionLabel id="foco-titulo" note={vm.focus.note?.title}>
           {vm.focus.name} em foco{vm.focus.previousName ? ` — vs ${vm.focus.previousName}` : ""}
         </SectionLabel>
-        <div className="flex flex-col gap-5 rounded-[18px] px-5 py-6 shadow-[0_18px_40px_-24px_rgb(0_120_220/0.55)] ring-1 ring-inset ring-white/10 sm:px-8 md:flex-row md:items-center md:gap-8" style={{ background: "var(--focus-gradient)" }}>
-          <div className="shrink-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">{vm.unit.singular === "mês" ? "Mês em foco" : "Em foco"}</p>
-            <p className="mt-1 font-serif text-[1.65rem] font-semibold leading-none text-white">{vm.focus.title}</p>
-          </div>
-          <span className="hidden h-14 w-px bg-white/15 md:block" aria-hidden />
-          <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-3 lg:grid-cols-4 xl:flex xl:flex-wrap xl:gap-x-8">
-            {vm.banner.map((k) => (
-              <div key={k.key} className="min-w-0 xl:min-w-[84px]">
-                <dt className="sr-only">{k.label}</dt>
-                <dd className="tabular text-[1.25rem] font-bold leading-none text-white">{headline(k.value, k.format, currency)}</dd>
-                <dd className="mt-1 text-[9.5px] font-bold uppercase tracking-[0.08em] text-white/55 [overflow-wrap:anywhere]" aria-hidden>
-                  {k.label}
-                </dd>
-                <dd className="mt-1.5">
-                  <DeltaText delta={k.delta} />
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
+        <FocusBanner label={vm.unit.singular === "mês" ? "Mês em foco" : "Em foco"} title={vm.focus.title} kpis={vm.banner} currency={currency} />
         {vm.focus.note?.description ? (
           <p className="mt-2.5 flex items-start gap-1.5 text-xs leading-relaxed text-text-3">
             <Info className="mt-px size-3.5 shrink-0" aria-hidden />
@@ -58,6 +40,7 @@ export function OverviewPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
             ))}
           </div>
         ) : null}
+        <NoteBox texts={notes("foco")} />
       </section>
 
       <section aria-labelledby="acumulado-titulo">
@@ -69,6 +52,7 @@ export function OverviewPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
             <AccentCard key={k.key} label={k.label} value={headline(k.value, k.format, currency)} sub={k.sub} accent={k.accent} icon={k.icon} />
           ))}
         </div>
+        <NoteBox texts={notes("acumulado")} />
       </section>
 
       {vm.charts.length ? (
@@ -79,6 +63,7 @@ export function OverviewPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
               <ChartPanel key={c.key} chart={c} points={vm.points} currency={currency} className={vm.charts.length % 2 === 1 && i === vm.charts.length - 1 ? "lg:col-span-2" : undefined} />
             ))}
           </div>
+          <NoteBox texts={notes("evolucao")} />
         </section>
       ) : null}
 
@@ -139,6 +124,7 @@ export function OverviewPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
             </tfoot>
           ) : null}
         </TableFrame>
+        <NoteBox texts={notes("detalhamento")} />
       </section>
 
       {vm.variation ? (

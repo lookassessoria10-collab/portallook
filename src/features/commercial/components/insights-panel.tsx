@@ -1,13 +1,17 @@
 import type { InsightType } from "@/features/reports/schema";
 import type { CommercialDashboardVM } from "@/features/commercial/dashboard";
-import { DeltaPill, SectionLabel, TableFrame, cell, perReal } from "./parts";
+import { notesFor, unplacedNotes } from "@/features/commercial/notes";
+import { NoteBox, SectionLabel } from "./parts";
+import { ComparisonTable, FreeTable, LooseNotes, OpportunityBlock } from "./shared-blocks";
 
-const INSIGHT_COLOR: Record<InsightType, string> = {
+export const INSIGHT_COLOR: Record<InsightType, string> = {
   attention: "var(--attention)",
   positive: "var(--dash-2)",
   recommendation: "var(--primary)",
   neutral: "var(--dash-1)",
 };
+
+export const INSIGHT_ORDER: InsightType[] = ["attention", "positive", "neutral", "recommendation"];
 
 /** Cores do plano de ação, na ordem das prioridades. */
 const PLAN_COLORS = ["var(--negative)", "var(--primary)", "var(--positive)", "var(--dash-2)", "var(--dash-3)", "var(--dash-4)"];
@@ -29,11 +33,12 @@ function Card({ color, tag, title, text, tinted }: { color: string; tag: string 
   );
 }
 
-/** Insights da Look, comparativo com o período anterior, plano de ação e tabelas livres do mês em foco. */
+/** Insights da Look, comparativo com o período anterior, agenda marcada, plano de ação e tabelas livres do mês em foco. */
 export function InsightsPanel({ vm, currency }: { vm: CommercialDashboardVM; currency: string }) {
-  const order: InsightType[] = ["attention", "positive", "neutral", "recommendation"];
-  const insights = [...vm.insights].sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+  const insights = [...vm.insights].sort((a, b) => INSIGHT_ORDER.indexOf(a.type) - INSIGHT_ORDER.indexOf(b.type));
   const c = vm.comparison;
+  const notes = (slot: string) => notesFor(vm.notes, vm.layout, slot);
+  const loose = unplacedNotes(vm.notes, vm.layout, vm.dimensions.map((d) => d.label));
   return (
     <div className="space-y-9">
       {insights.length ? (
@@ -52,40 +57,19 @@ export function InsightsPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
           <SectionLabel id="comparativo-titulo">
             Comparativo {c.previousName} vs {c.currentName}
           </SectionLabel>
-          <TableFrame caption={`Comparativo ${c.previousName} e ${c.currentName}`}>
-            <thead>
-              <tr>
-                <th scope="col">Indicador</th>
-                <th scope="col" className="text-right">
-                  {c.previousName}
-                </th>
-                <th scope="col" className="text-right">
-                  {c.currentName}
-                </th>
-                <th scope="col" className="text-center">
-                  Variação
-                </th>
-                {c.hasNotes ? <th scope="col">Leitura</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {c.rows.map((r) => (
-                <tr key={r.key}>
-                  <th scope="row" className="text-left font-bold">
-                    {r.label}
-                  </th>
-                  <td className="tabular text-right text-text-2">{r.perReal ? valuePerReal(r.previous, currency) : cell(r.previous, r.format, currency)}</td>
-                  <td className="tabular text-right font-bold">{r.perReal ? valuePerReal(r.current, currency) : cell(r.current, r.format, currency)}</td>
-                  <td className="text-center">
-                    <DeltaPill delta={r.delta} />
-                  </td>
-                  {c.hasNotes ? <td className="min-w-[260px] whitespace-normal text-xs leading-relaxed text-text-2">{r.note ?? ""}</td> : null}
-                </tr>
-              ))}
-            </tbody>
-          </TableFrame>
+          <ComparisonTable comparison={c} currency={currency} />
+          <NoteBox texts={notes("comparativo")} />
         </section>
       ) : null}
+
+      {vm.opportunities.map((o) => (
+        <section key={o.key} aria-labelledby={`oportunidade-${o.key}`}>
+          <SectionLabel id={`oportunidade-${o.key}`} note="oportunidades abertas">
+            {o.title}
+          </SectionLabel>
+          <OpportunityBlock opportunity={o} focusName={vm.focus.name} nextName={vm.nextName} currency={currency} notes={notes("oportunidades")} />
+        </section>
+      ))}
 
       {vm.actionPlans.map((p) => (
         <section key={p.key} aria-labelledby={`plano-${p.key}`}>
@@ -95,40 +79,23 @@ export function InsightsPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
               <Card key={`${i}-${a.title}`} color={PLAN_COLORS[i % PLAN_COLORS.length]} tag={a.tag} title={a.title} text={a.text} tinted />
             ))}
           </div>
+          <NoteBox texts={notes("plano")} />
         </section>
       ))}
 
       {vm.tables.map((t) => (
         <section key={t.key} aria-labelledby={`tabela-${t.key}`}>
           <SectionLabel id={`tabela-${t.key}`}>{t.title}</SectionLabel>
-          <TableFrame caption={t.title}>
-            <thead>
-              <tr>
-                {t.columns.map((col) => (
-                  <th key={col} scope="col">
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {t.rows.map((r, i) => (
-                <tr key={i}>
-                  {r.map((v, j) => (
-                    <td key={j} className="whitespace-normal">
-                      {v || "—"}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </TableFrame>
+          <FreeTable table={t} />
         </section>
       ))}
+
+      {loose.length ? (
+        <section aria-labelledby="notas-titulo">
+          <SectionLabel id="notas-titulo">Notas da Look</SectionLabel>
+          <LooseNotes notes={loose} />
+        </section>
+      ) : null}
     </div>
   );
-}
-
-function valuePerReal(v: number | null, currency: string) {
-  return v == null ? "—" : `${perReal(v, currency)} / R$ 1`;
 }

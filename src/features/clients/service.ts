@@ -53,7 +53,7 @@ export async function createClient(input: ClientInput, actor: string | null): Pr
     logo: null,
     currency: input.currency,
     modules: modulesFromInput(input),
-    dashboard: { roiMetric: input.roiMetric, highlightMetrics: [] },
+    dashboard: { roiMetric: input.roiMetric, highlightMetrics: [], commercialLayout: input.commercialLayout ?? "detalhamentos" },
     notes: input.notes,
     createdAt: now,
     updatedAt: now,
@@ -77,7 +77,7 @@ export async function updateClient(clientId: string, input: ClientInput, actor: 
     currency: input.currency,
     notes: input.notes,
     modules: modulesFromInput(input, c.modules),
-    dashboard: { ...c.dashboard, roiMetric: input.roiMetric },
+    dashboard: { ...c.dashboard, roiMetric: input.roiMetric, commercialLayout: input.commercialLayout ?? c.dashboard.commercialLayout },
   }));
   await logEvent("client.updated", { clientId, actor, summary: `Dados de ${updated.name} atualizados.` });
   return updated;

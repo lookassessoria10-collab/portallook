@@ -28,11 +28,20 @@ export const SOCIAL_MODULE_DEFAULT: ModuleConfig = { enabled: false, cadence: "m
 export const ClientStatusSchema = z.enum(["active", "inactive", "archived"]);
 export type ClientStatus = z.infer<typeof ClientStatusSchema>;
 
+export const CommercialLayoutSchema = z.enum(["detalhamentos", "funil"]);
+export type CommercialLayout = z.infer<typeof CommercialLayoutSchema>;
+
 export const DashboardConfigSchema = z.object({
   /** Convenção principal de retorno exibida ao cliente (os dashboards atuais usam as duas). */
   roiMetric: z.enum(["roas", "roiPercent"]).default("roas"),
   /** Métricas de destaque do resumo comercial, em ordem. Vazio = automático. */
   highlightMetrics: z.array(z.string()).default([]),
+  /**
+   * Modelo do painel comercial: "detalhamentos" (abas por canal e por detalhamento, como o
+   * dashboard da Serenity) ou "funil" (funil do mês, comparativo mensal, ROI por canal e
+   * diagnóstico, como o da Dra. Isabor). Os dados e a planilha são os mesmos.
+   */
+  commercialLayout: CommercialLayoutSchema.default("detalhamentos"),
 });
 export type DashboardConfig = z.infer<typeof DashboardConfigSchema>;
 
@@ -61,7 +70,7 @@ export const ClientSchema = z.object({
     /** Plano de mídia: sempre mensal; o plano do mês vence no `dueDay` do próprio mês. */
     media_plan: ModuleConfigSchema.default(MEDIA_PLAN_MODULE_DEFAULT),
   }),
-  dashboard: DashboardConfigSchema.default({ roiMetric: "roas", highlightMetrics: [] }),
+  dashboard: DashboardConfigSchema.default({ roiMetric: "roas", highlightMetrics: [], commercialLayout: "detalhamentos" }),
   notes: z.string().max(4000).default(""),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,

@@ -276,6 +276,9 @@ export function FormatGuide({
               <li>
                 <strong>Insights:</strong> Tipo (Positivo, Atenção, Recomendação ou Neutro — define a cor), <strong>Tema</strong> opcional (o selo do cartão: Recorrência, Terapeutas, ROI…), Título e Descrição. <strong>Comparativo:</strong> Indicador | Leitura — a leitura da Look ao lado de cada indicador no comparativo com o mês anterior (Leads, Receita, Ticket médio, ROI canais pagos…). <strong>Contexto:</strong> aviso do mês (ex.: <Code>Janeiro parcial</Code>), que também marca o mês na tabela.
               </li>
+              <li>
+                <strong>Notas</strong> (Seção | Texto): o destaque da Look ao lado de uma parte do painel — <Code>Funil</Code>, <Code>Receita por canal</Code>, <Code>Leads por canal</Code>, <Code>ROI</Code>, <Code>Canal a canal</Code>, <Code>Acumulado</Code> ou o nome de um detalhamento. <strong>Oportunidades</strong> (Origem | Data agendada | Situação): agenda já marcada para o mês seguinte; o portal calcula a receita potencial.
+              </li>
             </>
           )}
 

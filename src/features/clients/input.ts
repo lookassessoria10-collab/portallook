@@ -26,6 +26,8 @@ export const ClientInputSchema = z.object({
   currency: z.string().trim().toUpperCase().length(3).default("BRL"),
   notes: z.string().max(4000).default(""),
   roiMetric: z.enum(["roas", "roiPercent"]).default("roas"),
+  /** Ausente = mantém o modelo atual (ou o padrão, no cadastro). */
+  commercialLayout: z.enum(["detalhamentos", "funil"]).optional(),
   commercial: moduleInput,
   traffic: moduleInput,
   /** Rede social é sempre mensal. Ausente = mantém a configuração atual. */
@@ -47,6 +49,7 @@ export function clientInputFromForm(form: FormData): unknown {
     currency: str("currency") || "BRL",
     notes: str("notes"),
     roiMetric: str("roiMetric") || "roas",
+    commercialLayout: str("commercialLayout") || undefined,
     commercial: {
       enabled: bool("commercial.enabled"),
       cadence: str("commercial.cadence") || "monthly",
