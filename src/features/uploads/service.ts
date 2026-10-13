@@ -679,7 +679,7 @@ async function mergePartialCommercial(clientId: string, p: ParsedPeriod): Promis
     financial: p.sections.includes("financial") ? incoming.financial : (base.financial ?? null),
     channels: p.sections.includes("channels") ? incoming.channels : (base.channels ?? []),
     dimensions: p.sections.includes("dimensions") ? [...(base.dimensions ?? []).filter((d) => !(incoming.dimensions ?? []).some((i) => i.key === d.key)), ...(incoming.dimensions ?? [])] : (base.dimensions ?? []),
-    extraMetrics: base.extraMetrics ?? [],
+    extraMetrics: p.sections.includes("extraMetrics") ? incoming.extraMetrics : (base.extraMetrics ?? []),
     customers: p.sections.includes("customers") ? incoming.customers : (base.customers ?? null),
     days: incoming.days ?? base.days ?? null,
     tables: p.sections.includes("tables") ? incoming.tables : (base.tables ?? []),
