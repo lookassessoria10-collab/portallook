@@ -81,6 +81,13 @@ export const CommercialTableSchema = z.object({
 });
 export type CommercialTable = z.infer<typeof CommercialTableSchema>;
 
+/** Leitura da Look para um indicador no comparativo com o período anterior (aba Comparativo). */
+export const ComparisonNoteSchema = z.object({
+  label: z.string().min(1).max(120),
+  text: z.string().max(500),
+});
+export type ComparisonNote = z.infer<typeof ComparisonNoteSchema>;
+
 export const ExtraMetricSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
@@ -103,6 +110,7 @@ export const CommercialDataSchema = z.object({
   /** Novos × recorrentes (null = o cliente não acompanha). */
   customers: CustomersSchema.nullable().default(null),
   tables: z.array(CommercialTableSchema).default([]),
+  comparisonNotes: z.array(ComparisonNoteSchema).default([]),
   /** Contexto do período (ex.: "Agenda reduzida em 16 dias"). */
   context: z.object({ title: z.string(), description: z.string().default("") }).nullable().default(null),
 });

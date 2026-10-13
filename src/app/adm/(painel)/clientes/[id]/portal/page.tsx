@@ -34,12 +34,13 @@ export default async function PortalPreviewPage(props: PageProps<"/adm/clientes/
   };
   const isDraft = model.selection.primary?.status === "draft";
   return (
-    <div className="-mx-4 rounded-[var(--radius-xl)] border border-border sm:mx-0">
+    <div className="-mx-4 overflow-clip rounded-[var(--radius-xl)] border border-border sm:mx-0">
       <PortalView
         model={model}
         basePath={base}
         links={links}
         logoUrl={client.logo ? `/api/adm/clientes/${id}/logo` : null}
+        section={one(search.secao)}
         banner={
           <p className="mt-4 flex items-start gap-2 rounded-xl border border-[rgb(140_156_248/0.3)] bg-info-soft px-3.5 py-2.5 text-[13px] text-text-2">
             <Eye className="mt-0.5 size-4 shrink-0 text-info" aria-hidden />

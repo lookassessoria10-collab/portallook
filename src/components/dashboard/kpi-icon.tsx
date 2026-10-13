@@ -1,5 +1,5 @@
 import { BadgeDollarSign, CircleUserRound, Eye, Heart, Megaphone, MessageCircleHeart, MousePointerClick, Percent, Play, Receipt, ShoppingCart, TrendingUp, UserCheck, UserPlus, Users, Wallet } from "lucide-react";
-import type { KpiIcon as KpiIconName } from "@/features/commercial/view-model";
+import type { KpiIcon as KpiIconName } from "@/components/dashboard/kpi-types";
 
 const ICONS: Record<KpiIconName, typeof Users> = {
   leads: Users,

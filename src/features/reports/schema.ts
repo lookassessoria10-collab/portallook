@@ -74,6 +74,8 @@ export const InsightSchema = z.object({
   type: InsightTypeSchema,
   title: z.string().trim().min(1).max(140),
   description: z.string().trim().max(1500).default(""),
+  /** Tema exibido no cartão (ex.: "Recorrência", "Terapeutas"); sem tema, o portal mostra o tipo. */
+  tag: z.string().trim().max(40).nullable().default(null),
   /** `manual`/`import` foram escritos pela Look; `auto` é gerado pelo sistema e sempre sinalizado. */
   source: z.enum(["manual", "import", "auto"]).default("manual"),
 });

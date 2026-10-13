@@ -137,7 +137,7 @@ describe("controle de acesso do portal", () => {
     expect(model.periods.map((p) => p.key)).toEqual(["2026-06", "2026-07", "2026-08"]);
   });
 
-  it("sem período escolhido abre a visão geral com todos os períodos publicados", async () => {
+  it("comercial sem período escolhido abre o mês publicado mais recente, com o acumulado até ele", async () => {
     const a = await createClient(input("Cliente A", "cliente-a"), null);
     for (const m of [6, 7, 8]) {
       const r = await dataset(a.id, m);
@@ -146,13 +146,16 @@ describe("controle de acesso do portal", () => {
     await dataset(a.id, 9);
 
     const model = await loadPortalModel(a, { mode: "client" });
-    expect(model.view).toBe("overview");
-    expect(model.periodKey).toBeNull();
-    expect(model.selection.dataset).toBeNull();
-    expect(model.overview?.map((e) => e.periodKey)).toEqual(["2026-06", "2026-07", "2026-08"]);
+    expect(model.view).toBe("period");
+    expect(model.overview).toBeNull();
+    expect(model.periodKey).toBe("2026-08");
+    expect(model.selection.dataset?.entry.periodKey).toBe("2026-08");
+    expect(model.history.map((e) => e.periodKey)).toEqual(["2026-06", "2026-07", "2026-08"]);
+    expect(model.previous?.periodKey).toBe("2026-07");
 
     const preview = await loadPortalModel(a, { mode: "preview" });
-    expect(preview.overview?.map((e) => e.periodKey)).toEqual(["2026-06", "2026-07", "2026-08", "2026-09"]);
+    expect(preview.periodKey).toBe("2026-09");
+    expect(preview.history.map((e) => e.periodKey)).toEqual(["2026-06", "2026-07", "2026-08", "2026-09"]);
     expect(preview.periods.at(-1)).toMatchObject({ key: "2026-09", draft: true });
   });
 

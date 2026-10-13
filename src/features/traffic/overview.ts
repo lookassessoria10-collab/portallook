@@ -7,7 +7,7 @@ import { costPerLabel, lowerFirst } from "@/lib/format/text";
 import type { SeriesDef, SeriesPoint } from "@/components/charts/types";
 import type { PeriodTableColumn, PeriodTableData } from "@/components/dashboard/period-table";
 import type { ReportIndexEntry } from "@/features/reports/schema";
-import type { KpiIcon, KpiView } from "@/features/commercial/view-model";
+import type { KpiIcon, KpiView } from "@/components/dashboard/kpi-types";
 import { PLATFORM_ORDER, RESULT_TYPE_LABEL, ResultTypeSchema, platformLabel } from "./schema";
 
 /** Cor fixa por plataforma — Meta sempre azul, Google sempre laranja, em qualquer cliente. */

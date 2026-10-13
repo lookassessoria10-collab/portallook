@@ -70,8 +70,13 @@ export interface PortalModel {
 }
 
 const HISTORY_POINTS: Record<ReportType, number> = { commercial: 12, traffic: 8, social: 12, media_plan: 12 };
-/** Áreas navegadas por ano quando há mais de um (a planilha de rede social é anual). */
-const YEARLY_TABS: ReadonlySet<ReportType> = new Set(["social"]);
+/** Áreas navegadas por ano quando há mais de um (a planilha de rede social e o painel comercial são anuais). */
+const YEARLY_TABS: ReadonlySet<ReportType> = new Set(["social", "commercial"]);
+/**
+ * Áreas sem visão geral separada: o plano de mídia abre sempre um mês; o painel comercial
+ * já é o acumulado do ano até o mês em foco (o mais recente, por padrão).
+ */
+const NO_OVERVIEW_TABS: ReadonlySet<ReportType> = new Set(["media_plan", "commercial"]);
 /** A visão geral reúne até 12 períodos (um ano, para relatórios mensais). */
 const OVERVIEW_POINTS = 12;
 
@@ -162,8 +167,8 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
   // Visão geral nunca mistura meses com semanas (nem com intervalos personalizados).
   const overviewGranularity = datasetSeries.some((e) => e.period.granularity === scale) ? scale : datasetSeries.at(-1)?.period.granularity;
   const overviewSeries = datasetSeries.filter((e) => e.period.granularity === overviewGranularity && (year === null || yearOf(e) === year));
-  // O plano de mídia não tem visão geral: abre sempre um mês.
-  const overview = !focus && tab !== "media_plan" && overviewSeries.length >= 2 ? overviewSeries.slice(-OVERVIEW_POINTS) : null;
+  // Plano de mídia e comercial não têm visão geral separada: abrem sempre um período.
+  const overview = !focus && !NO_OVERVIEW_TABS.has(tab) && overviewSeries.length >= 2 ? overviewSeries.slice(-OVERVIEW_POINTS) : null;
   const lastPeriod = periodEntries.at(-1) ?? null;
   const latestDocumentOnly =
     overview && lastPeriod && !(byPeriod.get(lastPeriod.periodKey) ?? []).some((r) => r.kind === "dataset") && lastPeriod.period.start > overview[overview.length - 1].period.start ? (periods.at(-1) ?? null) : null;

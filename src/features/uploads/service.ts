@@ -439,7 +439,7 @@ function parseStructuredHtml(payload: unknown, record: ImportRecord, clientNames
         data: check.data,
         insights: (obj.insights ?? [])
           .filter((i) => i.title)
-          .map((i) => ({ type: i.type === "positive" || i.type === "attention" || i.type === "recommendation" ? i.type : "neutral", title: String(i.title).slice(0, 140), description: String(i.description ?? "").slice(0, 1500) })),
+          .map((i) => ({ type: i.type === "positive" || i.type === "attention" || i.type === "recommendation" ? i.type : "neutral", title: String(i.title).slice(0, 140), description: String(i.description ?? "").slice(0, 1500), tag: null })),
       },
     ],
   };
@@ -652,6 +652,9 @@ async function mergePartialCommercial(clientId: string, p: ParsedPeriod): Promis
     channels: p.sections.includes("channels") ? incoming.channels : (base.channels ?? []),
     dimensions: p.sections.includes("dimensions") ? [...(base.dimensions ?? []).filter((d) => !(incoming.dimensions ?? []).some((i) => i.key === d.key)), ...(incoming.dimensions ?? [])] : (base.dimensions ?? []),
     extraMetrics: base.extraMetrics ?? [],
+    customers: p.sections.includes("customers") ? incoming.customers : (base.customers ?? null),
+    tables: p.sections.includes("tables") ? incoming.tables : (base.tables ?? []),
+    comparisonNotes: p.sections.includes("comparisonNotes") ? incoming.comparisonNotes : (base.comparisonNotes ?? []),
     context: base.context ?? null,
   };
   const check = CommercialDataSchema.safeParse(merged);

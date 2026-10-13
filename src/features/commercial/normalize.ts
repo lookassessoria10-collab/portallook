@@ -13,7 +13,7 @@ import type { ChannelKind, CommercialDataInput } from "./schema";
  * Planilha (qualquer layout razoável) → modelo comercial padronizado.
  * Os componentes visuais nunca veem a planilha: só o CommercialData.
  */
-export type SheetRole = "funnel" | "financial" | "channels" | "customers" | "table" | "dimension" | "dimensions" | "extraMetrics" | "insights" | "context";
+export type SheetRole = "funnel" | "financial" | "channels" | "customers" | "table" | "dimension" | "dimensions" | "extraMetrics" | "insights" | "context" | "comparison";
 
 const ROLE_ALIASES: Array<[SheetRole, string[]]> = [
   ["funnel", ["funil", "funnel", "etapas", "pipeline"]],
@@ -26,6 +26,8 @@ const ROLE_ALIASES: Array<[SheetRole, string[]]> = [
   ["extraMetrics", ["indicadores", "kpis", "metricas", "indicadores adicionais"]],
   ["insights", ["insights", "analise", "analises", "observacoes", "comentarios"]],
   ["context", ["contexto", "context", "avisos"]],
+  // Leitura da Look para cada indicador no comparativo com o período anterior.
+  ["comparison", ["comparativo", "comparacao", "leituras", "leitura"]],
 ];
 
 const IGNORED_SHEETS = ["instrucoes", "leia me", "leiame", "readme", "como usar", "exemplo", "modelo", "config"];
@@ -49,6 +51,7 @@ interface Acc {
   customers: { new: number | null; returning: number | null } | null;
   tables: Map<string, { title: string; columns: string[]; rows: string[][] }>;
   context: CommercialDataInput["context"];
+  comparisonNotes: Array<{ label: string; text: string }>;
   insights: ParsedInsight[];
   sections: Set<CommercialSection>;
 }
@@ -69,6 +72,7 @@ const ROLE_LABEL: Record<SheetRole, string> = {
   extraMetrics: "Indicadores",
   insights: "Insights",
   context: "Contexto",
+  comparison: "Comparativo (leituras)",
 };
 
 export function normalizeCommercial(
@@ -81,7 +85,7 @@ export function normalizeCommercial(
     const key = periodKey(p);
     let a = accs.get(key);
     if (!a) {
-      a = { period: p, funnel: new Map(), financial: null, channels: [], dimensions: new Map(), extraMetrics: [], customers: null, tables: new Map(), context: null, insights: [], sections: new Set() };
+      a = { period: p, funnel: new Map(), financial: null, channels: [], dimensions: new Map(), extraMetrics: [], customers: null, tables: new Map(), context: null, comparisonNotes: [], insights: [], sections: new Set() };
       accs.set(key, a);
     }
     return a;
@@ -113,6 +117,7 @@ export function normalizeCommercial(
       extraMetrics: () => readExtraMetrics(sheet, ctx, issues, acc),
       insights: () => readInsights(sheet, ctx, issues, acc),
       context: () => readContext(sheet, ctx, issues, acc),
+      comparison: () => readComparison(sheet, ctx, issues, acc),
     };
     handlers[role]();
   }
@@ -142,6 +147,7 @@ export function normalizeCommercial(
       extraMetrics: a.extraMetrics,
       customers: a.customers,
       tables: [...a.tables.entries()].filter(([, t]) => t.rows.length).map(([k, t]) => ({ key: k, title: t.title, columns: t.columns, rows: t.rows })),
+      comparisonNotes: a.comparisonNotes,
       context: a.context,
     };
     warnCommercial(data, label, issues, partial);
@@ -501,12 +507,37 @@ function readInsights(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollecto
   const titleCol = findColumn(h, ["titulo", "title", "destaque"]);
   const descCol = findColumn(h, ["descricao", "texto", "description", "detalhe", "comentario"], [titleCol]);
   const typeCol = findColumn(h, ["tipo", "categoria", "type"], [titleCol, descCol]);
+  // Tema do cartão (ex.: "Recorrência", "Terapeutas"); a cor continua vindo do Tipo.
+  const tagCol = findColumn(h, ["tema", "assunto", "topico", "tag"], [titleCol, descCol, typeCol]);
   if (!titleCol) return issues.error("missing_column", 'A coluna "Título" não foi encontrada na aba Insights.', { sheet: sheet.name, column: "Título" });
   for (const row of sheet.rows) {
     const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
     const title = textCell(row.cells[titleCol]);
     if (!period || !title) continue;
-    acc(period).insights.push({ type: mapInsightType(typeCol ? textCell(row.cells[typeCol]) : null), title: title.slice(0, 140), description: (descCol ? (textCell(row.cells[descCol]) ?? "") : "").slice(0, 1500) });
+    acc(period).insights.push({
+      type: mapInsightType(typeCol ? textCell(row.cells[typeCol]) : null),
+      title: title.slice(0, 140),
+      description: (descCol ? (textCell(row.cells[descCol]) ?? "") : "").slice(0, 1500),
+      tag: (tagCol ? textCell(row.cells[tagCol]) : null)?.slice(0, 40) ?? null,
+    });
+  }
+}
+
+/** Aba Comparativo: a leitura da Look para cada indicador (Indicador | Leitura), por período. */
+function readComparison(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector, acc: (p: Period) => Acc) {
+  const h = sheet.headers;
+  const periodCol = findColumn(h, PERIOD);
+  const labelCol = findColumn(h, ["indicador", "metrica", "nome"], [periodCol]);
+  const textCol = findColumn(h, ["leitura", "analise", "comentario", "observacao", "descricao"], [periodCol, labelCol]);
+  if (!labelCol || !textCol) return issues.error("missing_column", 'A aba Comparativo precisa das colunas "Indicador" e "Leitura".', { sheet: sheet.name });
+  for (const row of sheet.rows) {
+    const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
+    const label = textCell(row.cells[labelCol]);
+    const text = textCell(row.cells[textCol]);
+    if (!period || !label || !text) continue;
+    const a = acc(period);
+    a.comparisonNotes.push({ label: label.slice(0, 120), text: text.slice(0, 500) });
+    a.sections.add("comparisonNotes");
   }
 }
 

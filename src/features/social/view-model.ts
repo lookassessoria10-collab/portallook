@@ -4,7 +4,7 @@ import { relativeChange } from "@/lib/metrics/safe-math";
 import { formatPeriod, formatPeriodReference, periodUnit, type PeriodUnit } from "@/lib/dates/period";
 import type { SeriesDef, SeriesPoint } from "@/components/charts/types";
 import type { ReportIndexEntry } from "@/features/reports/schema";
-import type { KpiIcon, KpiView } from "@/features/commercial/view-model";
+import type { KpiIcon, KpiView } from "@/components/dashboard/kpi-types";
 import type { ComparisonRow } from "@/features/traffic/view-model";
 import { SOCIAL_METRICS, computeSocialMetrics, socialLabel, type InteractionSlice, type SocialKey } from "./metrics";
 import { NETWORK_LABEL, type SocialData } from "./schema";

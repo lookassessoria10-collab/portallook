@@ -38,5 +38,5 @@ export default async function ClientPortalPage(props: PageProps<"/c/[slug]/[toke
     file: (id, download) => `${base}/arquivo/${id}${download ? "?download=1" : ""}`,
   };
 
-  return <PortalView model={model} basePath={base} links={links} logoUrl={client.logo ? `${base}/logo` : null} />;
+  return <PortalView model={model} basePath={base} links={links} logoUrl={client.logo ? `${base}/logo` : null} section={one(search.secao)} />;
 }

@@ -252,7 +252,7 @@ export function FormatGuide({
             <>
               {paste ? (
                 <li>
-                  <strong>Uma tabela por seção</strong>, cada uma com o título na linha de cima: <Code>## Funil</Code> (obrigatória), <Code>## Financeiro</Code>, <Code>## Clientes</Code>, <Code>## Canais</Code>, <Code>## Indicadores</Code>, <Code>## Insights</Code>, <Code>## Contexto</Code>. Outro título com números (ex.: <Code>## Terapeutas</Code>) vira um detalhamento com esse nome; sem números (ex.: <Code>## Plano de ação</Code>), uma tabela como veio. Só a primeira tabela pode ficar sem título: ela é lida como Funil.
+                  <strong>Uma tabela por seção</strong>, cada uma com o título na linha de cima: <Code>## Funil</Code> (obrigatória), <Code>## Financeiro</Code>, <Code>## Clientes</Code>, <Code>## Canais</Code>, <Code>## Indicadores</Code>, <Code>## Insights</Code>, <Code>## Comparativo</Code>, <Code>## Contexto</Code>. Outro título com números (ex.: <Code>## Terapeutas</Code>) vira um detalhamento com esse nome; sem números (ex.: <Code>## Plano de ação</Code>), uma tabela como veio. Só a primeira tabela pode ficar sem título: ela é lida como Funil.
                 </li>
               ) : null}
               <li>
@@ -268,10 +268,13 @@ export function FormatGuide({
                 <strong>Canais:</strong> Canal, Tipo (Mídia paga, Orgânico, Indicação…), Leads, Comparecimentos (ou Vendas), Receita e Investimento — o retorno de cada canal pago e a participação de cada canal são calculados.
               </li>
               <li>
-                <strong>Detalhamentos</strong> (qualquer aba com números: Serviços, Terapeutas, Massagens, Procedimentos…): o nome do item, Atendimentos (ou Quantidade), Receita e, se quiser, <strong>Status</strong> (Ativa, Inativa, Destaque). Viram ranking no mês e acumulado na visão geral, com coluna por mês. Linha só com Status, sem números, atualiza o status no acumulado.
+                <strong>Detalhamentos</strong> (qualquer aba com números: Serviços, Terapeutas, Massagens, Procedimentos…): o nome do item, Atendimentos (ou Quantidade), Receita e, se quiser, <strong>Status</strong> (Ativa, Inativa, Destaque). Cada um vira uma aba do painel com o nome da aba (ranking acumulado no ano, gráficos e coluna por mês). Linha só com Status, sem números, atualiza o status no ranking.
               </li>
               <li>
-                <strong>Tabelas livres:</strong> Oportunidades, Plano de ação, Próximos passos, Motivos de perda (ou qualquer aba sem números) aparecem no mês exatamente como vieram. <strong>Indicadores:</strong> só o que o portal não calcula — acumulados, conversões do funil, ticket médio, ROI e participação dos canais já são calculados (formato <Code>Multiplicador</Code> mostra “7,42x”).
+                <strong>Plano de ação</strong> (Prioridade | Ação | Detalhes) vira cartões na aba Insights. Outras tabelas sem números (Oportunidades, Motivos de perda…) aparecem como vieram. <strong>Indicadores:</strong> só o que o portal não calcula — acumulados, conversões do funil, ticket médio, ROI e participação dos canais já são calculados (formato <Code>Multiplicador</Code> mostra “7,42x”).
+              </li>
+              <li>
+                <strong>Insights:</strong> Tipo (Positivo, Atenção, Recomendação ou Neutro — define a cor), <strong>Tema</strong> opcional (o selo do cartão: Recorrência, Terapeutas, ROI…), Título e Descrição. <strong>Comparativo:</strong> Indicador | Leitura — a leitura da Look ao lado de cada indicador no comparativo com o mês anterior (Leads, Receita, Ticket médio, ROI canais pagos…). <strong>Contexto:</strong> aviso do mês (ex.: <Code>Janeiro parcial</Code>), que também marca o mês na tabela.
               </li>
             </>
           )}

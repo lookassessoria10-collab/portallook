@@ -2,7 +2,7 @@ import type { PeriodUnit } from "@/lib/dates/period";
 import { DashboardSection } from "@/components/dashboard/section";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { KpiIcon } from "@/components/dashboard/kpi-icon";
-import type { KpiView } from "@/features/commercial/view-model";
+import type { KpiView } from "@/components/dashboard/kpi-types";
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 

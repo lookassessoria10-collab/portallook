@@ -46,6 +46,7 @@ const InsightInput = z.object({
   type: InsightTypeSchema,
   title: z.string().trim().min(1, "Informe um título.").max(140),
   description: z.string().trim().max(1500).default(""),
+  tag: z.string().trim().max(40).nullable().default(null),
 });
 
 const DetailsInput = z.object({
@@ -68,7 +69,7 @@ export async function saveReportDetailsAction(clientId: string, reportId: string
       {
         title: parsed.data.title || null,
         allowDownload: parsed.data.allowDownload,
-        insights: parsed.data.insights.map((i) => ({ id: i.id && i.id.startsWith("in_") ? i.id : newInsightId(), type: i.type, title: i.title, description: i.description, source: "manual" as const })),
+        insights: parsed.data.insights.map((i) => ({ id: i.id && i.id.startsWith("in_") ? i.id : newInsightId(), type: i.type, title: i.title, description: i.description, tag: i.tag || null, source: "manual" as const })),
       },
       session.email,
     );

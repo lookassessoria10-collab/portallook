@@ -5,7 +5,7 @@ import { formatPeriod, formatPeriodReference, periodUnit, type PeriodUnit } from
 import { costPerLabel, lowerFirst } from "@/lib/format/text";
 import type { SeriesDef, SeriesPoint } from "@/components/charts/types";
 import type { ReportIndexEntry } from "@/features/reports/schema";
-import type { KpiIcon, KpiView } from "@/features/commercial/view-model";
+import type { KpiIcon, KpiView } from "@/components/dashboard/kpi-types";
 import { buildTrafficView, type PlatformView, type TrafficTotals } from "./metrics";
 import type { TrafficData } from "./schema";
 

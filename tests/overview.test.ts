@@ -4,7 +4,7 @@ import { TrafficDataSchema, type TrafficDataInput } from "@/features/traffic/sch
 import { buildTrafficOverview } from "@/features/traffic/overview";
 import { commercialSummary, computeCommercialMetrics } from "@/features/commercial/metrics";
 import { CommercialDataSchema } from "@/features/commercial/schema";
-import { buildCommercialOverview } from "@/features/commercial/overview";
+import { buildCommercialDashboard } from "@/features/commercial/dashboard";
 import { DashboardConfigSchema } from "@/features/clients/schema";
 import type { ReportIndexEntry } from "@/features/reports/schema";
 import { formatPeriodRange, monthPeriod, periodKey, periodSeriesLabels, type Period } from "@/lib/dates/period";
@@ -113,26 +113,25 @@ describe("visão geral comercial", () => {
     const { summary, labels } = commercialSummary(d);
     return entry("commercial", d.period, summary, labels);
   });
-  const vm = buildCommercialOverview(entries, { dashboard: DashboardConfigSchema.parse({}) });
-  const kpi = (key: string) => [...vm.kpis, ...vm.secondary].find((k) => k.key === key);
+  const vm = buildCommercialDashboard({ history: entries, previous: entries[0], data: datas[1], insights: [], dashboard: DashboardConfigSchema.parse({}) });
+  const acc = (key: string) => vm.accumulated.find((k) => k.key === key);
 
-  it("recalcula conversão, CPL, ROAS e ticket sobre as somas", () => {
-    expect(kpi("leads")?.value).toBe(500);
-    expect(kpi("leads")?.label).toBe("Leads");
-    expect(kpi("conversions")?.label).toBe("Consultas");
-    expect(kpi("conversionRate")?.value).toBeCloseTo(40 / 500, 9);
-    expect(kpi("cpl")?.value).toBeCloseTo(2500 / 500, 9);
-    expect(kpi("roas")?.value).toBeCloseTo(14000 / 2500, 9);
-    expect(kpi("averageTicket")?.value).toBeCloseTo(14000 / 40, 9);
+  it("recalcula conversão, retorno e ticket sobre as somas", () => {
+    expect(acc("leads")?.value).toBe(500);
+    expect(acc("leads")?.label).toBe("Total de leads");
+    expect(acc("conversions")?.label).toBe("Consultas");
+    expect(acc("conversionRate")?.value).toBeCloseTo(40 / 500, 9);
+    expect(acc("averageTicket")?.value).toBeCloseTo(14000 / 40, 9);
+    expect(vm.roi?.total.roas).toBeCloseTo(14000 / 2500, 9);
     // Mesma regra do relatório de um período.
     expect(computeCommercialMetrics(datas[0]).roas).toBeCloseTo(5, 9);
   });
 
-  it("empilha os canais e monta a tabela período a período", () => {
-    expect(vm.channelSeries?.map((s) => s.label)).toEqual(["Instagram", "Google"]);
-    expect(vm.table.rows.map((r) => r.label)).toEqual(["Junho", "Julho"]);
-    expect(vm.table.total?.conversionRate).toBeCloseTo(0.08, 9);
-    expect(vm.headline).toMatch(/^Junho a julho de 2026: 500 leads e 40 consultas, com receita de R\$\s14\.000\.$/);
+  it("monta os canais e a tabela período a período", () => {
+    expect(vm.channels?.table.rows.map((c) => c.label)).toEqual(["Instagram", "Google"]);
+    expect(vm.monthTable.rows.map((r) => r.label)).toEqual(["Junho", "Julho"]);
+    expect(vm.monthTable.total?.conversionRate).toBeCloseTo(0.08, 9);
+    expect(vm.rangeLabel).toBe("Junho a julho de 2026");
   });
 });
 

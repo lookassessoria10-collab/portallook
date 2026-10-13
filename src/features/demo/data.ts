@@ -19,7 +19,7 @@ export interface DemoReport {
   traffic?: TrafficDataInput;
   social?: SocialDataInput;
   mediaPlan?: MediaPlanDataInput;
-  insights?: Array<Omit<Insight, "id" | "source">>;
+  insights?: Array<Omit<Insight, "id" | "source" | "tag"> & { tag?: string | null }>;
   document?: { kind: "pdf" | "html_legacy"; title: string; allowDownload: boolean };
 }
 

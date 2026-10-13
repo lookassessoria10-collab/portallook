@@ -1,9 +1,11 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { SECTION_PARAM } from "@/features/portal/params";
 
 export interface PeriodNavItem {
   key: string;
@@ -11,6 +13,12 @@ export interface PeriodNavItem {
   title: string;
   href: string;
   draft?: boolean;
+}
+
+/** Mantém a aba aberta do painel (ex.: Terapeutas) ao trocar de mês ou de ano. */
+function useSectionHref(): (href: string) => string {
+  const section = useSearchParams().get(SECTION_PARAM);
+  return (href) => (section ? `${href}${href.includes("?") ? "&" : "?"}${SECTION_PARAM}=${encodeURIComponent(section)}` : href);
 }
 
 /** Rótulo que esmaece enquanto a navegação do link está pendente (sem deslocar o layout). */
@@ -25,6 +33,7 @@ function PendingLabel({ children }: { children: ReactNode }) {
  */
 export function PeriodNav({ overviewHref, items, active, className }: { overviewHref: string | null; items: PeriodNavItem[]; active: string | null; className?: string }) {
   const listRef = useRef<HTMLDivElement>(null);
+  const withSection = useSectionHref();
 
   useLayoutEffect(() => {
     const list = listRef.current;
@@ -56,7 +65,7 @@ export function PeriodNav({ overviewHref, items, active, className }: { overview
         {items.map((item) => {
           const isActive = item.key === active;
           return (
-            <Link key={item.key} href={item.href} scroll={false} title={item.draft ? `${item.title} (rascunho)` : item.title} aria-current={isActive ? "page" : undefined} className={pill(isActive)}>
+            <Link key={item.key} href={withSection(item.href)} scroll={false} title={item.draft ? `${item.title} (rascunho)` : item.title} aria-current={isActive ? "page" : undefined} className={pill(isActive)}>
               <PendingLabel>
                 {item.label}
                 {item.draft ? (
@@ -76,13 +85,14 @@ export function PeriodNav({ overviewHref, items, active, className }: { overview
 
 /** "2025 | 2026": anos com relatório (rede social). Cada ano tem a própria visão geral e os seus meses. */
 export function YearSwitch({ options, className }: { options: Array<{ key: string; label: string; href: string; active: boolean }>; className?: string }) {
+  const withSection = useSectionHref();
   if (options.length < 2) return null;
   return (
     <nav aria-label="Ano" className={cn("flex shrink-0 gap-1 rounded-[14px] border border-border bg-surface p-1", className)}>
       {options.map((o) => (
         <Link
           key={o.key}
-          href={o.href}
+          href={withSection(o.href)}
           scroll={false}
           aria-current={o.active ? "page" : undefined}
           className={cn("tabular flex h-9 items-center justify-center rounded-[10px] px-3 text-sm font-bold transition-colors", o.active ? "bg-surface-3 text-text" : "text-text-3 hover:bg-surface-2 hover:text-text-2")}

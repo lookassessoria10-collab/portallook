@@ -67,6 +67,21 @@
   --chart-grid: rgb(148 176 214 / 0.08);
   --chart-axis: #7d8fa8;
 
+  /* Painel comercial — paleta categórica ampliada (canais, serviços, profissionais), na
+     família de azuis do portal; a 9ª série em diante vira "Outros" (--dash-other). */
+  --dash-1: #4f8ff7;
+  --dash-2: #2ec4b6;
+  --dash-3: #e0b46c;
+  --dash-4: #9b87f5;
+  --dash-5: #f08a5d;
+  --dash-6: #e7799f;
+  --dash-7: #7fd3f7;
+  --dash-8: #a8d672;
+  --dash-other: #5b6b82;
+  /* Faixa do topo e destaque do mês em foco */
+  --hero-gradient: linear-gradient(135deg, #0a2350 0%, #0e3d78 58%, #0d5a96 100%);
+  --focus-gradient: linear-gradient(135deg, #0c2b5a 0%, #114a8f 62%, #0f5fa6 100%);
+
   /* Raio, sombra, espaço */
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -79,6 +94,7 @@
 
 @theme inline {
   --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-cormorant), Georgia, serif;
 
   --color-bg: var(--bg);
   --color-bg-elevated: var(--bg-elevated);
@@ -269,6 +285,75 @@
 
   .scroll-fade-x {
     mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  }
+
+  /* Rótulo de seção do painel: caixa alta espaçada com fio até a borda */
+  .dash-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+  .dash-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border-strong);
+  }
+
+  /* Tabelas do painel: cabeçalho em caixa alta, linhas finas, total destacado */
+  .dash-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+  }
+  .dash-table thead th {
+    background: var(--surface-2);
+    padding: 10px 14px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .dash-table tbody td,
+  .dash-table tbody th,
+  .dash-table tfoot td,
+  .dash-table tfoot th {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .dash-table tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+  .dash-table tbody tr:hover > * {
+    background: rgb(148 176 214 / 0.04);
+  }
+  .dash-table tfoot > tr > * {
+    background: var(--surface-2);
+    border-top: 1px solid var(--border-strong);
+    border-bottom: 0;
+    font-weight: 700;
+  }
+  @media (max-width: 640px) {
+    .dash-table thead th {
+      padding: 9px 10px;
+    }
+    .dash-table tbody td,
+    .dash-table tbody th,
+    .dash-table tfoot td,
+    .dash-table tfoot th {
+      padding: 9px 10px;
+    }
   }
 }
 

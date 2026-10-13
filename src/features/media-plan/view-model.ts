@@ -3,7 +3,7 @@ import { costPerLabel, lowerFirst } from "@/lib/format/text";
 import { compareValues, type Comparison } from "@/lib/metrics/comparison";
 import { safeDivide } from "@/lib/metrics/safe-math";
 import { diffDays, formatDate, formatPeriod, formatPeriodReference, periodDays, type Period } from "@/lib/dates/period";
-import type { KpiView } from "@/features/commercial/view-model";
+import type { KpiView } from "@/components/dashboard/kpi-types";
 import type { ReportIndexEntry, ReportSummary } from "@/features/reports/schema";
 import { platformColor } from "@/features/traffic/overview";
 import { PLATFORM_LABEL, platformLabel, resultTypeLabel } from "@/features/traffic/schema";

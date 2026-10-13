@@ -16,7 +16,7 @@ import { getClient, today } from "@/features/clients/service";
 import { periodOptions } from "@/features/uploads/period-options";
 import { loadPortalModel } from "@/features/portal/model";
 import { CommercialDashboard } from "@/features/commercial/components/commercial-dashboard";
-import { buildCommercialViewModel } from "@/features/commercial/view-model";
+import { buildCommercialDashboard } from "@/features/commercial/dashboard";
 import { TrafficDashboard } from "@/features/traffic/components/traffic-dashboard";
 import { buildTrafficViewModel } from "@/features/traffic/view-model";
 import { getReportManifest } from "@/features/reports/service";
@@ -111,7 +111,7 @@ export default async function AdminReportPage(props: PageProps<"/adm/clientes/[i
           <div className="rounded-[var(--radius-xl)] border border-dashed border-border-strong p-3 sm:p-5">
             {dataset ? (
               dataset.data.type === "commercial" ? (
-                <CommercialDashboard vm={buildCommercialViewModel(dataset.data.data, { previous: model.previous, history: model.history, dashboard: client.dashboard })} insights={manifest.insights} currency={client.currency} />
+                <CommercialDashboard vm={buildCommercialDashboard({ history: model.history, previous: model.previous, data: dataset.data.data, insights: manifest.insights, dashboard: client.dashboard })} currency={client.currency} embedded />
               ) : dataset.data.type === "social" ? (
                 <SocialDashboard vm={buildSocialViewModel(dataset.data.data, { previous: model.previous, history: model.history })} insights={manifest.insights} />
               ) : dataset.data.type === "media_plan" ? (

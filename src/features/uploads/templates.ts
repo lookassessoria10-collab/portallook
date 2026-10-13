@@ -29,10 +29,12 @@ export function commercialTemplateWorkbook(): XLSX.WorkBook {
         ["Financeiro: Receita, Investimento em mídia, Receita atribuída (só a receita dos canais pagos, quando o retorno deve considerar só a mídia) e Vendas."],
         ["Clientes: Novos clientes e Clientes recorrentes de cada mês."],
         ["Canais — uma linha por canal e mês: Leads, Comparecimentos, Receita e Investimento. Tipo: Mídia paga, Orgânico, Indicação, Recorrente, Plataforma, Offline, Parceria ou Outro. O ROI e a participação de cada canal são calculados pelo portal."],
-        ["Detalhamentos: qualquer aba com números vira um ranking com o nome dela — Serviços, Profissionais, Terapeutas, Massagens, Procedimentos, Unidades… Colunas: o nome do item, Atendimentos (ou Quantidade), Receita e, se quiser, Status (Ativa, Inativa, Destaque)."],
-        ["Tabelas livres: Oportunidades, Plano de ação, Próximos passos, Motivos de perda (ou qualquer aba sem números) aparecem como vieram, no mês."],
+        ["Detalhamentos: qualquer aba com números vira uma aba do painel com o nome dela (ranking acumulado no ano) — Serviços, Profissionais, Terapeutas, Massagens, Procedimentos, Unidades… Colunas: o nome do item, Atendimentos (ou Quantidade), Receita e, se quiser, Status (Ativa, Inativa, Destaque)."],
+        ["Plano de ação (Prioridade, Ação, Detalhes) vira cartões na aba Insights. Outras tabelas sem números (Oportunidades, Motivos de perda…) aparecem como vieram, no mês."],
         ["Indicadores: só o que o portal não calcula (ex.: Marcações para o mês seguinte). Acumulados, conversões, ticket médio, ROI e participação dos canais já são calculados — não precisam ser digitados."],
-        ["Insights — Tipo: Positivo, Atenção, Recomendação ou Neutro. Contexto: um aviso no topo do mês (ex.: mês parcial)."],
+        ["Insights — Tipo: Positivo, Atenção, Recomendação ou Neutro (define a cor). Tema (opcional): o selo do cartão, ex.: Recorrência, Terapeutas, ROI."],
+        ["Comparativo — Indicador e Leitura: o comentário da Look ao lado de cada indicador no comparativo com o mês anterior (Leads, Receita, Ticket médio, ROI canais pagos…)."],
+        ["Contexto: um aviso no mês em foco (ex.: Janeiro parcial), que também marca o mês na tabela mês a mês."],
       ],
       [130],
     ),
@@ -129,11 +131,11 @@ export function commercialTemplateWorkbook(): XLSX.WorkBook {
     wb,
     sheet(
       [
-        ["Período", "#", "Ação", "Impacto esperado", "Urgência"],
-        ["09/2026", 1, "Script de triagem antes do contato comercial", "Menos contatos fora do perfil", "Alta"],
-        ["09/2026", 2, "Reforçar a campanha que mais converteu", "Mais comparecimentos com a mesma verba", "Média"],
+        ["Período", "Prioridade", "Ação", "Detalhes"],
+        ["09/2026", "1 · Triagem", "Script de triagem antes do contato comercial", "Menos contatos fora do perfil e agenda mais qualificada."],
+        ["09/2026", "2 · Mídia", "Reforçar a campanha que mais converteu", "Mais comparecimentos com a mesma verba."],
       ],
-      [12, 4, 44, 36, 10],
+      [12, 16, 44, 60],
     ),
     "Plano de ação",
   );
@@ -152,13 +154,25 @@ export function commercialTemplateWorkbook(): XLSX.WorkBook {
     wb,
     sheet(
       [
-        ["Período", "Tipo", "Título", "Descrição"],
-        ["09/2026", "Positivo", "Mais comparecimentos", "Os comparecimentos subiram em relação a agosto."],
-        ["09/2026", "Recomendação", "Reforçar indicação", "Indicação segue como o canal de maior conversão."],
+        ["Período", "Tipo", "Tema", "Título", "Descrição"],
+        ["09/2026", "Positivo", "Funil", "Mais comparecimentos", "Os comparecimentos subiram em relação a agosto."],
+        ["09/2026", "Recomendação", "Canais", "Reforçar indicação", "Indicação segue como o canal de maior conversão."],
       ],
-      [12, 14, 30, 60],
+      [12, 14, 14, 30, 60],
     ),
     "Insights",
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet(
+      [
+        ["Período", "Indicador", "Leitura"],
+        ["09/2026", "Leads", "Mais contatos com a mesma verba: a campanha nova entrou no dia 05."],
+        ["09/2026", "Ticket médio", "Mais retornos no mix puxaram o ticket para baixo."],
+      ],
+      [12, 22, 70],
+    ),
+    "Comparativo",
   );
   XLSX.utils.book_append_sheet(wb, sheet([["Período", "Título", "Descrição"], ["08/2026", "Agenda reduzida", "Atendimentos suspensos de 18 a 22/08."]], [12, 24, 60]), "Contexto");
   return wb;

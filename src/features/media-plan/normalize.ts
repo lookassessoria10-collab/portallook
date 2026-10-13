@@ -495,7 +495,7 @@ function readInsights(sheet: RawSheet, ctx: Ctx, issues: IssueCollector, acc: (p
     if (!title) continue;
     const period = rowPeriod(sheet, row, periodCol, ctx, issues);
     if (!period) continue;
-    acc(period).insights.push({ type: mapInsightType(typeCol ? textCell(row.cells[typeCol]) : "recomendação"), title: title.slice(0, 140), description: (descCol ? (textCell(row.cells[descCol]) ?? "") : "").slice(0, 1500) });
+    acc(period).insights.push({ type: mapInsightType(typeCol ? textCell(row.cells[typeCol]) : "recomendação"), title: title.slice(0, 140), description: (descCol ? (textCell(row.cells[descCol]) ?? "") : "").slice(0, 1500), tag: null });
   }
 }
 

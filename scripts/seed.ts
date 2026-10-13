@@ -49,7 +49,7 @@ async function main() {
 
     let count = 0;
     for (const r of demo.reports) {
-      const insights = (r.insights ?? []).map((i) => ({ ...i, id: newInsightId(), source: "manual" as const }));
+      const insights = (r.insights ?? []).map((i) => ({ ...i, tag: i.tag ?? null, id: newInsightId(), source: "manual" as const }));
       let manifest;
       if (r.document) {
         const label = formatPeriod(r.period);

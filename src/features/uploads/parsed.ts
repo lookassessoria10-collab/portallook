@@ -9,10 +9,11 @@ export const ParsedInsightSchema = z.object({
   type: InsightTypeSchema,
   title: z.string(),
   description: z.string().default(""),
+  tag: z.string().nullable().default(null),
 });
 export type ParsedInsight = z.infer<typeof ParsedInsightSchema>;
 
-export const CommercialSectionSchema = z.enum(["funnel", "financial", "channels", "dimensions", "extraMetrics", "context", "customers", "tables"]);
+export const CommercialSectionSchema = z.enum(["funnel", "financial", "channels", "dimensions", "extraMetrics", "context", "customers", "tables", "comparisonNotes"]);
 export type CommercialSection = z.infer<typeof CommercialSectionSchema>;
 
 export const ParsedPeriodSchema = z.object({

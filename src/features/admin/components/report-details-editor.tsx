@@ -16,12 +16,12 @@ const TYPES: Array<{ value: InsightType; label: string }> = [
   { value: "neutral", label: "Contexto / neutro" },
 ];
 
-type Draft = { key: string; id?: string; type: InsightType; title: string; description: string };
+type Draft = { key: string; id?: string; type: InsightType; title: string; description: string; tag: string };
 
 export function ReportDetailsEditor({ clientId, reportId, title, allowDownload, insights, hasOriginal }: { clientId: string; reportId: string; title: string | null; allowDownload: boolean; insights: Insight[]; hasOriginal: boolean }) {
   const [t, setT] = useState(title ?? "");
   const [dl, setDl] = useState(allowDownload);
-  const [items, setItems] = useState<Draft[]>(insights.map((i) => ({ key: i.id, id: i.id, type: i.type, title: i.title, description: i.description })));
+  const [items, setItems] = useState<Draft[]>(insights.map((i) => ({ key: i.id, id: i.id, type: i.type, title: i.title, description: i.description, tag: i.tag ?? "" })));
   const [pending, start] = useTransition();
   const router = useRouter();
 
@@ -32,7 +32,7 @@ export function ReportDetailsEditor({ clientId, reportId, title, allowDownload, 
       const res = await saveReportDetailsAction(clientId, reportId, {
         title: t.trim() || null,
         allowDownload: dl,
-        insights: items.filter((i) => i.title.trim()).map((i) => ({ id: i.id, type: i.type, title: i.title, description: i.description })),
+        insights: items.filter((i) => i.title.trim()).map((i) => ({ id: i.id, type: i.type, title: i.title, description: i.description, tag: i.tag.trim() || null })),
       });
       if (res.ok) {
         toast.success(res.message ?? "Salvo.");
@@ -50,7 +50,7 @@ export function ReportDetailsEditor({ clientId, reportId, title, allowDownload, 
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold text-text">Insights da Look ({items.length})</h3>
-          <Button size="sm" variant="subtle" onClick={() => setItems((l) => [...l, { key: crypto.randomUUID(), type: "positive", title: "", description: "" }])} disabled={items.length >= 12}>
+          <Button size="sm" variant="subtle" onClick={() => setItems((l) => [...l, { key: crypto.randomUUID(), type: "positive", title: "", description: "", tag: "" }])} disabled={items.length >= 12}>
             <Plus className="size-4" aria-hidden /> Adicionar
           </Button>
         </div>
@@ -67,6 +67,9 @@ export function ReportDetailsEditor({ clientId, reportId, title, allowDownload, 
                       </option>
                     ))}
                   </Select>
+                </Field>
+                <Field label="Tema" htmlFor={`tag-${i.key}`} optional className="flex-1">
+                  <Input id={`tag-${i.key}`} value={i.tag} maxLength={40} placeholder="Ex.: Recorrência" onChange={(e) => update(i.key, { tag: e.target.value })} />
                 </Field>
                 <Button variant="ghost" size="icon" aria-label={`Remover insight ${idx + 1}`} onClick={() => setItems((l) => l.filter((x) => x.key !== i.key))}>
                   <Trash2 className="size-4" aria-hidden />

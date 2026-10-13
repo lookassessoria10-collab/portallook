@@ -475,7 +475,7 @@ function readTrafficInsights(sheet: RawSheet, byPeriod: PeriodAcc, ctx: PeriodCo
     if (!title) continue;
     const start = startCol ? dateCell(row.cells[startCol]) : null;
     const target = (start ? periods.find((p) => p.period.start <= start && start <= p.period.end) : null) ?? (ctx.requestedPeriod ? byPeriod.get(periodKey(ctx.requestedPeriod)) : null) ?? periods.at(-1);
-    target?.insights.push({ type: mapInsightType(typeCol ? textCell(row.cells[typeCol]) : null), title: title.slice(0, 140), description: (descCol ? (textCell(row.cells[descCol]) ?? "") : "").slice(0, 1500) });
+    target?.insights.push({ type: mapInsightType(typeCol ? textCell(row.cells[typeCol]) : null), title: title.slice(0, 140), description: (descCol ? (textCell(row.cells[descCol]) ?? "") : "").slice(0, 1500), tag: null });
   }
 }
 

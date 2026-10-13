@@ -5,7 +5,7 @@ import { formatPeriodRange, periodSeriesLabels, periodUnit, type PeriodUnit } fr
 import type { SeriesDef, SeriesPoint } from "@/components/charts/types";
 import type { PeriodTableColumn, PeriodTableData } from "@/components/dashboard/period-table";
 import type { ReportIndexEntry } from "@/features/reports/schema";
-import type { KpiIcon, KpiView } from "@/features/commercial/view-model";
+import type { KpiIcon, KpiView } from "@/components/dashboard/kpi-types";
 import { SOCIAL_METRICS, socialLabel, type SocialKey } from "./metrics";
 import { signed } from "./view-model";
 

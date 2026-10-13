@@ -1,7 +1,7 @@
 import { safeDivide, sumMaybe } from "@/lib/metrics/safe-math";
 import { isFiniteNumber } from "@/lib/format/number";
 import type { ReportSummary } from "@/features/reports/schema";
-import type { ChannelRow, CommercialData, Dimension, DimensionRow, FunnelStage } from "./schema";
+import type { ChannelRow, CommercialData, FunnelStage } from "./schema";
 
 export interface StageMetrics extends FunnelStage {
   /** Conversão a partir da etapa anterior (quando ela foi registrada). */
@@ -129,46 +129,6 @@ export function computeChannelMetrics(channels: readonly ChannelRow[]): ChannelM
     .sort((a, b) => (b.leads ?? -1) - (a.leads ?? -1) || (b.revenue ?? -1) - (a.revenue ?? -1));
 }
 
-export type DimensionMeasure = "revenue" | "quantity" | "conversions" | "leads";
-
-export interface DimensionView {
-  key: string;
-  label: string;
-  measure: DimensionMeasure;
-  measureLabel: string;
-  quantityLabel: string | null;
-  measures: DimensionMeasure[];
-  rows: Array<DimensionRow & { share: number | null; averageTicket: number | null }>;
-}
-
-const MEASURE_LABEL: Record<DimensionMeasure, string> = {
-  revenue: "Receita",
-  quantity: "Quantidade",
-  conversions: "Conversões",
-  leads: "Leads",
-};
-
-export function buildDimensionView(dimension: Dimension): DimensionView {
-  const measures = (["revenue", "quantity", "conversions", "leads"] as const).filter((m) => dimension.rows.some((r) => isFiniteNumber(r[m])));
-  const measure: DimensionMeasure = measures[0] ?? "quantity";
-  const total = sumMaybe(dimension.rows.map((r) => r[measure]));
-  // Linha só com status (sem números) atualiza o status no acumulado, mas não é item do mês.
-  const rows = dimension.rows
-    .filter((r) => measures.some((m) => isFiniteNumber(r[m])))
-    .map((r) => ({
-      ...r,
-      share: safeDivide(r[measure], total),
-      averageTicket: safeDivide(r.revenue, r.quantity ?? r.conversions),
-    }))
-    .sort((a, b) => (b[measure] ?? -1) - (a[measure] ?? -1));
-  const label = (m: DimensionMeasure) => (m === "quantity" && dimension.quantityLabel ? dimension.quantityLabel : MEASURE_LABEL[m]);
-  return { key: dimension.key, label: dimension.label, measure, measureLabel: label(measure), quantityLabel: dimension.quantityLabel, measures, rows };
-}
-
-export function dimensionMeasureLabel(dimension: Dimension, measure: DimensionMeasure): string {
-  return measure === "quantity" && dimension.quantityLabel ? dimension.quantityLabel : MEASURE_LABEL[measure];
-}
-
 /** Indicadores gravados no índice — permitem histórico/comparação sem abrir data.json. */
 export function commercialSummary(data: CommercialData): { summary: ReportSummary; labels: Record<string, string> } {
   const m = computeCommercialMetrics(data);
@@ -189,6 +149,8 @@ export function commercialSummary(data: CommercialData): { summary: ReportSummar
     returningCustomers: m.returningCustomers,
   };
   const labels: Record<string, string> = { firstStage: m.firstStageLabel, finalStage: m.finalStageLabel };
+  // Aviso do período (ex.: "Janeiro parcial") marca o mês na tabela mês a mês.
+  if (data.context) labels.context = data.context.title;
   for (const s of m.stages) {
     summary[`stage.${s.key}`] = s.value;
     labels[`stage.${s.key}`] = s.label;
