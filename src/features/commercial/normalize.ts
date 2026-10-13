@@ -522,13 +522,10 @@ function readExtraMetrics(sheet: RawSheet, ctx: PeriodContext, issues: IssueColl
     const fmt = normalizeText(formatCol ? (textCell(row.cells[formatCol]) ?? "") : "");
     return /moeda|real|r\$|currency|valor/.test(fmt) ? "currency" : /percent|%|taxa/.test(fmt) ? "percent" : /multiplic|vezes|roas|^x$/.test(fmt) ? "multiplier" : /decimal/.test(fmt) ? "decimal" : "integer";
   };
-  // Escala dos percentuais da aba: frações (0,244 = 24,4%; 2,614 = 261,4%) ou de 0 a 100 (24,4 = 24,4%).
-  // Se algum percentual numérico está entre 0 e 1, a aba usa frações e nenhum valor é dividido — um ROI
-  // de 261,4% (2,614) não pode virar 2,6%. "261,4%" escrito com o símbolo já é lido como fração.
-  const fractionScale = sheet.rows.some((row) => {
-    const v = row.cells[valueCol];
-    return formatOf(row) === "percent" && typeof v === "number" && v !== 0 && Math.abs(v) < 1;
-  });
+  // Cada linha pode usar uma escala diferente. Valores com "%" já vêm como fração do
+  // parser; taxas até 1 também. ROI e variações até 10 costumam vir como razões da
+  // planilha (2,614 = 261,4%), mesmo sem outra taxa fracionária na mesma aba.
+  // Números como 24,4 ou 261,4 continuam sendo percentuais na escala de 0 a 100.
   for (const row of sheet.rows) {
     const period = resolveRowPeriod(row.cells[periodCol ?? ""], ctx, issues, { sheet: sheet.name, line: row.line, column: periodCol });
     const label = textCell(row.cells[nameCol]);
@@ -552,10 +549,16 @@ function readExtraMetrics(sheet: RawSheet, ctx: PeriodContext, issues: IssueColl
     }
     if (COMPUTED_INDICATOR.test(name)) computed.add(label);
     const alreadyFraction = typeof raw === "string" && raw.includes("%");
+    const ratioMetric = /^(roi|crescimento|variacao|evolucao)\b/.test(name);
+    const ratioValue = format === "percent" && n.value !== null
+      ? alreadyFraction || Math.abs(n.value) <= 1 || (ratioMetric && Math.abs(n.value) < 10)
+        ? n.value
+        : n.value / 100
+      : n.value;
     a.extraMetrics.push({
       key: slugify(label) || `indicador-${row.line}`,
       label,
-      value: format === "percent" && n.value !== null && !alreadyFraction && !fractionScale ? n.value / 100 : n.value,
+      value: ratioValue,
       format,
       direction: /menor|baix|lower/.test(dir) ? "lowerIsBetter" : /maior|alt|higher/.test(dir) ? "higherIsBetter" : "neutral",
     });

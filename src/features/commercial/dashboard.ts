@@ -1312,7 +1312,10 @@ function buildFunnelView(ctx: FunnelContext): FunnelLayoutView {
   // Retorno: geral (Financeiro) e de cada canal pago, mês a mês.
   const allKeys = channelKeysOf(entries);
   const paidKeys = allKeys.filter((k) => entries.some((e) => (v(e, k, "investment") ?? 0) > 0));
-  const overallOf = (s: ReportIndexEntry["summary"]) => figures(s.investment ?? null, s.attributedRevenue ?? s.revenue ?? null);
+  // No modelo Funil, o retorno geral compara a receita TOTAL com o investimento.
+  // A receita atribuída à mídia é analisada separadamente, canal a canal.
+  // Não misture a base dos meses quando só alguns informam receita atribuída.
+  const overallOf = (s: ReportIndexEntry["summary"]) => figures(s.investment ?? null, s.revenue ?? null);
   const withInvestment = entries.filter((e) => (e.summary.investment ?? 0) > 0);
   const roiMonths = withInvestment.map((e) => {
     const i = entries.indexOf(e);
@@ -1322,7 +1325,7 @@ function buildFunnelView(ctx: FunnelContext): FunnelLayoutView {
     const months = entries.filter((e) => (v(e, k, "investment") ?? 0) > 0);
     return figures(sumKey(months.map((e) => ({ x: v(e, k, "investment") })), "x"), sumKey(months.map((e) => ({ x: v(e, k, "revenue") })), "x"));
   };
-  const overallTotal = figures(sumKey(withInvestment.map((e) => e.summary), "investment"), sumKey(withInvestment.map((e) => ({ x: e.summary.attributedRevenue ?? e.summary.revenue })), "x"));
+  const overallTotal = figures(sumKey(withInvestment.map((e) => e.summary), "investment"), sumKey(withInvestment.map((e) => e.summary), "revenue"));
   const shown = (f: RoiFigures) => (metric === "roas" ? f.roas : f.roi);
   entries.forEach((e, i) => {
     chartValues[i]["roi.geral"] = shown(overallOf(e.summary));

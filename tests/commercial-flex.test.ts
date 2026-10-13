@@ -393,6 +393,32 @@ describe("painel comercial: modelo funil (Isabor)", () => {
     expect(returnTone(7.42)).toBe("positive");
   });
 
+  it("retorno geral de Isabor mantém receita total mesmo com atribuição parcial", () => {
+    const withAttribution = read({
+      Funil: [["Mês", "Leads", "Comparecimentos"], ["08/2026", 257, 8], ["09/2026", 130, 18]],
+      Financeiro: [
+        ["Mês", "Receita", "Investimento em mídia", "Receita atribuída"],
+        ["08/2026", 3400, 1208.17, null],
+        ["09/2026", 7750, 1044.45, 4000],
+      ],
+      Canais: [
+        ["Mês", "Canal", "Tipo", "Receita", "Investimento"],
+        ["09/2026", "Instagram (Meta Ads)", "Mídia paga", 3550, 697.9],
+        ["09/2026", "Google Ads", "Mídia paga", 450, 346.55],
+      ],
+    });
+    const aug = withAttribution.data(0);
+    const sep = withAttribution.data(1);
+    const view = buildCommercialDashboard({
+      history: [entry(aug), entry(sep)],
+      previous: entry(aug), data: sep, insights: [],
+      dashboard: { ...dashboard, commercialLayout: "funil" },
+    }).funnelView!;
+    expect(view.roi?.total.overall.revenue).toBe(11150);
+    expect(view.roi?.overall.roas).toBeCloseTo(11150 / (1208.17 + 1044.45), 8);
+    expect(view.roi?.total.channels["instagram-meta-ads"].revenue).toBe(3550);
+  });
+
   it("diagnóstico: agenda já marcada e oportunidade com o volume do melhor mês", () => {
     expect(vm.opportunities).toHaveLength(1);
     expect(vm.opportunities[0]).toMatchObject({ title: "Agendamentos já marcados para Outubro", count: 3 });
@@ -429,6 +455,28 @@ describe("auditoria Serenity: casos de setembro e fórmulas", () => {
     expect(signedPercent((2150 - 371.56) / 371.56)).toBe("+478,6%");
     expect(signedPercent((2300 - 220) / 220)).toBe("+945,5%");
     expect(signedPercent(-0.4)).toBe("−40,0%");
+  });
+
+  it("percentuais de Isabor e Serenity usam a escala correta mesmo misturados na aba", () => {
+    const r = read({
+      Funil: [["Mês", "Leads", "Comparecimentos"], ["08/2026", 257, 8]],
+      Indicadores: [
+        ["Mês", "Indicador", "Valor", "Formato"],
+        ["08/2026", "ROI Meta Ads", 4.786, "Percentual"],
+        ["08/2026", "Crescimento da receita", 1.513, "Percentual"],
+        ["08/2026", "Taxa de conversão", 3.1, "Percentual"],
+        ["08/2026", "Taxa de resposta", 0.244, "Percentual"],
+        ["08/2026", "ROI Sites", 945.5, "Percentual"],
+        ["08/2026", "Conversão escrita", "6,5%", "Percentual"],
+      ],
+    });
+    const values = Object.fromEntries(r.data(0).extraMetrics.map((m) => [m.label, m.value]));
+    expect(values["ROI Meta Ads"]).toBeCloseTo(4.786, 8);
+    expect(values["Crescimento da receita"]).toBeCloseTo(1.513, 8);
+    expect(values["Taxa de conversão"]).toBeCloseTo(0.031, 8);
+    expect(values["Taxa de resposta"]).toBeCloseTo(0.244, 8);
+    expect(values["ROI Sites"]).toBeCloseTo(9.455, 8);
+    expect(values["Conversão escrita"]).toBeCloseTo(0.065, 8);
   });
 
   it("linhas de total não entram de novo nas somas (massagens e canais pagos de setembro)", () => {
