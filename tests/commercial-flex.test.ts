@@ -393,6 +393,32 @@ describe("painel comercial: modelo funil (Isabor)", () => {
     expect(returnTone(7.42)).toBe("positive");
   });
 
+  it("retorno geral de Isabor mantém receita total mesmo com atribuição parcial", () => {
+    const withAttribution = read({
+      Funil: [["Mês", "Leads", "Comparecimentos"], ["08/2026", 257, 8], ["09/2026", 130, 18]],
+      Financeiro: [
+        ["Mês", "Receita", "Investimento em mídia", "Receita atribuída"],
+        ["08/2026", 3400, 1208.17, null],
+        ["09/2026", 7750, 1044.45, 4000],
+      ],
+      Canais: [
+        ["Mês", "Canal", "Tipo", "Receita", "Investimento"],
+        ["09/2026", "Instagram (Meta Ads)", "Mídia paga", 3550, 697.9],
+        ["09/2026", "Google Ads", "Mídia paga", 450, 346.55],
+      ],
+    });
+    const aug = withAttribution.data(0);
+    const sep = withAttribution.data(1);
+    const view = buildCommercialDashboard({
+      history: [entry(aug), entry(sep)],
+      previous: entry(aug), data: sep, insights: [],
+      dashboard: { ...dashboard, commercialLayout: "funil" },
+    }).funnelView!;
+    expect(view.roi?.total.overall.revenue).toBe(11150);
+    expect(view.roi?.overall.roas).toBeCloseTo(11150 / (1208.17 + 1044.45), 8);
+    expect(view.roi?.total.channels["instagram-meta-ads"].revenue).toBe(3550);
+  });
+
   it("diagnóstico: agenda já marcada e oportunidade com o volume do melhor mês", () => {
     expect(vm.opportunities).toHaveLength(1);
     expect(vm.opportunities[0]).toMatchObject({ title: "Agendamentos já marcados para Outubro", count: 3 });
