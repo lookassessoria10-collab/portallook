@@ -11,6 +11,7 @@ import { ReportViewer } from "@/components/dashboard/report-viewer";
 import { InsightList } from "@/components/dashboard/insight-list";
 import { DashboardSection } from "@/components/dashboard/section";
 import { CommercialDashboard } from "@/features/commercial/components/commercial-dashboard";
+import { OriginalCommercialReport } from "@/features/commercial/components/original-commercial-report";
 import { isFullCommercialReport } from "@/features/commercial/presentation";
 import { buildCommercialDashboard, type CommercialDashboardVM } from "@/features/commercial/dashboard";
 import { TrafficDashboard } from "@/features/traffic/components/traffic-dashboard";
@@ -43,6 +44,7 @@ const AREA_TITLE: Record<PortalTab, string> = {
 export function PortalView({ model, basePath, links, logoUrl, banner, section }: { model: PortalModel; basePath: string; links: PortalLinks; logoUrl?: string | null; banner?: ReactNode; section?: string | null }) {
   const { client, selection } = model;
   const fullCommercial = isFullCommercialReport(client.slug, model.tab, model.mode);
+  const originalCommercial = fullCommercial && model.periodKey === "2026-09" ? (client.slug === "serenity-terapias" ? "serenity" : "isabor") : null;
   const tz = env().APP_TIMEZONE;
   const tabLabel = TAB_LABEL[model.tab];
   const periodItems = model.periods.map((p) => ({ key: p.key, label: p.short, title: p.label, href: links.period(p.key), draft: model.mode === "preview" && p.draft }));
@@ -140,7 +142,9 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
             </div>
           ) : (
             <div className="space-y-8 sm:space-y-10">
-              {commercial ? (
+              {originalCommercial ? (
+                <OriginalCommercialReport client={originalCommercial} />
+              ) : commercial ? (
                 <CommercialDashboard vm={commercial} currency={client.currency} section={section} />
               ) : selection.dataset ? (
                 selection.dataset.data.type === "social" ? (
