@@ -1,3 +1,5 @@
+"use client";
+import { createContext, useContext, useState } from "react";
 
 import { serenityMonths, serenityChannels, serenityServices, serenityTherapists, serenityInsights, serenityPlans, isaborMonths, isaborInsights, isaborPlans, monthsShort } from "@/features/commercial/reference-data";
 
@@ -15,8 +17,10 @@ function Tabular({title,headers,rows}:{title:string;headers:string[];rows:Array<
  return <section className={box}><h3 className="mb-4 text-base font-bold text-text">{title}</h3><div className="overflow-x-auto rounded-xl border border-border"><table className="min-w-full"><thead className="bg-surface-2"><tr>{headers.map((x,i)=><th key={i} className={th}>{x}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i}>{r.map((v,j)=><td key={j} className={td}>{v??"—"}</td>)}</tr>)}</tbody></table></div></section>;
 }
 function Bars({title,items}:{title:string;items:Array<{label:string;value:number;caption:string}>}){const top=Math.max(1,...items.map(x=>x.value));return <div className={box}><h3 className="mb-4 text-base font-bold text-text">{title}</h3><div className="space-y-3">{items.map(x=><div key={x.label}><div className="mb-1 flex justify-between gap-2 text-xs text-text-2"><span>{x.label}</span><strong>{x.caption}</strong></div><div className="h-2.5 rounded-full bg-surface-3"><div className="h-2.5 rounded-full bg-primary" style={{width:String(Math.max(2,x.value/top*100))+"%"}}/></div></div>)}</div></div>}
+const ActiveSection = createContext("visao-geral");
 function Section({id,title,children}:{id:string;title:string;children:React.ReactNode}){
- return <section id={id} className="scroll-mt-24 space-y-5"><h2 className="text-xl font-bold text-text">{title}</h2>{children}</section>;
+ const active = useContext(ActiveSection);
+ return <section id={id} hidden={active!==id} className="space-y-5 pt-4"><h2 className="text-xl font-bold text-text">{title}</h2>{children}</section>;
 }
 function Notes({insights,plans}:{insights:Array<{tag:string;title:string;description:string}>;plans:Array<{priority:string;title:string;description:string}>}){
  return <><div className="grid gap-4 md:grid-cols-2">{insights.map((x,i)=><article key={i} className={box}><p className="mb-2 text-xs font-bold uppercase text-primary">{x.tag}</p><h3 className="font-semibold text-text">{x.title}</h3><p className="mt-2 text-sm leading-relaxed text-text-2">{x.description}</p></article>)}</div><h2 className="text-lg font-bold text-text">Plano de ação — Outubro</h2><div className="grid gap-4 md:grid-cols-2">{plans.map((x,i)=><article key={i} className={box}><p className="text-xs font-bold text-primary">{x.priority}</p><h3 className="mt-1 font-semibold text-text">{x.title}</h3><p className="mt-2 text-sm text-text-2">{x.description}</p></article>)}</div></>;
@@ -71,6 +75,8 @@ function Isabor(){
  <Section id="diagnostico" title="Diagnóstico consolidado — Setembro"><Notes insights={isaborInsights} plans={isaborPlans}/><h3 className="text-lg font-bold text-text">Agendamentos já marcados para Outubro</h3><Tabular title="Oportunidades abertas" headers={["Origem","Data agendada","Situação"]} rows={[["Indicação","02/10/2026","Aguardando atendimento"],["Indicação","02/10/2026","Aguardando atendimento"],["Google","28/10/2026","Aguardando atendimento"]]}/><Stats items={[["Receita potencial","≈ R$1.290","3 consultas × R$430"],["Potencial com 257 leads","≈ R$15.070","~35 pacientes"],["Crescimento possível","+94%","≈ +17 pacientes por mês"]]}/></Section>
  </div>;
 }
-export function OriginalCommercialReport({client}:{client:"serenity"|"isabor"}){
- return <div className="space-y-6 pt-6"><nav className="sticky top-0 z-20 -mx-4 flex gap-4 overflow-x-auto border-b border-border bg-[rgb(9_21_42/0.97)] px-4 py-4 sm:-mx-6 sm:px-6">{(client==="serenity"?[["visao-geral","Visão geral"],["canais","Canais & ROI"],["servicos","Serviços"],["terapeutas","Terapeutas"],["insights","Insights"]]:[["visao-geral","Visão geral"],["comparativo","Comparativo mensal"],["canais","ROI & Canais"],["diagnostico","Diagnóstico"]]).map(([id,label])=><a key={id} href={"#"+id} className="shrink-0 text-xs font-bold uppercase text-text-2 hover:text-primary">{label}</a>)}</nav>{client==="serenity"?<Serenity/>:<Isabor/>}</div>;
+export function OriginalCommercialReport({client}:{client:"serenity"|"isabor"}) {
+ const [active,setActive]=useState("visao-geral");
+ const tabs=client==="serenity"?[["visao-geral","Visão geral"],["canais","Canais & ROI"],["servicos","Serviços"],["terapeutas","Terapeutas"],["insights","Insights"]]:[["visao-geral","Visão geral"],["comparativo","Comparativo mensal"],["canais","ROI & Canais"],["diagnostico","Diagnóstico"]];
+ return <ActiveSection.Provider value={active}><div className="space-y-6"><nav aria-label="Seções do relatório comercial" className="sticky top-0 z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-border bg-[rgb(9_21_42/0.97)] px-4 sm:-mx-6 sm:px-6">{tabs.map(([id,label])=><button type="button" key={id} onClick={()=>setActive(id)} aria-current={active===id?"page":undefined} className={"shrink-0 border-b-2 px-3 py-4 text-xs font-bold uppercase "+(active===id?"border-primary text-primary":"border-transparent text-text-2 hover:text-primary")}>{label}</button>)}</nav>{client==="serenity"?<Serenity/>:<Isabor/>}</div></ActiveSection.Provider>;
 }
