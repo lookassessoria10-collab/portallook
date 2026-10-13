@@ -11,6 +11,7 @@ import { ReportViewer } from "@/components/dashboard/report-viewer";
 import { InsightList } from "@/components/dashboard/insight-list";
 import { DashboardSection } from "@/components/dashboard/section";
 import { CommercialDashboard } from "@/features/commercial/components/commercial-dashboard";
+import { isFullCommercialReport } from "@/features/commercial/presentation";
 import { buildCommercialDashboard, type CommercialDashboardVM } from "@/features/commercial/dashboard";
 import { TrafficDashboard } from "@/features/traffic/components/traffic-dashboard";
 import { buildTrafficViewModel } from "@/features/traffic/view-model";
@@ -41,6 +42,7 @@ const AREA_TITLE: Record<PortalTab, string> = {
  */
 export function PortalView({ model, basePath, links, logoUrl, banner, section }: { model: PortalModel; basePath: string; links: PortalLinks; logoUrl?: string | null; banner?: ReactNode; section?: string | null }) {
   const { client, selection } = model;
+  const fullCommercial = isFullCommercialReport(client.slug, model.tab, model.mode);
   const tz = env().APP_TIMEZONE;
   const tabLabel = TAB_LABEL[model.tab];
   const periodItems = model.periods.map((p) => ({ key: p.key, label: p.short, title: p.label, href: links.period(p.key), draft: model.mode === "preview" && p.draft }));
@@ -94,11 +96,15 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
         <div className={cn("-mx-4 border-b border-border px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8", stickyBar && "sticky top-0 z-20 bg-[rgb(6_14_28/0.94)]")}>
           <div className={model.tabs.length > 3 ? "flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4" : "flex flex-col gap-2.5 md:flex-row md:items-center md:gap-4"}>
             <PortalTabs tabs={model.tabs} active={model.tab} basePath={basePath} className={tabsWidth(model.tabs)} />
-            {commercial && model.tabs.length < 2 ? <p className="hidden shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-text-3 md:block">{commercial.unit.singular === "mês" ? "Mês em foco" : "Período em foco"}</p> : null}
+            {commercial && model.tabs.length < 2 && !fullCommercial ? <p className="hidden shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-text-3 md:block">{commercial.unit.singular === "mês" ? "Mês em foco" : "Período em foco"}</p> : null}
             <div className="flex min-w-0 gap-2 md:flex-1">
               <ScaleSwitch options={scaleItems} />
               <YearSwitch options={yearItems} />
-              <PeriodNav overviewHref={model.overview ? links.overview : null} items={periodItems} active={model.periodKey} className="min-w-0 flex-1" />
+              {!fullCommercial ? <PeriodNav overviewHref={model.overview ? links.overview : null} items={periodItems} active={model.periodKey} className="min-w-0 flex-1" /> : (
+                <div className="flex min-h-9 items-center text-xs font-semibold text-text-2">
+                  Relatório consolidado · histórico mensal nas tabelas e gráficos
+                </div>
+              )}
             </div>
           </div>
         </div>
