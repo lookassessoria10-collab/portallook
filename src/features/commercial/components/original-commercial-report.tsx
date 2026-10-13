@@ -2,7 +2,7 @@
 import { serenityMonths, serenityChannels, serenityServices, serenityTherapists, serenityInsights, serenityPlans, isaborMonths, isaborInsights, isaborPlans, monthsShort } from "@/features/commercial/reference-data";
 
 const money = (n: number, cents = false) => new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL",minimumFractionDigits:cents?2:0,maximumFractionDigits:cents?2:0}).format(n);
-const pct = (n:number) => new Intl.NumberFormat("pt-BR",{style:"percent",minimumFractionDigits:1,maximumFractionDigits:1}).format(n);
+const pct = (n:number, digits = 1) => new Intl.NumberFormat("pt-BR",{style:"percent",minimumFractionDigits:digits,maximumFractionDigits:digits}).format(n);
 const integer = (n:number) => new Intl.NumberFormat("pt-BR").format(n);
 const box = "rounded-2xl border border-border bg-surface p-5";
 const td = "whitespace-nowrap border-t border-border px-3 py-2 text-right text-xs tabular-nums text-text-2";
@@ -22,7 +22,7 @@ function Notes({insights,plans}:{insights:Array<{tag:string;title:string;descrip
  return <><div className="grid gap-4 md:grid-cols-2">{insights.map((x,i)=><article key={i} className={box}><p className="mb-2 text-xs font-bold uppercase text-primary">{x.tag}</p><h3 className="font-semibold text-text">{x.title}</h3><p className="mt-2 text-sm leading-relaxed text-text-2">{x.description}</p></article>)}</div><h2 className="text-lg font-bold text-text">Plano de ação — Outubro</h2><div className="grid gap-4 md:grid-cols-2">{plans.map((x,i)=><article key={i} className={box}><p className="text-xs font-bold text-primary">{x.priority}</p><h3 className="mt-1 font-semibold text-text">{x.title}</h3><p className="mt-2 text-sm text-text-2">{x.description}</p></article>)}</div></>;
 }
 function ReturnCard({name,invest,rev}:{name:string;invest:number;rev:number}){
- return <div className={box}><p className="text-xs font-bold uppercase text-text-3">{name}</p><p className="my-3 text-3xl font-extrabold text-positive">+{pct(rev/invest-1)}</p><p className="text-sm text-text-2">Investido: {money(invest)}<br/>Receita: {money(rev)}<br/>Por R$ 1: {money(rev/invest,true)}</p></div>;
+ return <div className={box}><p className="text-xs font-bold uppercase text-text-3">{name}</p><p className="my-3 text-3xl font-extrabold text-positive">+{pct(rev/invest-1,0)}</p><p className="text-sm text-text-2">Investido: {money(invest)}<br/>Receita: {money(rev)}<br/>Por R$ 1: {money(rev/invest,true)}</p></div>;
 }
 function Serenity(){
  const months=serenityMonths;
@@ -39,7 +39,7 @@ function Serenity(){
  <Tabular title="Conversão e receita por canal" headers={["Canal",...monthsShort,"Leads","Comparec.","Conversão","Receita","%"]} rows={serenityChannels.map(x=>[x.label,...x.leads.map(x=>x??"—"),x.totalLeads,x.attended,x.conversion,money(x.revenue),pct(x.revenue/104710)])}/>
  <p className="text-sm text-text-2">Original: 1.602* leads classificados por canal versus 1.604* no funil. Os dados de setembro são parciais.</p>
  <h3 className="text-lg font-bold text-text">ROI geral acumulado (jan–set)</h3><p className="text-sm text-text-2">Apenas Meta Ads e Sites de Massagem, sem incluir canais orgânicos, recorrência e indicação.</p>
- <div className="grid gap-4 md:grid-cols-3"><ReturnCard name="ROI geral" invest={6083.76} rev={26085}/><ReturnCard name="ROI ADS (Meta)" invest={4103.76} rev={14045}/><ReturnCard name="ROI Sites de Massagem" invest={1980} rev={12040}/></div>
+ <div className="grid gap-4 md:grid-cols-3"><ReturnCard name="ROI geral" invest={6084.18} rev={26085}/><ReturnCard name="ROI ADS (Meta)" invest={4104.18} rev={14045}/><ReturnCard name="ROI Sites de Massagem" invest={1980} rev={12040}/></div>
  <Tabular title="ROI por canal — detalhamento mensal" headers={["Canal","Mês","Investimento","Receita","Líquido","ROI","Retorno / R$ 1"]} rows={["ADS Meta","Sites de Massagem"].flatMap(label=>months.map(m=>{const inv=label==="ADS Meta"?m.metaSpend:m.sitesSpend,rev=label==="ADS Meta"?m.metaRevenue:m.sitesRevenue;return [label,m.label,money(inv,true),money(rev),money(rev-inv),pct(rev/inv-1),money(rev/inv,true)];}))}/>
  <Tabular title="ROI mês a mês (canais pagos)" headers={["Mês","Investimento","Receita","ROI","Observação"]} rows={months.map(m=>[m.label,money(m.metaSpend+m.sitesSpend,true),money(m.metaRevenue+m.sitesRevenue),pct((m.metaRevenue+m.sitesRevenue)/(m.metaSpend+m.sitesSpend)-1),m.roiNote])}/>
  </Section>
