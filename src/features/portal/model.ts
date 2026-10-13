@@ -1,4 +1,5 @@
 import "server-only";
+import { isFullCommercialReport } from "@/features/commercial/presentation";
 import { env } from "@/lib/env";
 import { comparePeriods, formatPeriod, monthPeriod, periodSeriesLabels, previousPeriod, periodKey as keyOf, todayISO, type Period } from "@/lib/dates/period";
 import type { Client } from "@/features/clients/schema";
@@ -175,7 +176,8 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
 
   // Sem período pedido, abre a visão geral — ou o período mais recente, quando não há visão geral.
   // Plano de mídia: o plano do mês corrente, quando existe.
-  const requestedKey = options.period && byPeriod.has(options.period) ? options.period : null;
+  const fullCommercial = isFullCommercialReport(client.slug, tab, options.mode);
+  const requestedKey = !fullCommercial && options.period && byPeriod.has(options.period) ? options.period : null;
   const currentPlanKey = tab === "media_plan" ? keyOf(monthPeriod(+today.slice(0, 4), +today.slice(5, 7))) : null;
   const defaultKey = currentPlanKey && byPeriod.has(currentPlanKey) ? currentPlanKey : (periods.at(-1)?.key ?? null);
   const view: PortalView = focus || requestedKey || !overview ? "period" : "overview";
