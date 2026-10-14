@@ -12,6 +12,7 @@ import { InsightList } from "@/components/dashboard/insight-list";
 import { DashboardSection } from "@/components/dashboard/section";
 import { CommercialDashboard } from "@/features/commercial/components/commercial-dashboard";
 import { OriginalCommercialReport } from "@/features/commercial/components/original-commercial-report";
+import { IsaborFaithfulReport } from "@/features/commercial/components/isabor-faithful-report";
 import { isFullCommercialReport } from "@/features/commercial/presentation";
 import { buildCommercialDashboard, type CommercialDashboardVM } from "@/features/commercial/dashboard";
 import { TrafficDashboard } from "@/features/traffic/components/traffic-dashboard";
@@ -142,7 +143,9 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
             </div>
           ) : (
             <div className="space-y-8 sm:space-y-10">
-              {originalCommercial ? (
+              {originalCommercial === "isabor" ? (
+                <IsaborFaithfulReport />
+              ) : originalCommercial ? (
                 <OriginalCommercialReport client={originalCommercial} />
               ) : commercial ? (
                 <CommercialDashboard vm={commercial} currency={client.currency} section={section} />
