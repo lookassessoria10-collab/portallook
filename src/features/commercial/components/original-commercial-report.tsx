@@ -6,7 +6,6 @@ import { serenityMonths, serenityChannels, serenityServices, serenityTherapists,
 
 const money = (n: number, cents = false) => new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL",minimumFractionDigits:cents?2:0,maximumFractionDigits:cents?2:0}).format(n);
 const pct = (n:number, digits = 1) => new Intl.NumberFormat("pt-BR",{style:"percent",minimumFractionDigits:digits,maximumFractionDigits:digits}).format(n);
-const integer = (n:number) => new Intl.NumberFormat("pt-BR").format(n);
 const box = "rounded-2xl border border-border bg-surface p-5";
 const td = "whitespace-nowrap border-t border-border px-3 py-2 text-right text-xs tabular-nums text-text-2";
 const th = "whitespace-nowrap px-3 py-2 text-right text-xs font-bold text-text-2";
@@ -20,7 +19,6 @@ function Tabular({title,headers,rows}:{title:string;headers:string[];rows:Array<
  const displayRows=annual?rows.map(r=>[r[0],"—","—","—","—",...r.slice(1,-1),"—","—","—",r[r.length-1]]):rows;
  return <section className={box}><h3 className="mb-4 text-base font-bold text-text">{title}</h3><div className="overflow-x-auto rounded-xl border border-border"><table className="min-w-full"><thead className="bg-surface-2"><tr>{displayHeaders.map((x,i)=><th key={i} className={th}>{x}</th>)}</tr></thead><tbody>{displayRows.map((r,i)=><tr key={i}>{r.map((v,j)=><td key={j} className={td}>{v??"—"}</td>)}</tr>)}</tbody></table></div></section>;
 }
-function Bars({title,items}:{title:string;items:Array<{label:string;value:number;caption:string}>}){const top=Math.max(1,...items.map(x=>x.value));return <div className={box}><h3 className="mb-4 text-base font-bold text-text">{title}</h3><div className="space-y-3">{items.map(x=><div key={x.label}><div className="mb-1 flex justify-between gap-2 text-xs text-text-2"><span>{x.label}</span><strong>{x.caption}</strong></div><div className="h-2.5 rounded-full bg-surface-3"><div className="h-2.5 rounded-full bg-primary" style={{width:String(Math.max(2,x.value/top*100))+"%"}}/></div></div>)}</div></div>}
 const ActiveSection = createContext("visao-geral");
 function Section({id,title,children}:{id:string;title:string;children:React.ReactNode}){
  const active = useContext(ActiveSection);
