@@ -64,7 +64,7 @@ function SeptemberHero() {
     { label: "Ticket Médio", value: brl(7750 / 18), delta: "▲ R$ 6 vs Ago", up: true },
     { label: "Conversão L→C", value: "13,8%", delta: "▲ 10,7pp vs Ago", up: true },
   ];
-  return <section className="rounded-2xl border border-primary/30 bg-[linear-gradient(115deg,var(--hero-gradient),var(--surface))] px-5 py-6 text-white shadow-sm sm:px-6">
+  return <section className="rounded-2xl border border-primary/30 bg-[var(--hero-gradient)] px-5 py-6 text-white shadow-sm sm:px-6">
     <div className="grid gap-5 sm:grid-cols-[minmax(155px,210px)_1fr] sm:items-center">
       <div className="sm:border-r sm:border-white/20 sm:pr-5">
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/65">Mês atual</p>
@@ -258,7 +258,7 @@ function Comparison() {
   </>;
 }
 function RoiSummary() {
-  return <div className="grid items-center gap-6 rounded-2xl border border-primary/30 bg-[linear-gradient(115deg,var(--focus-gradient),var(--surface))] p-5 sm:p-7 lg:grid-cols-[230px_1fr]">
+  return <div className="grid items-center gap-6 rounded-2xl border border-primary/30 bg-[var(--focus-gradient)] p-5 sm:p-7 lg:grid-cols-[230px_1fr]">
     <div>
       <p className="text-[11px] font-extrabold uppercase tracking-wider text-white/65">ROI acumulado (Mai–Set)</p>
       <strong className="mt-2 block text-5xl font-extrabold text-emerald-300">3,90x</strong>
