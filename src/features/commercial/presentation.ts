@@ -18,3 +18,7 @@ export function isIsaborCommercialReport(slug: string): boolean {
 export function isLandimOriginalReport(slug: string, tab: string, periodKey: string | null): boolean {
   return slug === "instituto-landim" && tab === "commercial" && periodKey === "2026-08";
 }
+
+export function isLarplanOriginalReport(slug: string, tab: string, periodKey: string | null): boolean {
+  return slug === "larplan" && tab === "commercial" && periodKey === "2026-08";
+}
