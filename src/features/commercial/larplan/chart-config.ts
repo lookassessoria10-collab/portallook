@@ -10,12 +10,12 @@ const callbacks = {
 };
 
 export const larplanColorTokens: Record<string, string> = {
-  "#2A2723": "--text", "#C09A5A": "--dash-1", "#D4B47A": "--dash-7", "#E8D0A0": "--dash-2",
-  "#4A8C6A": "--dash-2", "#C07830": "--dash-3", "#B85C4A": "--dash-5", "#3A6B9C": "--dash-1",
+  "#2A2723": "--text", "#C09A5A": "--dash-3", "#D4B47A": "--dash-7", "#E8D0A0": "--dash-2",
+  "#4A8C6A": "--dash-2", "#C07830": "--dash-5", "#B85C4A": "--dash-5", "#3A6B9C": "--dash-1",
   "#6B4FA0": "--dash-4", "#A8A09A": "--dash-other", "#6B6560": "--text-2", "#E8E0D0": "--chart-grid", "#fff": "--surface",
-  "rgba(192,154,90,.45)": "--dash-1", "rgba(74,140,106,.45)": "--dash-2", "rgba(192,120,48,.45)": "--dash-3",
-  "rgba(184,92,74,.15)": "--negative-soft", "rgba(192,154,90,.5)": "--dash-1", "rgba(74,140,106,.6)": "--dash-2",
-  "rgba(192,154,90,.1)": "--primary-soft", "rgba(58,107,156,.08)": "--primary-soft", "rgba(107,79,160,.08)": "--info-soft",
+  "rgba(192,154,90,.45)": "--dash-3", "rgba(74,140,106,.45)": "--dash-2", "rgba(192,120,48,.45)": "--dash-5",
+  "rgba(184,92,74,.15)": "--negative-soft", "rgba(192,154,90,.5)": "--dash-3", "rgba(74,140,106,.6)": "--dash-2",
+  "rgba(192,154,90,.1)": "--attention-soft", "rgba(58,107,156,.08)": "--primary-soft", "rgba(107,79,160,.08)": "--info-soft",
 };
 
 export function larplanChartConfig(raw: unknown, token: (name: string) => string): ChartConfiguration {

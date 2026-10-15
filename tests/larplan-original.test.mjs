@@ -44,6 +44,8 @@ describe("Larplan: reprodução do HTML original", () => {
     const doughnut = larplanChartConfig(chart("canalChart"), (t) => t);
     expect(doughnut.options.plugins.tooltip.callbacks.label({ label: "Google Ads", parsed: 66151 })).toBe("Google Ads: R$ 66.151,00");
     expect(doughnut.options.plugins.legend.labels).toMatchObject({ boxWidth: 10, padding: 12 });
+    const roi = larplanChartConfig(chart("roiMensalChart"), (t) => t);
+    expect(new Set(roi.data.datasets.map((d) => d.borderColor)).size).toBe(3);
   });
 
   it("altera somente atributos de cor da marcação e mantém todo o texto", () => {
