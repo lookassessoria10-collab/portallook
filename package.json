@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",
+    "chart.js": "4.4.1",
     "clsx": "^2.1.1",
     "jose": "^6.2.12",
     "lucide-react": "^1.48.0",
