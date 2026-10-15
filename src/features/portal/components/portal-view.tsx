@@ -148,7 +148,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
           ) : (
             <div className="space-y-8 sm:space-y-10">
               {larplanOriginal ? (
-                <LarplanFaithfulReport />
+                <LarplanFaithfulReport logoUrl={logoUrl} />
               ) : landimOriginal ? (
                 <LandimFaithfulReport />
               ) : originalCommercial === "isabor" ? (

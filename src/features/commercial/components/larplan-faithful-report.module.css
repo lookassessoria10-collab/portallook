@@ -166,7 +166,7 @@
 .report :global(.month-banner), .report :global(.kpi.hl) { background:var(--focus-gradient); }
 .report :global(.tab.active) { background:var(--primary-soft); color:var(--primary); box-shadow:var(--shadow-card); }
 .report :global(.f-bar.b1) { background:var(--focus-gradient); }
-.report :global(.f-bar.b2) { background:var(--positive-soft); color:var(--positive); min-width:180px; }
+.report :global(.f-bar.b2) { background:var(--positive-soft); color:var(--positive); }
 .report :global(.kpi.gold-hl) { background:var(--primary-soft); }
 .report :global(.comp-wrap th) { background:var(--surface-3); }
 .report :global(.comp-wrap th.cur-col) { background:var(--primary-soft); color:var(--primary); }
@@ -180,4 +180,4 @@
 .report :global(.tab) { flex:1 0 max-content; }
 .report :global(.topbar-left) { min-width:0; }
 @media(max-width:900px) { .report :global(.banner-div) { display:none; } .report :global(.banner-kpi) { text-align:left; } }
-@media(max-width:560px) { .report :global(.topbar-left) { flex-wrap:wrap; } .report :global(.roi-hero), .report :global(.op-hero) { padding:20px; } .report :global(.card) { padding:16px; } }
+@media(max-width:560px) { .report :global(.topbar-left) { flex-wrap:wrap; } .report :global(.roi-hero), .report :global(.op-hero) { padding:20px; } .report :global(.card) { padding:16px; } .report :global(.f-bar.b2) { min-width:110px; } }
