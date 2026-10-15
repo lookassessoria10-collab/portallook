@@ -21,7 +21,7 @@ const ROLE_ALIASES: Array<[SheetRole, string[]]> = [
   ["channels", ["canais", "canal", "origem", "origens", "channels", "origem dos leads"]],
   ["customers", ["clientes", "novos x recorrentes", "novos e recorrentes", "novos vs recorrentes", "tipo de cliente", "tipos de cliente", "base de clientes"]],
   // Tabelas exibidas como vieram: o que não é número calculável (agenda já marcada, próximos passos…).
-  ["table", ["oportunidades", "oportunidades abertas", "agendamentos futuros", "agenda futura", "plano de acao", "plano de acoes", "acoes", "proximos passos", "motivos de perda", "pendencias", "tabela"]],
+  ["table", ["oportunidades", "oportunidades abertas", "agendamentos futuros", "agenda futura", "plano de acao", "plano de acoes", "acoes", "proximos passos", "motivos de perda", "pendencias", "tabela", "cirurgias geradas", "receita detalhada"]],
   ["dimensions", ["dimensoes", "dimensions", "detalhamento"]],
   ["extraMetrics", ["indicadores", "kpis", "metricas", "indicadores adicionais"]],
   ["insights", ["insights", "analise", "analises", "observacoes", "comentarios"]],
@@ -102,6 +102,10 @@ export function normalizeCommercial(
   ctx: PeriodContext & { csvRole?: SheetRole; csvDimensionLabel?: string | null },
   issues: IssueCollector,
 ): CommercialNormalizeResult {
+  const configuration = workbook.sheets.find(s => normalizeText(s.name) === "layout comercial");
+  const profileCell = configuration?.rows[0]?.cells[configuration.headers[0]];
+  const layoutProfile = ["isabor", "serenity", "landim", "larplan"].includes(String(profileCell)) ? profileCell as NonNullable<CommercialDataInput["layoutProfile"]> : undefined;
+  if(configuration && !layoutProfile) issues.error("invalid_layout", "A aba Layout comercial não identifica um modelo válido. Baixe novamente o modelo do cliente.");
   const accs = new Map<string, Acc>();
   const acc = (p: Period): Acc => {
     const key = periodKey(p);
@@ -122,6 +126,7 @@ export function normalizeCommercial(
       sheets.push({ name: sheet.name, rows: sheet.rows.length, recognizedAs: null });
       continue;
     }
+    if (normalizeText(sheet.name) === "layout comercial") continue;
     const role = ctx.csvRole ?? classifySheet(sheet.name);
     if (role === "ignored" || sheet.rows.length === 0) {
       sheets.push({ name: sheet.name, rows: sheet.rows.length, recognizedAs: null });
@@ -162,6 +167,7 @@ export function normalizeCommercial(
     }
     const data: CommercialDataInput = {
       schemaVersion: 1,
+      ...(layoutProfile ? { layoutProfile } : {}),
       period: a.period,
       funnel,
       financial: a.financial,
@@ -308,6 +314,7 @@ function readChannels(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollecto
   const convCol = findColumn(h, ["conversoes", "conversao", "fechamentos", "vendas", "comparecimentos", "clientes", "conversions"]);
   const revenueCol = findColumn(h, ["receita", "faturamento", "revenue"]);
   const investCol = findColumn(h, ["investimento", "valor investido", "midia", "investment"]);
+  const newCol = findColumn(h, ["novos pacientes", "novos clientes", "novos", "new customers"]);
   const skipped = new Set<string>();
   for (const row of sheet.rows) {
     const label = textCell(row.cells[nameCol]);
@@ -335,6 +342,7 @@ function readChannels(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollecto
       conversions: read(convCol),
       revenue: read(revenueCol),
       investment: read(investCol),
+      newCustomers: read(newCol),
     };
     if (existing >= 0) a.channels[existing] = channel;
     else a.channels.push(channel);

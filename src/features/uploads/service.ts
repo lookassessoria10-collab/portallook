@@ -1,4 +1,5 @@
 import "server-only";
+import { commercialProfile } from "@/features/commercial/live/profiles";
 import { env } from "@/lib/env";
 import { createId, normalizeText } from "@/lib/ids";
 import { NotFoundError, UserFacingError, logError } from "@/lib/errors";
@@ -369,6 +370,12 @@ export async function processImport(importId: string): Promise<ImportRecord> {
     }
   }
 
+  if(parsed?.reportType === "commercial" && parsed.kind === "dataset") {
+    for(const period of parsed.periods) {
+      const profile=(period.data as Partial<CommercialData>).layoutProfile;
+      if(profile && profile!==commercialProfile(client.slug)) issues.error("client_mismatch", "O modelo comercial não corresponde ao cliente selecionado. Baixe o modelo desse cliente no assistente.");
+    }
+  }
   const index = await repos.reports.getIndex(record.clientId);
   const preview = parsed ? buildPreview(parsed, index.reports, record, sheets, documentPages, issues) : null;
 
@@ -675,6 +682,7 @@ async function mergePartialCommercial(clientId: string, p: ParsedPeriod): Promis
     schemaVersion: 1,
     period: p.period,
     currency: base.currency ?? "BRL",
+    ...(incoming.layoutProfile ?? base.layoutProfile ? {layoutProfile: incoming.layoutProfile ?? base.layoutProfile} : {}),
     funnel: p.sections.includes("funnel") ? incoming.funnel : base.funnel,
     financial: p.sections.includes("financial") ? incoming.financial : (base.financial ?? null),
     channels: p.sections.includes("channels") ? incoming.channels : (base.channels ?? []),

@@ -1,4 +1,6 @@
 import "server-only";
+import { loadLiveCommercial } from "@/features/commercial/live/load";
+import type { LiveCommercial } from "@/features/commercial/live/model";
 import { isFullCommercialReport } from "@/features/commercial/presentation";
 import { env } from "@/lib/env";
 import { comparePeriods, formatPeriod, monthPeriod, periodSeriesLabels, previousPeriod, periodKey as keyOf, todayISO, type Period } from "@/lib/dates/period";
@@ -39,6 +41,7 @@ export interface PortalSelection {
 }
 
 export interface PortalModel {
+  liveCommercial?: LiveCommercial | null;
   client: Client;
   tabs: PortalTab[];
   tab: PortalTab;
@@ -231,6 +234,7 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
   const publishedTimes = allEntries.map((r) => r.publishedAt ?? r.updatedAt).sort();
 
   return {
+    liveCommercial: tab === "commercial" ? await loadLiveCommercial(client.id, client.slug, selectedKey, index.reports, options.mode, datasetEntry?.id) : null,
     client,
     tabs,
     tab,
