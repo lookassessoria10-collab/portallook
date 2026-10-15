@@ -113,6 +113,8 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
   const tabs = REPORT_TYPES.filter((t) => client.modules[t].enabled);
   const requestedTab = focus?.type ?? reportTypeFromParam(options.tab);
   const tab: PortalTab = requestedTab && tabs.includes(requestedTab) ? requestedTab : (tabs[0] ?? "commercial");
+  // Larplan's reviewed HTML is a native source, independent of spreadsheet imports.
+  const larplanSource = client.slug === "larplan" && tab === "commercial" && !focus;
 
   const pickDataset = (list: ReportIndexEntry[]) => {
     if (focus?.kind === "dataset" && list.some((r) => r.id === focus.id)) return focus;
@@ -143,7 +145,7 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
 
   // Ano: o do período pedido (ou do relatório em foco), o do parâmetro ou o mais recente.
   const yearOf = (e: ReportIndexEntry) => +e.period.start.slice(0, 4);
-  const allYears = [...new Set(entries.map(yearOf))].sort((a, b) => a - b);
+  const allYears = [...new Set([...entries.map(yearOf), ...(larplanSource ? [2026] : [])])].sort((a, b) => a - b);
   const yearly = YEARLY_TABS.has(tab) && scale === "month" && allYears.length > 1;
   const yearEntry = focus ?? (options.period ? entries.find((e) => e.periodKey === options.period) : undefined);
   const paramYear = options.year && /^\d{4}$/.test(options.year) ? +options.year : null;
@@ -159,6 +161,10 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
     short: shortLabels[i].axis,
     draft: (byPeriod.get(e.periodKey) ?? []).every((r) => r.status === "draft"),
   }));
+  if (larplanSource && (year === null || year === 2026) && !periods.some((p) => p.key === "2026-08")) {
+    periods.push({ key: "2026-08", label: "Junho a agosto de 2026", short: "Jun–Ago/26", draft: false });
+    periods.sort((a, b) => a.key.localeCompare(b.key));
+  }
 
   // Série histórica, comparação e visão geral usam apenas o índice (sem abrir outros data.json).
   const datasetSeries = [...byPeriodAll.values()]
@@ -177,7 +183,7 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
   // Sem período pedido, abre a visão geral — ou o período mais recente, quando não há visão geral.
   // Plano de mídia: o plano do mês corrente, quando existe.
   const fullCommercial = isFullCommercialReport(client.slug, tab, options.mode);
-  const requestedKey = !fullCommercial && options.period && byPeriod.has(options.period) ? options.period : null;
+  const requestedKey = !fullCommercial && options.period && (byPeriod.has(options.period) || (larplanSource && options.period === "2026-08")) ? options.period : null;
   const currentPlanKey = tab === "media_plan" ? keyOf(monthPeriod(+today.slice(0, 4), +today.slice(5, 7))) : null;
   const defaultKey = currentPlanKey && byPeriod.has(currentPlanKey) ? currentPlanKey : (periods.at(-1)?.key ?? null);
   const view: PortalView = focus || requestedKey || !overview ? "period" : "overview";

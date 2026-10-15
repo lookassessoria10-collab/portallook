@@ -1,0 +1,418 @@
+{
+  "source": "https://clientes.lookassessoria.com.br/larplan/dashboard-comercial.html",
+  "periodKey": "2026-08",
+  "period": "Junho – Agosto / 2026",
+  "header": "<header class=\"topbar\">\n  <div class=\"topbar-left\">\n    <div class=\"logo-box\">\n      <img src=\"https://www.larplan.com.br/lp/imagens/novalogo.png\" alt=\"Larplan Móveis Planejados\"/>\n    </div>\n    <div>\n      <h1>Dashboard Comercial</h1>\n      <p>Larplan — Funil, Mídia e Conversão</p>\n    </div>\n  </div>\n  <div class=\"year-badge\">2026</div>\n</header>",
+  "banner": "<div class=\"month-banner\">\n  <div>\n    <div class=\"banner-label\">Mês atual</div>\n    <div class=\"banner-month\">Agosto 2026</div>\n  </div>\n  <div class=\"banner-div\"></div>\n  <div class=\"banner-kpi\">\n    <div class=\"bk-val\">52</div>\n    <div class=\"bk-lbl\">Leads</div>\n    <div class=\"bk-delta delta-dn\">▼ −1,9% vs Jul</div>\n  </div>\n  <div class=\"banner-kpi\">\n    <div class=\"bk-val\">5</div>\n    <div class=\"bk-lbl\">Vendas</div>\n    <div class=\"bk-delta delta-dn\">▼ −4 vs Jul</div>\n  </div>\n  <div class=\"banner-kpi\">\n    <div class=\"bk-val\">R$ 139.561</div>\n    <div class=\"bk-lbl\">Receita</div>\n    <div class=\"bk-delta delta-up\">▲ +1,6% vs Jul</div>\n  </div>\n  <div class=\"banner-kpi\">\n    <div class=\"bk-val\">9,6%</div>\n    <div class=\"bk-lbl\">Conv. Lead→Venda</div>\n    <div class=\"bk-delta delta-dn\">▼ −7,4pp vs Jul</div>\n  </div>\n  <div class=\"banner-kpi\">\n    <div class=\"bk-val\">R$ 27.912</div>\n    <div class=\"bk-lbl\">Ticket médio</div>\n    <div class=\"bk-delta delta-up\">▲ +82,8% vs Jul</div>\n  </div>\n</div>",
+  "footer": "Larplan Móveis Planejados · Salvador, BA · Dashboard Comercial 2026 · Fonte: CRM nativo da Landing Page",
+  "tabs": [
+    {
+      "id": "visao",
+      "label": "Visão Geral",
+      "html": "\n\n  <section class=\"sec\">\n    <p class=\"sec-label\">01 — Acumulado 2026</p>\n    <h2 class=\"sec-title\">Resultado consolidado do ano</h2>\n    <div class=\"g5\">\n      <div class=\"kpi\"><div class=\"k-lbl\">Leads</div><div class=\"k-val\">132</div><div class=\"k-sub\">Jun + Jul + Ago</div></div>\n      <div class=\"kpi\"><div class=\"k-lbl\">Vendas</div><div class=\"k-val\">15</div><div class=\"k-sub\">11,4% dos leads</div></div>\n      <div class=\"kpi hl\"><div class=\"k-lbl\">Receita total</div><div class=\"k-val\">R$ 302.962</div><div class=\"k-sub\">R$ 302.962,37</div></div>\n      <div class=\"kpi\"><div class=\"k-lbl\">Ticket médio</div><div class=\"k-val\">R$ 20.197</div><div class=\"k-sub\">R$ 20.197,49</div></div>\n      <div class=\"kpi\"><div class=\"k-lbl\">Investimento</div><div class=\"k-val\">R$ 4.017</div><div class=\"k-sub\">Google + Meta Ads</div></div>\n    </div>\n  </section>\n\n  <section class=\"sec\">\n    <p class=\"sec-label\">02 — Agosto 2026 em detalhe</p>\n    <h2 class=\"sec-title\">Funil e conversão do mês</h2>\n    <div class=\"g2\">\n      <div class=\"card\">\n        <h3>Funil de conversão</h3>\n        <p class=\"desc\">Do lead ao fechamento — conversão final de 9,6%.</p>\n        <div class=\"funnel\">\n          <div class=\"f-bar b1\"><span>Leads recebidos</span><span>52</span></div>\n          <div class=\"f-arrow\">↓ Lead → Venda (taxa total) <strong>9,6%</strong></div>\n          <div class=\"f-bar b2\"><span>Vendas fechadas</span><span>5</span></div>\n        </div>\n        <p class=\"nota\" style=\"margin-top:14px\"><strong>5 vendas:</strong> Adriana (R$15.151 — Google Ads), Luisa (R$51.000 — Google Ads), Maraysa (R$34.909,89 — Recorrente), Jane (R$20.000 — Recorrente), Amelia (R$18.500 — Recorrente). Funil intermediário (em contato / proposta) não registrado no CRM para agosto.</p>\n      </div>\n      <div class=\"card\">\n        <h3>Conv. Lead→Venda — evolução mensal</h3>\n        <p class=\"desc\">Histórico dos 3 meses — taxa de conversão final.</p>\n        <div class=\"ch-wrap tall\"><canvas id=\"convChart\"></canvas></div>\n      </div>\n    </div>\n  </section>\n\n  <section class=\"sec\">\n    <p class=\"sec-label\">03 — Origem das 5 vendas</p>\n    <h2 class=\"sec-title\">Distribuição por canal — Agosto</h2>\n    <div class=\"g2\">\n      <div class=\"card\">\n        <h3>Receita por canal de aquisição</h3>\n        <p class=\"desc\">5 vendas totais — R$ 139.560,89.</p>\n        <div class=\"ch-wrap\"><canvas id=\"canalChart\"></canvas></div>\n      </div>\n      <div class=\"card\">\n        <h3>Detalhamento por canal</h3>\n        <p class=\"desc\">Contribuição individual de cada origem.</p>\n        <table>\n          <thead><tr><th>Canal</th><th class=\"num\">Vendas</th><th class=\"num\">Receita</th><th class=\"num\">%</th></tr></thead>\n          <tbody>\n            <tr><td><span class=\"dot\" style=\"background:#3A6B9C\"></span>Google Ads</td><td class=\"num\">2</td><td class=\"num\">R$ 66.151,00</td><td class=\"num\"><strong>47,4%</strong></td></tr>\n            <tr><td><span class=\"dot\" style=\"background:#4A8C6A\"></span>Cliente Recorrente</td><td class=\"num\">3</td><td class=\"num\">R$ 73.409,89</td><td class=\"num up\"><strong>52,6%</strong></td></tr>\n            <tr><td><span class=\"dot\" style=\"background:#6B4FA0\"></span>Meta Ads <span class=\"badge new\">Novo</span></td><td class=\"num\">0</td><td class=\"num na\">R$ 0,00</td><td class=\"num na\">0%</td></tr>\n            <tr class=\"total\"><td>Total</td><td class=\"num\">5</td><td class=\"num\">R$ 139.560,89</td><td class=\"num\">100%</td></tr>\n          </tbody>\n        </table>\n        <p class=\"nota alert\">Meta Ads estreia em agosto com R$ 236,83 investidos. Ainda sem vendas atribuídas — típico de canal novo em fase de aprendizado.</p>\n      </div>\n    </div>\n  </section>\n\n",
+      "charts": [
+        {
+          "id": "convChart",
+          "config": {
+            "type": "bar",
+            "data": {
+              "labels": [
+                "Junho",
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "Conv. Lead→Venda (%)",
+                  "data": [
+                    3.7,
+                    17,
+                    9.6
+                  ],
+                  "backgroundColor": [
+                    "rgba(192,154,90,.45)",
+                    "rgba(74,140,106,.45)",
+                    "rgba(192,120,48,.45)"
+                  ],
+                  "borderColor": [
+                    "#C09A5A",
+                    "#4A8C6A",
+                    "#C07830"
+                  ],
+                  "borderWidth": 2,
+                  "borderRadius": 8
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "display": false
+                }
+              },
+              "scales": {
+                "x": {
+                  "grid": {
+                    "display": false
+                  }
+                },
+                "y": {
+                  "grid": {
+                    "color": "#E8E0D0"
+                  },
+                  "ticks": {
+                    "callback": {
+                      "callback": "v=>v+'%'"
+                    }
+                  },
+                  "suggestedMax": 20
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "canalChart",
+          "config": {
+            "type": "doughnut",
+            "data": {
+              "labels": [
+                "Cliente Recorrente",
+                "Google Ads"
+              ],
+              "datasets": [
+                {
+                  "data": [
+                    73409.89,
+                    66151
+                  ],
+                  "backgroundColor": [
+                    "#4A8C6A",
+                    "#3A6B9C"
+                  ],
+                  "borderWidth": 2,
+                  "borderColor": "#fff"
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "cutout": "65%",
+              "plugins": {
+                "legend": {
+                  "position": "bottom",
+                  "labels": {
+                    "boxWidth": 10,
+                    "padding": 12
+                  }
+                },
+                "tooltip": {
+                  "callbacks": {
+                    "label": {
+                      "callback": "ctx => ctx.label+': R$ '+ctx.parsed.toLocaleString('pt-BR',{minimumFractionDigits:2})"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "comp",
+      "label": "Comparativo Mensal",
+      "html": "\n\n  <section class=\"sec\">\n    <p class=\"sec-label\">Comparativo mensal 2026</p>\n    <h2 class=\"sec-title\">Evolução de todos os indicadores por mês</h2>\n\n    <div class=\"comp-wrap\">\n      <table>\n        <thead>\n          <tr>\n            <th class=\"row-lbl\" style=\"background:var(--dk9)\">Indicador</th>\n            <th class=\"num\">Jan</th><th class=\"num\">Fev</th><th class=\"num\">Mar</th>\n            <th class=\"num\">Abr</th><th class=\"num\">Mai</th>\n            <th class=\"num\">Jun</th><th class=\"num\">Jul</th><th class=\"num cur-col\">Ago ★</th>\n            <th class=\"num\">Set</th>\n            <th class=\"num\">Out</th><th class=\"num\">Nov</th><th class=\"num\">Dez</th>\n            <th class=\"num\" style=\"background:var(--dk9)\">Acum.</th>\n          </tr>\n        </thead>\n        <tbody>\n          <tr class=\"section-row\"><td colspan=\"14\">FUNIL</td></tr>\n          <tr>\n            <td class=\"row-lbl\">Leads gerados</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">27</td><td class=\"num\">53</td><td class=\"num cur-col\">52</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\"><strong>132</strong></td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">Em contato / Proposta</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">7</td><td class=\"num\">11</td><td class=\"num cur-col na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">18</td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">Propostas enviadas</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">5</td><td class=\"num\">2</td><td class=\"num cur-col na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">7</td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">Vendas fechadas</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">1</td><td class=\"num\">9</td><td class=\"num cur-col\">5</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\"><strong>15</strong></td>\n          </tr>\n\n          <tr class=\"section-row\"><td colspan=\"14\">CONVERSÕES</td></tr>\n          <tr>\n            <td class=\"row-lbl\">Lead → Contato/Proposta</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">25,9%</td><td class=\"num\">20,8%</td><td class=\"num cur-col na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">22,5%</td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">Lead → Venda</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\"><span class=\"roi-val ruim\">3,7%</span></td>\n            <td class=\"num\"><span class=\"roi-val bom\">17,0%</span></td>\n            <td class=\"num cur-col\"><span class=\"roi-val med\">9,6%</span></td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">11,4%</td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">Proposta → Venda</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\"><span class=\"roi-val med\">20,0%</span></td>\n            <td class=\"num\"><span class=\"roi-val bom\">50,0%</span></td>\n            <td class=\"num cur-col na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">35,7%</td>\n          </tr>\n\n          <tr class=\"section-row\"><td colspan=\"14\">FINANCEIRO</td></tr>\n          <tr>\n            <td class=\"row-lbl\">Receita</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">R$ 26.000</td><td class=\"num\">R$ 137.401</td><td class=\"num cur-col\">R$ 139.561</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\"><strong>R$ 302.962</strong></td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">Ticket médio</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">R$ 26.000</td><td class=\"num\">R$ 15.267</td><td class=\"num cur-col\">R$ 27.912</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">R$ 20.197</td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">Investimento Google Ads</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">R$ 916,45</td><td class=\"num\">R$ 1.418,37</td><td class=\"num cur-col\">R$ 1.444,99</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\"><strong>R$ 3.779,81</strong></td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">Investimento Meta Ads <span class=\"badge new\">Novo</span></td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num cur-col\">R$ 236,83</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\"><strong>R$ 236,83</strong></td>\n          </tr>\n\n          <tr class=\"section-row\"><td colspan=\"14\">ROI</td></tr>\n          <tr>\n            <td class=\"row-lbl\">ROI Geral</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\"><span class=\"roi-val bom\">28,4×</span></td>\n            <td class=\"num\"><span class=\"roi-val bom\">96,9×</span></td>\n            <td class=\"num cur-col\"><span class=\"roi-val bom\">82,9×</span></td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\"><strong>75,4×</strong></td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">ROI Google Ads (direto)</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\"><span class=\"roi-val bom\">28,4×</span></td>\n            <td class=\"num\"><span class=\"roi-val bom\">10,7×</span></td>\n            <td class=\"num cur-col\"><span class=\"roi-val bom\">45,8×</span></td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">28,4×</td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">ROI Meta Ads (direto)</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num cur-col\"><span class=\"roi-val ruim\">0×</span></td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">0×</td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">Custo por lead</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">R$ 33,94</td><td class=\"num\">R$ 26,76</td><td class=\"num cur-col\">R$ 32,34</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">R$ 30,43</td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">Custo por venda</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">R$ 916,45</td><td class=\"num\">R$ 157,60</td><td class=\"num cur-col\">R$ 336,36</td>\n            <td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td><td class=\"num na\">—</td>\n            <td class=\"num\">R$ 267,78</td>\n          </tr>\n        </tbody>\n      </table>\n    </div>\n    <p class=\"nota\" style=\"margin-top:14px\">Meses em branco (—) ainda não possuem dados. A tabela é atualizada mensalmente. Agosto (★) é o mês atual. Funil intermediário de agosto não registrado no CRM.</p>\n  </section>\n\n  <section class=\"sec\">\n    <p class=\"sec-label\">Visualização gráfica</p>\n    <h2 class=\"sec-title\">Tendência dos principais indicadores</h2>\n    <div class=\"g2\">\n      <div class=\"card\">\n        <h3>Receita e Investimento</h3>\n        <p class=\"desc\">Evolução mês a mês (R$).</p>\n        <div class=\"ch-wrap tall\"><canvas id=\"receitaChart\"></canvas></div>\n      </div>\n      <div class=\"card\">\n        <h3>Funil — Volumes</h3>\n        <p class=\"desc\">Leads e Vendas por mês.</p>\n        <div class=\"ch-wrap tall\"><canvas id=\"funilChart\"></canvas></div>\n      </div>\n    </div>\n  </section>\n\n",
+      "charts": [
+        {
+          "id": "receitaChart",
+          "config": {
+            "type": "bar",
+            "data": {
+              "labels": [
+                "Junho",
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "Receita (R$)",
+                  "data": [
+                    26000,
+                    137401.48,
+                    139560.89
+                  ],
+                  "backgroundColor": [
+                    "#E8D0A0",
+                    "#D4B47A",
+                    "#C09A5A"
+                  ],
+                  "borderRadius": 8,
+                  "yAxisID": "y"
+                },
+                {
+                  "label": "Investimento (R$)",
+                  "type": "line",
+                  "data": [
+                    916.45,
+                    1418.37,
+                    1681.82
+                  ],
+                  "borderColor": "#B85C4A",
+                  "backgroundColor": "rgba(184,92,74,.15)",
+                  "pointBackgroundColor": "#B85C4A",
+                  "tension": 0.3,
+                  "yAxisID": "y"
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "position": "top"
+                }
+              },
+              "scales": {
+                "y": {
+                  "grid": {
+                    "color": "#E8E0D0"
+                  },
+                  "ticks": {
+                    "callback": {
+                      "callback": "v=>'R$'+v.toLocaleString('pt-BR')"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "funilChart",
+          "config": {
+            "type": "bar",
+            "data": {
+              "labels": [
+                "Junho",
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "Leads",
+                  "data": [
+                    27,
+                    53,
+                    52
+                  ],
+                  "backgroundColor": "rgba(192,154,90,.5)",
+                  "borderColor": "#C09A5A",
+                  "borderWidth": 2,
+                  "borderRadius": 6
+                },
+                {
+                  "label": "Vendas",
+                  "data": [
+                    1,
+                    9,
+                    5
+                  ],
+                  "backgroundColor": "rgba(74,140,106,.6)",
+                  "borderColor": "#4A8C6A",
+                  "borderWidth": 2,
+                  "borderRadius": 6
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "position": "top"
+                }
+              },
+              "scales": {
+                "x": {
+                  "grid": {
+                    "display": false
+                  }
+                },
+                "y": {
+                  "grid": {
+                    "color": "#E8E0D0"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "roi",
+      "label": "ROI & Canais",
+      "html": "\n\n  <section class=\"sec\">\n    <p class=\"sec-label\">ROI Geral</p>\n    <h2 class=\"sec-title\">Retorno sobre investimento — acumulado 2026</h2>\n    <div class=\"roi-hero\">\n      <div>\n        <div class=\"lbl\">ROI acumulado (Jun–Ago)</div>\n        <div class=\"big\">75,4×</div>\n        <p class=\"desc\">Cada <strong>R$ 1,00</strong> investido em mídia retornou <strong>R$ 75,40</strong> em receita real. Julho foi o melhor mês com <strong>96,9×</strong>; agosto sustentou <strong>82,9×</strong>. Google Ads direto atingiu <strong>45,8×</strong> em agosto — melhor performance de canal pago.</p>\n      </div>\n      <div>\n        <div class=\"ch-wrap\"><canvas id=\"roiHeroChart\"></canvas></div>\n      </div>\n    </div>\n  </section>\n\n  <section class=\"sec\">\n    <p class=\"sec-label\">ROI por mês</p>\n    <h2 class=\"sec-title\">ROI Geral vs. Google Ads vs. Meta Ads</h2>\n    <div class=\"card\">\n      <h3>Comparativo de ROI mensal</h3>\n      <p class=\"desc\">ROI geral (toda receita ÷ investimento total) vs. ROI atribuído diretamente a cada canal pago.</p>\n      <div class=\"ch-wrap tall\"><canvas id=\"roiMensalChart\"></canvas></div>\n    </div>\n\n    <div style=\"margin-top:18px\" class=\"comp-wrap\">\n      <table>\n        <thead>\n          <tr>\n            <th>Mês</th>\n            <th class=\"num\">Invest. Google</th>\n            <th class=\"num\">Invest. Meta</th>\n            <th class=\"num\">Receita Total</th>\n            <th class=\"num\">ROI Geral</th>\n            <th class=\"num\">Receita Google</th>\n            <th class=\"num\">ROI Google</th>\n            <th class=\"num\">ROI Meta</th>\n            <th class=\"num\">Custo/Lead</th>\n            <th class=\"num\">Custo/Venda</th>\n          </tr>\n        </thead>\n        <tbody>\n          <tr>\n            <td class=\"row-lbl\">Junho</td>\n            <td class=\"num\">R$ 916,45</td>\n            <td class=\"num na\">—</td>\n            <td class=\"num\">R$ 26.000,00</td>\n            <td class=\"num\"><span class=\"roi-val bom\">28,4×</span></td>\n            <td class=\"num\">R$ 26.000,00</td>\n            <td class=\"num\"><span class=\"roi-val bom\">28,4×</span></td>\n            <td class=\"num na\">—</td>\n            <td class=\"num\">R$ 33,94</td>\n            <td class=\"num\">R$ 916,45</td>\n          </tr>\n          <tr>\n            <td class=\"row-lbl\">Julho</td>\n            <td class=\"num\">R$ 1.418,37</td>\n            <td class=\"num na\">—</td>\n            <td class=\"num\">R$ 137.401,48</td>\n            <td class=\"num\"><span class=\"roi-val bom\">96,9×</span></td>\n            <td class=\"num\">R$ 15.231,09</td>\n            <td class=\"num\"><span class=\"roi-val bom\">10,7×</span></td>\n            <td class=\"num na\">—</td>\n            <td class=\"num\">R$ 26,76</td>\n            <td class=\"num\">R$ 157,60</td>\n          </tr>\n          <tr class=\"highlight-row\">\n            <td class=\"row-lbl\">Agosto ★</td>\n            <td class=\"num\">R$ 1.444,99</td>\n            <td class=\"num\">R$ 236,83</td>\n            <td class=\"num\">R$ 139.560,89</td>\n            <td class=\"num\"><span class=\"roi-val bom\">82,9×</span></td>\n            <td class=\"num\">R$ 66.151,00</td>\n            <td class=\"num\"><span class=\"roi-val bom\">45,8×</span></td>\n            <td class=\"num\"><span class=\"roi-val ruim\">0×</span></td>\n            <td class=\"num\">R$ 32,34</td>\n            <td class=\"num\">R$ 336,36</td>\n          </tr>\n          <tr class=\"total\">\n            <td>Acumulado</td>\n            <td class=\"num\">R$ 3.779,81</td>\n            <td class=\"num\">R$ 236,83</td>\n            <td class=\"num\">R$ 302.962,37</td>\n            <td class=\"num\">75,4×</td>\n            <td class=\"num\">R$ 107.382,09</td>\n            <td class=\"num\">28,4×</td>\n            <td class=\"num\">0×</td>\n            <td class=\"num\">R$ 30,43</td>\n            <td class=\"num\">R$ 267,78</td>\n          </tr>\n        </tbody>\n      </table>\n    </div>\n    <p class=\"nota\" style=\"margin-top:14px\"><strong>Como ler o ROI duplo:</strong> o ROI geral divide a receita total pelo investimento total em mídia. O ROI de canal atribui apenas as vendas originadas diretamente naquele canal. Em agosto, o ROI do Google Ads direto (45,8×) foi o melhor da série — Adriana (R$15.151) e Luisa (R$51.000) vieram diretamente do canal pago. Os R$73.410 de recorrência chegam sem custo de mídia adicional, puxando o ROI geral para cima.</p>\n  </section>\n\n  <section class=\"sec\">\n    <p class=\"sec-label\">Canais — Agosto 2026</p>\n    <h2 class=\"sec-title\">Performance por canal de aquisição</h2>\n    <div class=\"roi-cols tri\">\n      <div class=\"roi-ch bom\">\n        <h4>🔄 Cliente Recorrente — Agosto</h4>\n        <div class=\"roi-n\">R$ 73.410</div>\n        <dl>\n          <dt>Vendas</dt><dd>3</dd>\n          <dt>Receita</dt><dd>R$ 73.409,89</dd>\n          <dt>% da receita total</dt><dd>52,6%</dd>\n          <dt>Ticket médio</dt><dd>R$ 24.469,96</dd>\n        </dl>\n      </div>\n      <div class=\"roi-ch bom\">\n        <h4>🎯 Google Ads — Agosto</h4>\n        <div class=\"roi-n\">45,8×</div>\n        <dl>\n          <dt>Investimento</dt><dd>R$ 1.444,99</dd>\n          <dt>Vendas atribuídas</dt><dd>2</dd>\n          <dt>Receita</dt><dd>R$ 66.151,00</dd>\n          <dt>Adriana R$15.151 + Luisa R$51.000</dt><dd></dd>\n        </dl>\n      </div>\n      <div class=\"roi-ch new\">\n        <h4>📣 Meta Ads — Agosto <span class=\"badge new\">1º mês</span></h4>\n        <div class=\"roi-n\">0×</div>\n        <dl>\n          <dt>Investimento</dt><dd>R$ 236,83</dd>\n          <dt>Vendas atribuídas</dt><dd>0</dd>\n          <dt>Receita</dt><dd>R$ 0,00</dd>\n          <dt>Custo por lead (total)</dt><dd>A medir</dd>\n        </dl>\n      </div>\n    </div>\n    <p class=\"nota alert\" style=\"margin-top:16px\"><strong>Meta Ads — mês inaugural:</strong> é normal não gerar vendas no primeiro mês, quando o algoritmo ainda está em fase de aprendizado. A decisão de continuar investindo deve ser avaliada com 2–3 meses de dados de lead e qualidade. Custo por lead do canal ainda não isolado do total. <strong>Google Ads confirma o melhor ROI de canal pago da série: 45,8×.</strong></p>\n  </section>\n\n",
+      "charts": [
+        {
+          "id": "roiHeroChart",
+          "config": {
+            "type": "bar",
+            "data": {
+              "labels": [
+                "Junho",
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "ROI Geral (×)",
+                  "data": [
+                    28.4,
+                    96.9,
+                    82.9
+                  ],
+                  "backgroundColor": [
+                    "#E8D0A0",
+                    "#D4B47A",
+                    "#C09A5A"
+                  ],
+                  "borderRadius": 8
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "display": false
+                }
+              },
+              "scales": {
+                "x": {
+                  "grid": {
+                    "display": false
+                  }
+                },
+                "y": {
+                  "grid": {
+                    "color": "#E8E0D0"
+                  },
+                  "ticks": {
+                    "callback": {
+                      "callback": "v=>v+'×'"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "roiMensalChart",
+          "config": {
+            "type": "line",
+            "data": {
+              "labels": [
+                "Junho",
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "ROI Geral",
+                  "data": [
+                    28.4,
+                    96.9,
+                    82.9
+                  ],
+                  "borderColor": "#C09A5A",
+                  "backgroundColor": "rgba(192,154,90,.1)",
+                  "tension": 0.3,
+                  "pointRadius": 6,
+                  "pointBackgroundColor": "#C09A5A",
+                  "fill": true
+                },
+                {
+                  "label": "ROI Google Ads Direto",
+                  "data": [
+                    28.4,
+                    10.7,
+                    45.8
+                  ],
+                  "borderColor": "#3A6B9C",
+                  "backgroundColor": "rgba(58,107,156,.08)",
+                  "tension": 0.3,
+                  "pointRadius": 6,
+                  "pointBackgroundColor": "#3A6B9C",
+                  "fill": true,
+                  "borderDash": [
+                    6,
+                    3
+                  ]
+                },
+                {
+                  "label": "ROI Meta Ads",
+                  "data": [
+                    null,
+                    null,
+                    0
+                  ],
+                  "borderColor": "#6B4FA0",
+                  "backgroundColor": "rgba(107,79,160,.08)",
+                  "tension": 0.3,
+                  "pointRadius": 6,
+                  "pointBackgroundColor": "#6B4FA0",
+                  "fill": true,
+                  "borderDash": [
+                    3,
+                    3
+                  ]
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "position": "top"
+                }
+              },
+              "scales": {
+                "x": {
+                  "grid": {
+                    "display": false
+                  }
+                },
+                "y": {
+                  "grid": {
+                    "color": "#E8E0D0"
+                  },
+                  "ticks": {
+                    "callback": {
+                      "callback": "v=>v+'×'"
+                    }
+                  },
+                  "suggestedMin": 0
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "diag",
+      "label": "Diagnóstico",
+      "html": "\n\n  <section class=\"sec\">\n    <p class=\"sec-label\">Leitura estratégica</p>\n    <h2 class=\"sec-title\">Diagnóstico consolidado — Agosto 2026</h2>\n    <div class=\"diag-grid\">\n      <div class=\"diag-item pos\">Receita de R$139.561 em agosto — praticamente igual a julho (R$137.401). Patamar mensal de R$130k–140k sinaliza consistência no resultado.</div>\n      <div class=\"diag-item pos\">Google Ads atingiu 45,8× de ROI direto em agosto — melhor performance de canal pago da série. Luisa (R$51.000) foi a maior venda individual registrada no período.</div>\n      <div class=\"diag-item pos\">3 de 5 vendas vieram de clientes recorrentes (R$73.410), confirmando que a base fidelizada é o principal ativo comercial da Larplan.</div>\n      <div class=\"diag-item pos\">Meta Ads foi ativado como segundo canal de aquisição pago — diversificação estratégica relevante para reduzir dependência de um único canal.</div>\n      <div class=\"diag-item warn\">Conversão Lead→Venda caiu de 17,0% em julho para 9,6% em agosto (−7,4pp). O volume de vendas passou de 9 para 5 — queda de 44%. Funil intermediário precisa de acompanhamento mais rigoroso no CRM.</div>\n      <div class=\"diag-item warn\">Meta Ads sem retorno no 1º mês: R$236,83 investidos, 0 vendas atribuídas. Canal em aprendizado — necessário acompanhar qualidade dos leads gerados antes de escalar.</div>\n    </div>\n  </section>\n\n  <section class=\"sec\">\n    <p class=\"sec-label\">Conclusão estratégica</p>\n    <h2 class=\"sec-title\">O que os dados mostram claramente</h2>\n    <div class=\"g3\">\n      <div class=\"card\" style=\"border-top:3px solid var(--green)\">\n        <h3 style=\"color:var(--green)\">✅ O que está forte</h3>\n        <p class=\"desc\">Fundamentos sólidos confirmados</p>\n        <ul style=\"font-size:13px;line-height:1.8;list-style:none;padding:0\">\n          <li>› Receita estável acima de R$137k por 2 meses</li>\n          <li>› Base de recorrência gerando receita sem mídia</li>\n          <li>› Google Ads com ROI de 45,8× — melhor marca</li>\n          <li>› Ticket médio em alta (R$27.912 em agosto)</li>\n          <li>› Meta Ads ativado: novo canal a desenvolver</li>\n        </ul>\n      </div>\n      <div class=\"card\" style=\"border-top:3px solid var(--amber)\">\n        <h3 style=\"color:var(--amber)\">⚠️ Onde está o gargalo</h3>\n        <p class=\"desc\">Principal limitador de crescimento</p>\n        <ul style=\"font-size:13px;line-height:1.8;list-style:none;padding:0\">\n          <li>› Conv. L→V caiu de 17% → 9,6% em agosto</li>\n          <li>› Funil intermediário sem registro no CRM</li>\n          <li>› Meta Ads sem leads qualificados identificados</li>\n          <li>› Volume de vendas caiu de 9 para 5</li>\n          <li>› Dependência alta de clientes já existentes</li>\n        </ul>\n      </div>\n      <div class=\"card\" style=\"border-top:3px solid var(--go5)\">\n        <h3 style=\"color:var(--go5)\">🎯 Próxima alavanca</h3>\n        <p class=\"desc\">O que fazer agora</p>\n        <ul style=\"font-size:13px;line-height:1.8;list-style:none;padding:0\">\n          <li>› Registrar funil completo no CRM em setembro</li>\n          <li>› Avaliar qualidade dos leads de Meta Ads</li>\n          <li>› Estruturar follow-up para leads não convertidos</li>\n          <li>› Manter Google Ads — ROI direto confirmado</li>\n          <li>› Programa formal de indicações / fidelização</li>\n        </ul>\n      </div>\n    </div>\n  </section>\n\n  <section class=\"sec\">\n    <p class=\"sec-label\">Simulação de crescimento</p>\n    <h2 class=\"sec-title\">O que acontece se a conversão melhorar</h2>\n    <div class=\"op-hero\">\n      <div>\n        <div class=\"h\">Se a conversão subir de 9,6% → 15%</div>\n        <div class=\"desc\">Com os mesmos 52 leads de agosto e o mesmo ticket médio de R$27.912, a Larplan fecharia aproximadamente <strong>8 vendas</strong> ao mês — mantendo o investimento em mídia de R$1.682.</div>\n      </div>\n      <div class=\"op-num\">\n        <div class=\"big\">R$ 223k</div>\n        <div class=\"sub\">por mês · mesmo investimento em mídia</div>\n      </div>\n    </div>\n    <div class=\"g3\" style=\"margin-top:18px\">\n      <div class=\"kpi\"><div class=\"k-lbl\">Cenário atual (Ago)</div><div class=\"k-val\">9,6%</div><div class=\"k-sub\">52 leads → 5 vendas → R$ 140k</div></div>\n      <div class=\"kpi gold-hl\"><div class=\"k-lbl\">Cenário projetado</div><div class=\"k-val\">15,0%</div><div class=\"k-sub\">52 leads → 8 vendas → R$ 223k</div></div>\n      <div class=\"kpi\"><div class=\"k-lbl\">Ganho incremental</div><div class=\"k-val\">+R$ 84k</div><div class=\"k-sub\">+3 vendas · R$ 0 a mais em mídia</div></div>\n    </div>\n  </section>\n\n",
+      "charts": []
+    }
+  ]
+}

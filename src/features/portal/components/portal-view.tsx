@@ -14,7 +14,8 @@ import { CommercialDashboard } from "@/features/commercial/components/commercial
 import { OriginalCommercialReport } from "@/features/commercial/components/original-commercial-report";
 import { IsaborFaithfulReport } from "@/features/commercial/components/isabor-faithful-report";
 import { LandimFaithfulReport } from "@/features/commercial/components/landim-faithful-report";
-import { isFullCommercialReport, isLandimOriginalReport } from "@/features/commercial/presentation";
+import { LarplanFaithfulReport } from "@/features/commercial/components/larplan-faithful-report";
+import { isFullCommercialReport, isLandimOriginalReport, isLarplanOriginalReport } from "@/features/commercial/presentation";
 import { buildCommercialDashboard, type CommercialDashboardVM } from "@/features/commercial/dashboard";
 import { TrafficDashboard } from "@/features/traffic/components/traffic-dashboard";
 import { buildTrafficViewModel } from "@/features/traffic/view-model";
@@ -46,6 +47,7 @@ const AREA_TITLE: Record<PortalTab, string> = {
 export function PortalView({ model, basePath, links, logoUrl, banner, section }: { model: PortalModel; basePath: string; links: PortalLinks; logoUrl?: string | null; banner?: ReactNode; section?: string | null }) {
   const { client, selection } = model;
   const landimOriginal = isLandimOriginalReport(client.slug, model.tab, model.periodKey);
+  const larplanOriginal = isLarplanOriginalReport(client.slug, model.tab, model.periodKey);
   const fullCommercial = isFullCommercialReport(client.slug, model.tab, model.mode);
   const originalCommercial = fullCommercial && model.periodKey === "2026-09" ? (client.slug === "serenity-terapias" ? "serenity" : "isabor") : null;
   const tz = env().APP_TIMEZONE;
@@ -61,11 +63,11 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
       : null;
 
   const shown = model.view === "overview" && model.overview ? model.overview : selection.primary ? [selection.primary] : [];
-  const chip = landimOriginal ? "Julho – Agosto / 2026" : commercial ? commercial.rangeShort : shown.length ? (shown.length > 1 ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period) : formatPeriod(shown[0].period)) : null;
-  const year = commercial?.year ?? (shown.length ? +shown[shown.length - 1].period.start.slice(0, 4) : null);
+  const chip = larplanOriginal ? "Junho – Agosto / 2026" : landimOriginal ? "Julho – Agosto / 2026" : commercial ? commercial.rangeShort : shown.length ? (shown.length > 1 ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period) : formatPeriod(shown[0].period)) : null;
+  const year = larplanOriginal ? 2026 : commercial?.year ?? (shown.length ? +shown[shown.length - 1].period.start.slice(0, 4) : null);
   const subtitle = [client.segment, `${AREA_TITLE[model.tab]}${year ? ` ${year}` : ""}`].filter(Boolean).join(" · ");
   // No comercial, quem fica fixo no topo ao rolar são as abas do painel.
-  const stickyBar = !commercial;
+  const stickyBar = !commercial && !larplanOriginal;
 
   return (
     <div className="w-full pb-16">
@@ -114,7 +116,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
           </div>
         </div>
 
-        <main className={commercial ? "mt-0" : "mt-6 sm:mt-8"} id="conteudo">
+        <main className={commercial || larplanOriginal ? "mt-0" : "mt-6 sm:mt-8"} id="conteudo">
           {!model.tabs.length ? (
             <EmptyState icon={<Inbox />} title="Nenhuma área disponível" description="Assim que a Look ativar os relatórios, eles aparecerão aqui." />
           ) : !model.periods.length ? (
@@ -145,7 +147,9 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
             </div>
           ) : (
             <div className="space-y-8 sm:space-y-10">
-              {landimOriginal ? (
+              {larplanOriginal ? (
+                <LarplanFaithfulReport logoUrl={logoUrl} />
+              ) : landimOriginal ? (
                 <LandimFaithfulReport />
               ) : originalCommercial === "isabor" ? (
                 <IsaborFaithfulReport />
