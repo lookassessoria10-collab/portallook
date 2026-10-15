@@ -97,7 +97,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
 
         <p className="pt-4 text-[13px] text-text-2">
           Olá, <strong className="font-bold text-text">{client.greetingName || client.shortName}</strong>
-          <span className="text-text-3"> · {model.lastUpdatedAt ? <>dados atualizados em {formatTimestampDate(model.lastUpdatedAt, tz)}</> : "aguardando o primeiro relatório"}</span>
+          <span className="text-text-3"> · {larplanOriginal ? "dados de junho a agosto de 2026" : model.lastUpdatedAt ? <>dados atualizados em {formatTimestampDate(model.lastUpdatedAt, tz)}</> : "aguardando o primeiro relatório"}</span>
         </p>
 
         <div className={cn("-mx-4 border-b border-border px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8", stickyBar && "sticky top-0 z-20 bg-[rgb(6_14_28/0.94)]")}>
