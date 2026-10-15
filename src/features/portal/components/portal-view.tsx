@@ -1,3 +1,5 @@
+import { LiveCommercialReport } from "@/features/commercial/live/report";
+
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { FileText, Inbox } from "lucide-react";
@@ -63,11 +65,12 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
       : null;
 
   const shown = model.view === "overview" && model.overview ? model.overview : selection.primary ? [selection.primary] : [];
-  const chip = larplanOriginal ? "Junho – Agosto / 2026" : landimOriginal ? "Julho – Agosto / 2026" : commercial ? commercial.rangeShort : shown.length ? (shown.length > 1 ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period) : formatPeriod(shown[0].period)) : null;
-  const year = larplanOriginal ? 2026 : commercial?.year ?? (shown.length ? +shown[shown.length - 1].period.start.slice(0, 4) : null);
+  const live = model.liveCommercial;
+  const chip = live ? `${live.months[0].label} – ${live.focus.label} / ${live.year}` : larplanOriginal ? "Junho – Agosto / 2026" : landimOriginal ? "Julho – Agosto / 2026" : commercial ? commercial.rangeShort : shown.length ? (shown.length > 1 ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period) : formatPeriod(shown[0].period)) : null;
+  const year = live?.year ?? (larplanOriginal ? 2026 : commercial?.year ?? (shown.length ? +shown[shown.length - 1].period.start.slice(0, 4) : null));
   const subtitle = [client.segment, `${AREA_TITLE[model.tab]}${year ? ` ${year}` : ""}`].filter(Boolean).join(" · ");
   // No comercial, quem fica fixo no topo ao rolar são as abas do painel.
-  const stickyBar = !commercial && !larplanOriginal;
+  const stickyBar = !commercial && !larplanOriginal && !live;
 
   return (
     <div className="w-full pb-16">
@@ -97,7 +100,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
 
         <p className="pt-4 text-[13px] text-text-2">
           Olá, <strong className="font-bold text-text">{client.greetingName || client.shortName}</strong>
-          <span className="text-text-3"> · {larplanOriginal ? "dados de junho a agosto de 2026" : model.lastUpdatedAt ? <>dados atualizados em {formatTimestampDate(model.lastUpdatedAt, tz)}</> : "aguardando o primeiro relatório"}</span>
+          <span className="text-text-3"> · {larplanOriginal && !live ? "dados de junho a agosto de 2026" : model.lastUpdatedAt ? <>dados atualizados em {formatTimestampDate(model.lastUpdatedAt, tz)}</> : "aguardando o primeiro relatório"}</span>
         </p>
 
         <div className={cn("-mx-4 border-b border-border px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8", stickyBar && "sticky top-0 z-20 bg-[rgb(6_14_28/0.94)]")}>
@@ -147,7 +150,9 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
             </div>
           ) : (
             <div className="space-y-8 sm:space-y-10">
-              {larplanOriginal ? (
+              {live ? (
+                <LiveCommercialReport report={live} />
+              ) : larplanOriginal ? (
                 <LarplanFaithfulReport logoUrl={logoUrl} />
               ) : landimOriginal ? (
                 <LandimFaithfulReport />

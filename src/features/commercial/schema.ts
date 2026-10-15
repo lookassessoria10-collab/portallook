@@ -38,6 +38,7 @@ export const ChannelRowSchema = z.object({
   conversions: Count.nullable().default(null),
   revenue: Amount.nullable().default(null),
   investment: Amount.nullable().default(null),
+  newCustomers: Count.nullable().default(null),
 });
 export type ChannelRow = z.infer<typeof ChannelRowSchema>;
 
@@ -107,6 +108,8 @@ export type ExtraMetric = z.infer<typeof ExtraMetricSchema>;
 
 export const CommercialDataSchema = z.object({
   schemaVersion: z.literal(1),
+  /** Explicit opt-in for replacing an original historical snapshot with a client template. */
+  layoutProfile: z.enum(["isabor", "serenity", "landim", "larplan"]).optional(),
   period: PeriodSchema,
   currency: z.string().length(3).default("BRL"),
   funnel: z.array(FunnelStageSchema).min(1, "O funil precisa de pelo menos uma etapa."),

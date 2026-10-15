@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { commercialProfile } from "@/features/commercial/live/profiles";
+import { useEffect, useState, useTransition } from "react";
 import { ArrowLeft, ArrowRight, Check, CircleCheck, ClipboardPaste, Download, FileWarning, LoaderCircle, RotateCcw, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
@@ -21,6 +22,7 @@ import { FormatGuide, pasteExample } from "./format-guide";
 import { sendFile } from "./transport";
 
 export interface WizardClient {
+  slug?: string;
   id: string;
   name: string;
   modules: Record<ReportType, { enabled: boolean; cadence: "monthly" | "weekly"; allowOriginalDownload: boolean; expectedKey: string | null }>;
@@ -106,7 +108,7 @@ export function UploadWizard({
   const mod = client && type ? client.modules[type] : null;
   const retro = type === "traffic" && mode === "retroactive";
   // Plano de mídia: os próximos meses aparecem primeiro (o plano é enviado antes do mês começar).
-  const options = useMemo(() => (mod ? periodOptions(mod.cadence, today, undefined, type === "media_plan" ? 3 : 0) : []), [mod, today, type]);
+  const options = mod ? periodOptions(mod.cadence, today, undefined, type === "media_plan" ? 3 : 0) : [];
   const ext = source === "file" && file ? extensionOf(file.name) : "";
   const isCsv = ext === "csv";
   const isDocument = ext === "pdf" || ext === "html" || ext === "htm";
@@ -451,8 +453,8 @@ export function UploadWizard({
               {source === "file" ? <Checkbox checked={allowDownload} onChange={(e) => setAllowDownload(e.target.checked)} label="Permitir que o cliente baixe o arquivo original" /> : null}
               <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-text-3">
                 Modelos:
-                <a className="inline-flex items-center gap-1 font-semibold text-primary hover:underline" href="/modelos/modelo-comercial.xlsx" download>
-                  <Download className="size-3.5" aria-hidden /> Comercial (XLSX)
+                <a className="inline-flex items-center gap-1 font-semibold text-primary hover:underline" href={client?.slug && commercialProfile(client.slug) ? `/api/adm/modelos/comercial/${commercialProfile(client.slug)}` : "/modelos/modelo-comercial.xlsx"} download>
+                  <Download className="size-3.5" aria-hidden /> Comercial{client?.slug && commercialProfile(client.slug) ? ` · ${client.name}` : ""} (XLSX)
                 </a>
                 <a className="inline-flex items-center gap-1 font-semibold text-primary hover:underline" href="/modelos/modelo-trafego.xlsx" download>
                   <Download className="size-3.5" aria-hidden /> Tráfego (XLSX)

@@ -5,7 +5,8 @@
  * Isabor: https://clientes.lookassessoria.com.br/isabor/dashboard-comercial.html
  *
  * Nenhum valor aqui é somado a subtotais importados. A referência é estática até
- * setembro/2026; relatórios posteriores voltam ao fluxo normal de importação.
+ * setembro/2026; os adaptadores em live/model preservam a referência e
+ * acrescentam os meses importados nos layouts específicos de cada cliente.
  * Os avisos de números incompletos/estimados são mantidos intencionalmente.
  */
 export const monthsPt = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro"] as const;

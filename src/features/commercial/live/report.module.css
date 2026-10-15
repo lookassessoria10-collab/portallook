@@ -1,0 +1,125 @@
+.report {
+  min-width: 0;
+}
+.report :global(.g2),
+.report :global(.grid2) {
+  min-width: 0;
+}
+.report :global(.g2) > *,
+.report :global(.grid2) > * {
+  min-width: 0;
+}
+.report :global(.sec) {
+  margin-top: 28px;
+}
+.report :global(.nota) {
+  margin-top: 12px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.report :global(.ch-wrap) {
+  height: 300px;
+  position: relative;
+  margin-top: 16px;
+}
+.report :global(.diag-item) {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  margin: 14px 0;
+}
+.report :global(.table-wrap),
+.report :global(.comp-wrap) {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.report :global(table) {
+  white-space: nowrap;
+}
+.report :global(.month-banner) {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.report :global(.tabs) {
+  overflow-x: auto;
+}
+.report :global(.tab) {
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .report :global(.month-banner) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .report :global(.g4) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .report :global(.g2),
+  .report :global(.grid2),
+  .report :global(.g3) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .report :global(.kpi-grid) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .report :global(.month-banner) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.report :global(nav) {
+  background: var(--surface-2);
+}
+.report :global(.tab.active) {
+  background: var(--primary);
+  color: var(--text-on-primary, #06101f);
+}
+.report :global(.tab-btn.active) {
+  color: var(--primary);
+}
+.report :global(.g4:has(> :nth-child(5):last-child)) {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.report :global(.g4:has(> :nth-child(6):last-child)) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 900px) {
+  .report :global(.g4:has(> :nth-child(5):last-child)),
+  .report :global(.g4:has(> :nth-child(6):last-child)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.report {
+  container-type: inline-size;
+}
+@container (max-width:600px) {
+  .report :global(.g2),
+  .report :global(.grid2),
+  .report :global(.g3) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .report :global(.g4),
+  .report :global(.kpi-grid),
+  .report :global(.month-banner),
+  .report :global(.g4:has(> :nth-child(5):last-child)),
+  .report :global(.g4:has(> :nth-child(6):last-child)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.report :global(.month-banner) {
+  background: var(--hero-gradient);
+  color: var(--text);
+}
+.report :global(.comp-wrap th) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.report :global(.f-bar.b1) {
+  background: var(--primary);
+  color: var(--text-on-primary);
+}
+.report :global(.f-bar.b2) {
+  background: var(--primary-soft);
+  color: var(--text);
+}

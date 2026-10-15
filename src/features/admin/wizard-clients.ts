@@ -20,6 +20,6 @@ export function toWizardClients(overviews: ClientOverview[]): WizardClient[] {
           expectedKey: m.enabled && pending && d.expectedPeriod ? periodKey(d.expectedPeriod) : m.enabled && d.nextPeriod ? periodKey(d.nextPeriod) : null,
         };
       };
-      return { id: o.client.id, name: o.client.name, modules: { commercial: mod("commercial"), traffic: mod("traffic"), social: mod("social"), media_plan: mod("media_plan") } };
+      return { id: o.client.id, slug: o.client.slug, name: o.client.name, modules: { commercial: mod("commercial"), traffic: mod("traffic"), social: mod("social"), media_plan: mod("media_plan") } };
     });
 }
