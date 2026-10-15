@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instituto Landim · Dashboard Comercial</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --purple:#5B2B86; --purple-deep:#3B1A5B; --violet:#8E5BC6; --violet-lt:#B48BDD;
+  --lilac:#F3EDFA; --gold:#C9A24B; --green:#2E9E6B; --red:#D9556B; --amber:#E39A34;
+  --bg:#F5F2F9; --ink:#2B2336; --muted:#7A6C8A; --line:#E8E1F1; --card:#FFFFFF;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+h1,h2,h3,h4,.value,.fs-num,.big{font-family:'Poppins',sans-serif}
+header{background:#fff;border-bottom:3px solid var(--purple);padding:18px 34px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.brand{display:flex;align-items:center;gap:18px}
+.brand img{height:60px;width:auto;display:block}
+.brand .txt h1{font-size:1.35rem;font-weight:700;color:var(--purple);letter-spacing:.3px}
+.brand .txt p{font-size:.8rem;color:var(--muted);font-weight:500;margin-top:2px}
+.period-chip{background:var(--lilac);color:var(--purple);border:1px solid var(--line);padding:8px 16px;border-radius:30px;font-size:.8rem;font-weight:600}
+nav{background:var(--purple-deep);display:flex;overflow-x:auto;white-space:nowrap;padding:0 14px}
+.tab-btn{background:none;border:none;color:#C9B6E0;font-family:'Poppins',sans-serif;font-size:.85rem;font-weight:500;padding:14px 18px;cursor:pointer;border-bottom:3px solid transparent;transition:.2s}
+.tab-btn:hover{color:#fff}
+.tab-btn.active{color:#fff;border-bottom-color:var(--gold)}
+main{max-width:1180px;margin:0 auto;padding:26px 22px 60px}
+.tab-content{display:none;animation:fade .4s}
+.tab-content.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.section-title{font-size:1.02rem;font-weight:600;color:var(--purple-deep);margin:26px 0 14px;display:flex;align-items:center;gap:8px}
+.section-title:first-child{margin-top:6px}
+.section-title .bar{width:4px;height:18px;background:var(--gold);border-radius:2px}
+.sub{color:var(--muted);font-size:.83rem;margin-bottom:16px}
+.latest-chip{font-size:.72rem;font-weight:700;color:var(--purple);background:var(--lilac);border:1px solid var(--line);padding:2px 10px;border-radius:20px;margin-left:6px}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi{background:var(--card);border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(59,26,91,.06);border:1px solid var(--line)}
+.kpi .label{font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:600}
+.kpi .value{font-size:1.8rem;font-weight:700;color:var(--purple-deep);margin-top:6px;line-height:1}
+.kpi .foot{font-size:.75rem;color:var(--muted);margin-top:6px}
+.kpi.accent{background:linear-gradient(135deg,var(--purple),var(--violet));color:#fff;border:none}
+.kpi.accent .label,.kpi.accent .value,.kpi.accent .foot{color:#fff}
+.kpi.gold{background:linear-gradient(135deg,#B7912F,var(--gold));color:#fff;border:none}
+.kpi.gold .label,.kpi.gold .value,.kpi.gold .foot{color:#fff}
+.mom{display:inline-block;font-size:.72rem;font-weight:700;padding:1px 8px;border-radius:20px;margin-top:8px}
+.mom.up{background:#E7F5EE;color:var(--green)}
+.mom.down{background:#FBE9EC;color:var(--red)}
+.mom.flat{background:#EFEAF6;color:var(--muted)}
+.kpi.accent .mom,.kpi.gold .mom{background:rgba(255,255,255,.24);color:#fff}
+.banner{display:flex;gap:14px;align-items:flex-start;background:#FBF1E6;border:1px solid #EFD9BC;border-left:5px solid var(--amber);border-radius:12px;padding:16px 20px;margin:6px 0 4px}
+.banner .ic{font-size:1.4rem;line-height:1}
+.banner .t{font-family:'Poppins';font-weight:600;color:#8A5A16;font-size:.92rem}
+.banner .d{font-size:.85rem;color:#6E5220;margin-top:2px}
+.chart-box{background:var(--card);border-radius:14px;padding:20px;box-shadow:0 2px 10px rgba(59,26,91,.06);border:1px solid var(--line);margin-top:14px}
+.chart-container{position:relative;height:300px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+table{width:100%;border-collapse:collapse;font-size:.83rem}
+th{background:var(--purple-deep);color:#fff;text-align:left;padding:10px 12px;font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.4px}
+td{padding:9px 12px;border-bottom:1px solid var(--line)}
+tr:hover td{background:#FAF7FD}
+.chan{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:6px}
+.c-google{background:#EAE3F7;color:#5B2B86}
+.c-meta{background:#FBEAF3;color:#B0357F}
+.c-ind{background:#EAF6EF;color:#2E8F5F}
+.table-wrap{background:var(--card);border-radius:14px;overflow:auto;box-shadow:0 2px 10px rgba(59,26,91,.06);border:1px solid var(--line)}
+/* master table */
+.mtable td:first-child,.mtable th:first-child{position:sticky;left:0;background:inherit}
+.mtable th:first-child{background:var(--purple-deep)}
+.mtable td:first-child{background:#fff;font-weight:600;color:var(--purple-deep)}
+.mtable tr:hover td:first-child{background:#FAF7FD}
+.mtable td{text-align:right}
+.mtable td:first-child{text-align:left}
+.mtable th{text-align:right}
+.mtable th:first-child{text-align:left}
+.mtable .grp td{background:var(--lilac);font-weight:700;color:var(--purple-deep);text-transform:uppercase;font-size:.72rem;letter-spacing:.4px}
+.mtable .grp td:first-child{background:var(--lilac)}
+.indent{padding-left:26px !important;color:var(--muted) !important;font-weight:500 !important}
+.delta{font-weight:700}
+.delta.up{color:var(--green)}
+.delta.down{color:var(--red)}
+.delta.flat{color:var(--muted)}
+.surg-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+.surg-card{background:var(--card);border-radius:14px;padding:16px 18px;border:1px solid var(--line);border-left:5px solid var(--gold);box-shadow:0 2px 10px rgba(59,26,91,.06)}
+.surg-card .n{font-family:'Poppins';font-weight:700;font-size:1rem;color:var(--purple-deep)}
+.surg-card .s{font-size:.8rem;color:var(--muted);margin-top:3px}
+.surg-card .ch{margin-top:10px;display:flex;gap:6px;align-items:center}
+.mtag{font-size:.66rem;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--lilac);color:var(--purple)}
+.insight{background:var(--card);border-radius:14px;padding:18px 20px;box-shadow:0 2px 10px rgba(59,26,91,.06);border:1px solid var(--line);border-left:4px solid var(--violet);margin-bottom:12px}
+.insight h4{color:var(--purple-deep);font-size:.95rem;margin-bottom:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.insight p{font-size:.87rem;color:#453A52}
+.insight.rec{border-left-color:var(--gold)}
+.insight.warn{border-left-color:var(--amber)}
+.tag{font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--lilac);color:var(--purple)}
+.note{background:#FBF6EC;border:1px solid #EEDFBE;border-radius:10px;padding:12px 16px;font-size:.8rem;color:#7A6320;margin-top:16px}
+footer{text-align:center;color:var(--muted);font-size:.75rem;padding:24px}
+@media(max-width:768px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .grid2,.surg-grid{grid-template-columns:1fr}
+  header{flex-direction:column;align-items:flex-start}
+  .chart-container{height:240px}
+  main{padding:18px 12px 50px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <img src="https://institutolandim.com.br/wp-content/uploads/2024/05/logo-roxo-vertical-1.png" alt="Instituto Landim">
+    <div class="txt">
+      <h1>Dashboard Comercial</h1>
+      <p>Instituto Landim - Funil, Mídia e Conversão</p>
+    </div>
+  </div>
+  <div class="period-chip" id="periodChip">📅 —</div>
+</header>
+
+<nav>
+  <button class="tab-btn active" data-t="evolucao" onclick="showTab('evolucao',this)">Evolução</button>
+  <button class="tab-btn" data-t="canais" onclick="showTab('canais',this)">Canais &amp; Investimento</button>
+  <button class="tab-btn" data-t="receita" onclick="showTab('receita',this)">Receita &amp; Cirurgias</button>
+  <button class="tab-btn" data-t="leads" onclick="showTab('leads',this)">Leads</button>
+  <button class="tab-btn" data-t="mesames" onclick="showTab('mesames',this)">Mês a Mês</button>
+  <button class="tab-btn" data-t="insights" onclick="showTab('insights',this)">Insights</button>
+</nav>
+
+<main>
+  <div id="evolucao" class="tab-content active"></div>
+  <div id="canais" class="tab-content"></div>
+  <div id="receita" class="tab-content"></div>
+  <div id="leads" class="tab-content"></div>
+  <div id="mesames" class="tab-content"></div>
+  <div id="insights" class="tab-content"></div>
+</main>
+
+<footer>Instituto Landim · Dashboard Comercial · dados de acompanhamento de leads · 2026</footer>
+
+<script>
+const PUR='#5B2B86',VIO='#8E5BC6',VIOL='#B48BDD',GOLD='#C9A24B',DEEP='#3B1A5B',GRAY='#DBD2E8',AMB='#E39A34',GRN='#2E9E6B',META='#B0357F',RED='#D9556B';
+Chart.defaults.font.family="'Montserrat',sans-serif";Chart.defaults.color="#7A6C8A";
+const brl=v=>'R$ '+Number(v).toLocaleString('pt-BR',{maximumFractionDigits:0});
+const brl2=v=>'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+// ===== Uma entrada por mês. Adicionar mês novo = novo objeto aqui. =====
+const MONTHS=[
+ {key:'jul',label:'Julho',ano:'2026',
+  leads:49,diretas:9,iad:7,clivale:3,indiretas:10,convTotal:19,convPct:38.8,
+  receita:13000,receitaConv:10600,receitaPart:2400,cirurgias:2,
+  investGoogle:607.96,investMeta:648.08,investTotal:1256.04,cplPago:27.31,custoConvPago:78.50,novosPacPago:6,leadsPagos:46,convPagas:16,
+  canalLeads:{google:40,meta:6,ind:3},
+  canal:{google:{leads:40,dir:6,ind:8,conv:14,nov:6,rec:1400,cpl:15.20,cpc:43.43,inv:607.96,taxa:35.0},
+         meta:{leads:6,dir:0,ind:2,conv:2,nov:0,rec:0,cpl:108.01,cpc:324.04,inv:648.08,taxa:33.3},
+         ind:{leads:3,dir:3,ind:0,conv:3,nov:3,rec:11600,cpl:null,cpc:null,inv:0,taxa:100}},
+  tipo:{conv:31,part:14,naoInf:4},
+  proc:{consulta:43,fisio:4,acup:2,naoInf:0},
+  receitaCanal:{ind:11600,google:1400,meta:0},
+  cirurgiasList:[{n:'Angela Maria',s:'Convênio · consulta → cirurgia',canal:'ind'},
+                 {n:'Caroline Spínola',s:'Convênio · consulta → cirurgia (marido também)',canal:'google'}],
+  receitaRows:[{n:'Isabel Rivas Maximus',canal:'ind',tipo:'Convênio',v:9200},
+               {n:'Edgar Metzner',canal:'ind',tipo:'Particular',v:2400},
+               {n:'Mariana Benetti',canal:'google',tipo:'Convênio',v:1400}],
+  mesSeguinte:3,mesSeguinteNome:'agosto',banner:null,
+  insights:[
+   {c:'insight',i:'🎯',t:'Google Ads carrega o funil — e barato',tag:'Canal',p:'82% dos leads a <b>R$ 15,20/lead</b>; 6 dos 9 pacientes diretos, 8 das 10 conversões indiretas e uma cirurgia.'},
+   {c:'insight warn',i:'⚠️',t:'Meta Ads não converteu',tag:'Atenção',p:'R$ 648 investidos, 6 leads e <b>nenhum paciente direto</b> (custo/conv R$ 324). Revisar antes de cortar.'},
+   {c:'insight',i:'💰',t:'Indicação é ouro',tag:'Orgânico',p:'3 leads, <b>R$ 11.600 dos R$ 13.000</b> e uma cirurgia — sem custo de mídia.'},
+   {c:'insight rec',i:'✅',t:'Próximos passos',tag:'Ação',p:'Realocar verba do Meta p/ Google; criar programa de indicação; mapear motivos de perda; acompanhar as 3 marcações de agosto.'}]
+ },
+ {key:'ago',label:'Agosto',ano:'2026',
+  leads:39,diretas:1,iad:1,clivale:7,indiretas:8,convTotal:9,convPct:23.1,
+  receita:0,receitaConv:0,receitaPart:0,cirurgias:0,
+  investGoogle:1010.11,investMeta:980.68,investTotal:1990.79,cplPago:53.81,custoConvPago:248.85,novosPacPago:0,leadsPagos:37,convPagas:8,
+  canalLeads:{google:31,meta:6,ind:2},
+  canal:{google:{leads:31,dir:0,ind:5,conv:5,nov:0,rec:0,cpl:32.58,cpc:202.02,inv:1010.11,taxa:16.1},
+         meta:{leads:6,dir:0,ind:3,conv:3,nov:0,rec:0,cpl:163.45,cpc:326.89,inv:980.68,taxa:50.0},
+         ind:{leads:2,dir:1,ind:0,conv:1,nov:1,rec:0,cpl:null,cpc:null,inv:0,taxa:50.0}},
+  tipo:{conv:31,part:5,naoInf:3},
+  proc:{consulta:32,fisio:3,acup:1,naoInf:3},
+  receitaCanal:{ind:0,google:0,meta:0},
+  cirurgiasList:[],
+  receitaRows:[],
+  mesSeguinte:2,mesSeguinteNome:'setembro',
+  banner:{t:'Contexto: agenda reduzida em 16 dias',d:'O Dr. Gilvan Landim suspendeu os atendimentos por <b>16 dias em agosto</b> (viagem). Com metade do mês sem agenda, comparecimentos e receita direta caíram fortemente — leia os resultados à luz desse fator. O topo do funil (leads) se manteve.'},
+  insights:[
+   {c:'insight warn',i:'🗓️',t:'Metade do mês sem agenda (Dr. Gilvan em viagem)',tag:'Contexto',p:'A suspensão por <b>16 dias</b> é o fator central: derrubou comparecimentos (1 conversão direta) e zerou a receita. Não é queda de demanda — os leads continuaram entrando.'},
+   {c:'insight',i:'🔁',t:'A rede parceira sustentou o mês',tag:'Parceiros',p:'8 das 9 conversões vieram de parceiros — <b>Clivale (7)</b> e IAD (1). O amortecedor do funil quando a agenda interna fecha.'},
+   {c:'insight warn',i:'📈',t:'Investimento subiu, eficiência caiu',tag:'Mídia',p:'Verba +58% (R$ 1.256 → R$ 1.991) com menos leads: <b>CPL quase dobrou</b> (R$ 27 → R$ 54). Alinhar o ritmo de mídia à capacidade de atendimento.'},
+   {c:'insight rec',i:'✅',t:'Próximos passos',tag:'Ação',p:'Alinhar calendário de mídia à disponibilidade médica; recuperar no-shows e leads de convênio em setembro; acompanhar as 2 marcações de setembro; retomar indicação.'}]
+ }
+];
+
+const last=MONTHS[MONTHS.length-1], prev=MONTHS.length>1?MONTHS[MONTHS.length-2]:null;
+const labels=MONTHS.map(m=>m.label);
+document.getElementById('periodChip').textContent='📅 '+MONTHS[0].label+' – '+last.label+' / '+last.ano;
+
+function deltaBadge(cur,pv,goodUp,fmt){
+  if(pv===null||pv===undefined) return '';
+  if(pv===0){ if(cur===0) return '<span class="mom flat">— estável</span>'; return '<span class="mom '+(goodUp?'up':'down')+'">novo</span>'; }
+  const d=(cur-pv)/Math.abs(pv)*100;
+  const cls=d===0?'flat':((d>0)===goodUp?'up':'down');
+  const ar=d>0?'▲':(d<0?'▼':'■');
+  return '<span class="mom '+cls+'">'+ar+' '+(d>0?'+':'')+d.toFixed(0)+'% vs '+prev.label.slice(0,3).toLowerCase()+'</span>';
+}
+let charts={};
+
+/* ---------- EVOLUÇÃO ---------- */
+function renderEvolucao(){
+  const banner=last.banner?`<div class="banner"><div class="ic">🗓️</div><div><div class="t">${last.banner.t}</div><div class="d">${last.banner.d}</div></div></div>`:'';
+  document.getElementById('evolucao').innerHTML=`
+  ${banner}
+  <div class="section-title"><span class="bar"></span>Mês mais recente <span class="latest-chip">${last.label}/${last.ano}</span></div>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">Leads recebidos</div><div class="value">${last.leads}</div>${deltaBadge(last.leads,prev&&prev.leads,true)}</div>
+    <div class="kpi accent"><div class="label">Conversões totais</div><div class="value">${last.convTotal}</div><div class="foot">${last.convPct.toFixed(1).replace('.',',')}% dos leads</div>${deltaBadge(last.convTotal,prev&&prev.convTotal,true)}</div>
+    <div class="kpi"><div class="label">Novos pacientes</div><div class="value">${last.diretas}</div><div class="foot">diretas (compareceram)</div>${deltaBadge(last.diretas,prev&&prev.diretas,true)}</div>
+    <div class="kpi gold"><div class="label">Receita gerada</div><div class="value">${brl(last.receita)}</div>${deltaBadge(last.receita,prev&&prev.receita,true)}</div>
+    <div class="kpi"><div class="label">Cirurgias geradas</div><div class="value">${last.cirurgias}</div><div class="foot">procedimento de maior valor</div>${deltaBadge(last.cirurgias,prev&&prev.cirurgias,true)}</div>
+    <div class="kpi"><div class="label">Investimento mídia</div><div class="value">${brl(last.investTotal)}</div>${deltaBadge(last.investTotal,prev&&prev.investTotal,false)}</div>
+    <div class="kpi"><div class="label">Custo por lead (pago)</div><div class="value">${brl2(last.cplPago)}</div>${deltaBadge(last.cplPago,prev&&prev.cplPago,false)}</div>
+    <div class="kpi"><div class="label">Marcações p/ mês seguinte</div><div class="value">${last.mesSeguinte}</div><div class="foot">agendadas p/ ${last.mesSeguinteNome}</div></div>
+  </div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="chart-box" style="margin-top:0"><div class="section-title" style="margin-top:0"><span class="bar"></span>Composição do funil por mês</div><div class="chart-container"><canvas id="compChart"></canvas></div></div>
+    <div class="chart-box" style="margin-top:0"><div class="section-title" style="margin-top:0"><span class="bar"></span>Receita × Investimento × CPL</div><div class="chart-container"><canvas id="revInvChart"></canvas></div></div>
+  </div>
+  <div class="chart-box"><div class="section-title" style="margin-top:0"><span class="bar"></span>Taxa de conversão por mês (%)</div><div class="chart-container" style="height:220px"><canvas id="taxaChart"></canvas></div></div>`;
+  charts.comp=new Chart(document.getElementById('compChart'),{type:'bar',
+    data:{labels,datasets:[
+      {label:'Diretas (Landim)',data:MONTHS.map(m=>m.diretas),backgroundColor:PUR},
+      {label:'IAD',data:MONTHS.map(m=>m.iad),backgroundColor:AMB},
+      {label:'Clivale',data:MONTHS.map(m=>m.clivale),backgroundColor:VIOL},
+      {label:'Não convertidos',data:MONTHS.map(m=>m.leads-m.convTotal),backgroundColor:GRAY}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,grid:{color:'#EFE9F6'}}}}});
+  charts.revInv=new Chart(document.getElementById('revInvChart'),{
+    data:{labels,datasets:[
+      {type:'bar',label:'Receita (R$)',data:MONTHS.map(m=>m.receita),backgroundColor:GOLD,yAxisID:'y',borderRadius:5},
+      {type:'bar',label:'Investimento (R$)',data:MONTHS.map(m=>m.investTotal),backgroundColor:VIO,yAxisID:'y',borderRadius:5},
+      {type:'line',label:'CPL (R$)',data:MONTHS.map(m=>m.cplPago),borderColor:RED,backgroundColor:RED,tension:.3,yAxisID:'y1'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+brl2(c.raw)}}},scales:{y:{position:'left',beginAtZero:true,grid:{color:'#EFE9F6'},ticks:{callback:v=>'R$ '+v}},y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:v=>'R$ '+v}},x:{grid:{display:false}}}}});
+  charts.taxa=new Chart(document.getElementById('taxaChart'),{type:'line',
+    data:{labels,datasets:[{label:'Taxa de conversão (%)',data:MONTHS.map(m=>m.convPct),borderColor:PUR,backgroundColor:'rgba(91,43,134,.12)',fill:true,tension:.3,pointRadius:5,pointBackgroundColor:PUR}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw.toFixed(1).replace('.',',')+'%'}}},scales:{y:{beginAtZero:true,grid:{color:'#EFE9F6'},ticks:{callback:v=>v+'%'}},x:{grid:{display:false}}}}});
+}
+
+/* ---------- CANAIS ---------- */
+function renderCanais(){
+  let rows=MONTHS.map(m=>['google','meta','ind'].map(k=>{
+    const c=m.canal[k],nm=k==='google'?'Google Ads':(k==='meta'?'Meta Ads':'Indicação'),cls='c-'+(k==='ind'?'ind':k);
+    return `<tr><td>${m.label}</td><td><span class="chan ${cls}">${nm}</span></td><td>${c.inv?brl2(c.inv):'—'}</td><td>${c.leads}</td><td>${c.conv}</td><td>${c.nov}</td><td>${c.rec?brl(c.rec):'R$ 0'}</td><td>${c.cpl!=null?brl2(c.cpl):'—'}</td><td>${c.taxa.toFixed(1).replace('.',',')}%</td></tr>`;
+  }).join('')).join('');
+  document.getElementById('canais').innerHTML=`
+  <div class="section-title"><span class="bar"></span>Canais &amp; investimento — evolução</div>
+  <p class="sub">SITE, GOOGLE e NÃO INFORMADO = <b>Google Ads</b> (busca). Instagram = <b>Meta Ads</b>. Indicação é orgânica (sem investimento).</p>
+  <div class="grid2">
+    <div class="chart-box" style="margin-top:0"><div class="section-title" style="margin-top:0"><span class="bar"></span>Leads por canal por mês</div><div class="chart-container"><canvas id="chanLeadChart"></canvas></div></div>
+    <div class="chart-box" style="margin-top:0"><div class="section-title" style="margin-top:0"><span class="bar"></span>Investimento por canal × CPL pago</div><div class="chart-container"><canvas id="chanInvChart"></canvas></div></div>
+  </div>
+  <div class="section-title"><span class="bar"></span>Detalhamento por canal e mês</div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Mês</th><th>Canal</th><th>Invest.</th><th>Leads</th><th>Conv.</th><th>Novos pac.</th><th>Receita</th><th>CPL</th><th>Taxa conv.</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+  <div class="note">💡 O Google Ads é consistentemente o canal de maior volume e menor CPL. O Meta segue sem gerar paciente direto nos dois meses. A Indicação é o canal de maior taxa de conversão e receita.</div>`;
+  charts.chanLead=new Chart(document.getElementById('chanLeadChart'),{type:'bar',
+    data:{labels,datasets:[
+      {label:'Google Ads',data:MONTHS.map(m=>m.canalLeads.google),backgroundColor:PUR,borderRadius:5},
+      {label:'Meta Ads',data:MONTHS.map(m=>m.canalLeads.meta),backgroundColor:META,borderRadius:5},
+      {label:'Indicação',data:MONTHS.map(m=>m.canalLeads.ind),backgroundColor:GRN,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true,grid:{color:'#EFE9F6'}},x:{grid:{display:false}}}}});
+  charts.chanInv=new Chart(document.getElementById('chanInvChart'),{
+    data:{labels,datasets:[
+      {type:'bar',label:'Invest. Google (R$)',data:MONTHS.map(m=>m.investGoogle),backgroundColor:PUR,yAxisID:'y',borderRadius:5},
+      {type:'bar',label:'Invest. Meta (R$)',data:MONTHS.map(m=>m.investMeta),backgroundColor:META,yAxisID:'y',borderRadius:5},
+      {type:'line',label:'CPL pago (R$)',data:MONTHS.map(m=>m.cplPago),borderColor:RED,backgroundColor:RED,tension:.3,yAxisID:'y1'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+brl2(c.raw)}}},scales:{y:{position:'left',beginAtZero:true,grid:{color:'#EFE9F6'},ticks:{callback:v=>'R$ '+v}},y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:v=>'R$ '+v}},x:{grid:{display:false}}}}});
+}
+
+/* ---------- RECEITA ---------- */
+function renderReceita(){
+  let allRev=[],allSurg=[];
+  MONTHS.forEach(m=>{
+    m.receitaRows.forEach(r=>allRev.push({...r,mes:m.label}));
+    m.cirurgiasList.forEach(s=>allSurg.push({...s,mes:m.label}));
+  });
+  const revRows=allRev.length?allRev.map(r=>`<tr><td><span class="mtag">${r.mes}</span></td><td>${r.n}</td><td><span class="chan c-${r.canal}">${r.canal==='ind'?'Indicação':(r.canal==='google'?'Google Ads':'Meta Ads')}</span></td><td>${r.tipo}</td><td><b>${brl(r.v)}</b></td></tr>`).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--muted)">Sem receita registrada no período</td></tr>`;
+  const surgCards=allSurg.length?allSurg.map(s=>`<div class="surg-card"><div class="n">${s.n}</div><div class="s">${s.s}</div><div class="ch"><span class="mtag">${s.mes}</span><span class="chan c-${s.canal}">${s.canal==='ind'?'Indicação':(s.canal==='google'?'Google Ads':'Meta Ads')}</span></div></div>`).join(''):`<div class="surg-card" style="border-left-color:var(--line)"><div class="s">Nenhuma cirurgia gerada no período.</div></div>`;
+  document.getElementById('receita').innerHTML=`
+  <div class="section-title"><span class="bar"></span>Receita &amp; cirurgias — evolução</div>
+  <p class="sub">A receita em R$ vem de consultas/procedimentos. A <b>cirurgia</b> não tem valor lançado — é um marcador de que o lead evoluiu para um procedimento de maior valor.</p>
+  <div class="grid2">
+    <div class="chart-box" style="margin-top:0"><div class="section-title" style="margin-top:0"><span class="bar"></span>Receita por mês (convênio × particular)</div><div class="chart-container"><canvas id="revChart"></canvas></div></div>
+    <div class="chart-box" style="margin-top:0"><div class="section-title" style="margin-top:0"><span class="bar"></span>Cirurgias geradas por mês</div><div class="chart-container"><canvas id="surgChart"></canvas></div></div>
+  </div>
+  <div class="section-title"><span class="bar"></span>Cirurgias geradas — destaque por canal</div>
+  <div class="surg-grid">${surgCards}</div>
+  <div class="section-title"><span class="bar"></span>Receita detalhada (todos os meses)</div>
+  <div class="table-wrap"><table><thead><tr><th>Mês</th><th>Paciente</th><th>Canal</th><th>Tipo</th><th>Valor</th></tr></thead><tbody>${revRows}</tbody></table></div>`;
+  charts.rev=new Chart(document.getElementById('revChart'),{type:'bar',
+    data:{labels,datasets:[
+      {label:'Convênio (R$)',data:MONTHS.map(m=>m.receitaConv),backgroundColor:PUR,borderRadius:5},
+      {label:'Particular (R$)',data:MONTHS.map(m=>m.receitaPart),backgroundColor:GOLD,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+brl(c.raw)}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,grid:{color:'#EFE9F6'},ticks:{callback:v=>'R$ '+v}}}}});
+  charts.surg=new Chart(document.getElementById('surgChart'),{type:'bar',
+    data:{labels,datasets:[{label:'Cirurgias',data:MONTHS.map(m=>m.cirurgias),backgroundColor:GOLD,borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#EFE9F6'},ticks:{stepSize:1}},x:{grid:{display:false}}}}});
+}
+
+/* ---------- LEADS ---------- */
+function renderLeads(){
+  document.getElementById('leads').innerHTML=`
+  <div class="section-title"><span class="bar"></span>Perfil dos leads — evolução</div>
+  <p class="sub">Distribuição por tipo de atendimento, procedimento buscado e canal, mês a mês.</p>
+  <div class="grid2">
+    <div class="chart-box" style="margin-top:0"><div class="section-title" style="margin-top:0"><span class="bar"></span>Convênio × Particular por mês</div><div class="chart-container"><canvas id="tipoChart"></canvas></div></div>
+    <div class="chart-box" style="margin-top:0"><div class="section-title" style="margin-top:0"><span class="bar"></span>Procedimento buscado por mês</div><div class="chart-container"><canvas id="procChart"></canvas></div></div>
+  </div>
+  <div class="chart-box"><div class="section-title" style="margin-top:0"><span class="bar"></span>Leads por canal por mês</div><div class="chart-container" style="height:240px"><canvas id="leadCanalChart"></canvas></div></div>`;
+  charts.tipo=new Chart(document.getElementById('tipoChart'),{type:'bar',
+    data:{labels,datasets:[
+      {label:'Convênio',data:MONTHS.map(m=>m.tipo.conv),backgroundColor:PUR,borderRadius:5},
+      {label:'Particular',data:MONTHS.map(m=>m.tipo.part),backgroundColor:GOLD,borderRadius:5},
+      {label:'Não informado',data:MONTHS.map(m=>m.tipo.naoInf),backgroundColor:GRAY,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,grid:{color:'#EFE9F6'}}}}});
+  charts.proc=new Chart(document.getElementById('procChart'),{type:'bar',
+    data:{labels,datasets:[
+      {label:'Consulta',data:MONTHS.map(m=>m.proc.consulta),backgroundColor:PUR,borderRadius:5},
+      {label:'Fisioterapia',data:MONTHS.map(m=>m.proc.fisio),backgroundColor:VIO,borderRadius:5},
+      {label:'Acupuntura',data:MONTHS.map(m=>m.proc.acup),backgroundColor:VIOL,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true,grid:{color:'#EFE9F6'}},x:{grid:{display:false}}}}});
+  charts.leadCanal=new Chart(document.getElementById('leadCanalChart'),{type:'bar',
+    data:{labels,datasets:[
+      {label:'Google Ads',data:MONTHS.map(m=>m.canalLeads.google),backgroundColor:PUR,borderRadius:5},
+      {label:'Meta Ads',data:MONTHS.map(m=>m.canalLeads.meta),backgroundColor:META,borderRadius:5},
+      {label:'Indicação',data:MONTHS.map(m=>m.canalLeads.ind),backgroundColor:GRN,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true,grid:{color:'#EFE9F6'}},x:{grid:{display:false}}}}});
+}
+
+/* ---------- MÊS A MÊS (planilha) ---------- */
+function renderMesAMes(){
+  const pct=v=>v.toFixed(1).replace('.',',')+'%';
+  const IND=[
+    {g:'FUNIL'},
+    {l:'Leads recebidos',f:m=>m.leads,fmt:v=>v,up:true},
+    {l:'Conversões totais',f:m=>m.convTotal,fmt:v=>v,up:true},
+    {l:'Taxa de conversão',f:m=>m.convPct,fmt:pct,up:true},
+    {l:'Conversões diretas (pacientes)',f:m=>m.diretas,fmt:v=>v,up:true,ind:true},
+    {l:'Conversões indiretas',f:m=>m.indiretas,fmt:v=>v,up:true,ind:true},
+    {l:'— IAD',f:m=>m.iad,fmt:v=>v,up:true,ind:true},
+    {l:'— Clivale',f:m=>m.clivale,fmt:v=>v,up:true,ind:true},
+    {l:'Marcações p/ mês seguinte',f:m=>m.mesSeguinte,fmt:v=>v,up:true,ind:true},
+    {g:'RECEITA & PROCEDIMENTOS'},
+    {l:'Receita gerada (R$)',f:m=>m.receita,fmt:brl,up:true},
+    {l:'— Convênio (R$)',f:m=>m.receitaConv,fmt:brl,up:true,ind:true},
+    {l:'— Particular (R$)',f:m=>m.receitaPart,fmt:brl,up:true,ind:true},
+    {l:'Cirurgias geradas',f:m=>m.cirurgias,fmt:v=>v,up:true},
+    {g:'MÍDIA & CUSTO'},
+    {l:'Investimento total (R$)',f:m=>m.investTotal,fmt:brl2,up:false},
+    {l:'— Google Ads (R$)',f:m=>m.investGoogle,fmt:brl2,up:false,ind:true},
+    {l:'— Meta Ads (R$)',f:m=>m.investMeta,fmt:brl2,up:false,ind:true},
+    {l:'Custo por lead — pago (R$)',f:m=>m.cplPago,fmt:brl2,up:false},
+    {l:'Custo por conversão — pago (R$)',f:m=>m.custoConvPago,fmt:brl2,up:false},
+    {l:'Novos pacientes — pago',f:m=>m.novosPacPago,fmt:v=>v,up:true}
+  ];
+  const th='<th>Indicador</th>'+MONTHS.map(m=>`<th>${m.label}</th>`).join('')+(prev?'<th>Variação</th>':'');
+  const body=IND.map(row=>{
+    if(row.g) return `<tr class="grp"><td colspan="${MONTHS.length+(prev?2:1)}">${row.g}</td></tr>`;
+    const cells=MONTHS.map(m=>`<td>${row.fmt(row.f(m))}</td>`).join('');
+    let dcell='';
+    if(prev){
+      const cur=row.f(last),pv=row.f(prev);
+      if(pv===0&&cur===0) dcell='<span class="delta flat">—</span>';
+      else if(pv===0) dcell='<span class="delta '+(row.up?'up':'down')+'">novo</span>';
+      else{const d=(cur-pv)/Math.abs(pv)*100;const cls=d===0?'flat':((d>0)===row.up?'up':'down');dcell='<span class="delta '+cls+'">'+(d>0?'▲ +':(d<0?'▼ ':'■ '))+d.toFixed(0)+'%</span>';}
+      dcell='<td style="text-align:right">'+dcell+'</td>';
+    }
+    return `<tr><td class="${row.ind?'indent':''}">${row.l}</td>${cells}${dcell}</tr>`;
+  }).join('');
+  document.getElementById('mesames').innerHTML=`
+  <div class="section-title"><span class="bar"></span>Resultado mês a mês</div>
+  <p class="sub">Todos os indicadores em uma visão de planilha. Variação = ${last.label} vs ${prev?prev.label:'—'}. Verde = evolução positiva, vermelho = atenção. A mesma tabela está disponível no arquivo Excel entregue junto.</p>
+  <div class="table-wrap"><table class="mtable"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
+  ${last.banner?`<div class="note">🗓️ <b>${last.label}:</b> ${last.banner.d}</div>`:''}`;
+}
+
+/* ---------- INSIGHTS ---------- */
+function renderInsights(){
+  document.getElementById('insights').innerHTML=`
+  <div class="section-title"><span class="bar"></span>Leitura do mês <span class="latest-chip">${last.label}/${last.ano}</span></div>
+  ${last.insights.map(x=>`<div class="${x.c}"><h4>${x.i} <span>${x.t}</span> <span class="tag">${x.tag}</span></h4><p>${x.p}</p></div>`).join('')}`;
+}
+
+const renderers={evolucao:renderEvolucao,canais:renderCanais,receita:renderReceita,leads:renderLeads,mesames:renderMesAMes,insights:renderInsights};
+let done={};
+function showTab(id,btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  if(!done[id]){ renderers[id](); done[id]=true; }
+}
+renderEvolucao(); done.evolucao=true;
+</script>
+</body>
+</html>

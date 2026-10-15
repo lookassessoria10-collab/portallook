@@ -13,3 +13,8 @@ export function isFullCommercialReport(slug: string, tab: string, mode: "client"
 export function isIsaborCommercialReport(slug: string): boolean {
   return slug === "dra-isabor-sant-anna";
 }
+
+/** Only the source's closing month; later imports keep their existing renderer. */
+export function isLandimOriginalReport(slug: string, tab: string, periodKey: string | null): boolean {
+  return slug === "instituto-landim" && tab === "commercial" && periodKey === "2026-08";
+}

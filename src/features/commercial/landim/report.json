@@ -1,0 +1,1006 @@
+{
+  "source": "https://clientes.lookassessoria.com.br/institutolandim/dashboard-comercial.html",
+  "period": "📅 Julho – Agosto / 2026",
+  "months": [
+    {
+      "key": "jul",
+      "label": "Julho",
+      "ano": "2026",
+      "leads": 49,
+      "diretas": 9,
+      "iad": 7,
+      "clivale": 3,
+      "indiretas": 10,
+      "convTotal": 19,
+      "convPct": 38.8,
+      "receita": 13000,
+      "receitaConv": 10600,
+      "receitaPart": 2400,
+      "cirurgias": 2,
+      "investGoogle": 607.96,
+      "investMeta": 648.08,
+      "investTotal": 1256.04,
+      "cplPago": 27.31,
+      "custoConvPago": 78.5,
+      "novosPacPago": 6,
+      "leadsPagos": 46,
+      "convPagas": 16,
+      "canalLeads": {
+        "google": 40,
+        "meta": 6,
+        "ind": 3
+      },
+      "canal": {
+        "google": {
+          "leads": 40,
+          "dir": 6,
+          "ind": 8,
+          "conv": 14,
+          "nov": 6,
+          "rec": 1400,
+          "cpl": 15.2,
+          "cpc": 43.43,
+          "inv": 607.96,
+          "taxa": 35
+        },
+        "meta": {
+          "leads": 6,
+          "dir": 0,
+          "ind": 2,
+          "conv": 2,
+          "nov": 0,
+          "rec": 0,
+          "cpl": 108.01,
+          "cpc": 324.04,
+          "inv": 648.08,
+          "taxa": 33.3
+        },
+        "ind": {
+          "leads": 3,
+          "dir": 3,
+          "ind": 0,
+          "conv": 3,
+          "nov": 3,
+          "rec": 11600,
+          "cpl": null,
+          "cpc": null,
+          "inv": 0,
+          "taxa": 100
+        }
+      },
+      "tipo": {
+        "conv": 31,
+        "part": 14,
+        "naoInf": 4
+      },
+      "proc": {
+        "consulta": 43,
+        "fisio": 4,
+        "acup": 2,
+        "naoInf": 0
+      },
+      "receitaCanal": {
+        "ind": 11600,
+        "google": 1400,
+        "meta": 0
+      },
+      "cirurgiasList": [
+        {
+          "n": "Angela Maria",
+          "s": "Convênio · consulta → cirurgia",
+          "canal": "ind"
+        },
+        {
+          "n": "Caroline Spínola",
+          "s": "Convênio · consulta → cirurgia (marido também)",
+          "canal": "google"
+        }
+      ],
+      "receitaRows": [
+        {
+          "n": "Isabel Rivas Maximus",
+          "canal": "ind",
+          "tipo": "Convênio",
+          "v": 9200
+        },
+        {
+          "n": "Edgar Metzner",
+          "canal": "ind",
+          "tipo": "Particular",
+          "v": 2400
+        },
+        {
+          "n": "Mariana Benetti",
+          "canal": "google",
+          "tipo": "Convênio",
+          "v": 1400
+        }
+      ],
+      "mesSeguinte": 3,
+      "mesSeguinteNome": "agosto",
+      "banner": null,
+      "insights": [
+        {
+          "c": "insight",
+          "i": "🎯",
+          "t": "Google Ads carrega o funil — e barato",
+          "tag": "Canal",
+          "p": "82% dos leads a <b>R$ 15,20/lead</b>; 6 dos 9 pacientes diretos, 8 das 10 conversões indiretas e uma cirurgia."
+        },
+        {
+          "c": "insight warn",
+          "i": "⚠️",
+          "t": "Meta Ads não converteu",
+          "tag": "Atenção",
+          "p": "R$ 648 investidos, 6 leads e <b>nenhum paciente direto</b> (custo/conv R$ 324). Revisar antes de cortar."
+        },
+        {
+          "c": "insight",
+          "i": "💰",
+          "t": "Indicação é ouro",
+          "tag": "Orgânico",
+          "p": "3 leads, <b>R$ 11.600 dos R$ 13.000</b> e uma cirurgia — sem custo de mídia."
+        },
+        {
+          "c": "insight rec",
+          "i": "✅",
+          "t": "Próximos passos",
+          "tag": "Ação",
+          "p": "Realocar verba do Meta p/ Google; criar programa de indicação; mapear motivos de perda; acompanhar as 3 marcações de agosto."
+        }
+      ]
+    },
+    {
+      "key": "ago",
+      "label": "Agosto",
+      "ano": "2026",
+      "leads": 39,
+      "diretas": 1,
+      "iad": 1,
+      "clivale": 7,
+      "indiretas": 8,
+      "convTotal": 9,
+      "convPct": 23.1,
+      "receita": 0,
+      "receitaConv": 0,
+      "receitaPart": 0,
+      "cirurgias": 0,
+      "investGoogle": 1010.11,
+      "investMeta": 980.68,
+      "investTotal": 1990.79,
+      "cplPago": 53.81,
+      "custoConvPago": 248.85,
+      "novosPacPago": 0,
+      "leadsPagos": 37,
+      "convPagas": 8,
+      "canalLeads": {
+        "google": 31,
+        "meta": 6,
+        "ind": 2
+      },
+      "canal": {
+        "google": {
+          "leads": 31,
+          "dir": 0,
+          "ind": 5,
+          "conv": 5,
+          "nov": 0,
+          "rec": 0,
+          "cpl": 32.58,
+          "cpc": 202.02,
+          "inv": 1010.11,
+          "taxa": 16.1
+        },
+        "meta": {
+          "leads": 6,
+          "dir": 0,
+          "ind": 3,
+          "conv": 3,
+          "nov": 0,
+          "rec": 0,
+          "cpl": 163.45,
+          "cpc": 326.89,
+          "inv": 980.68,
+          "taxa": 50
+        },
+        "ind": {
+          "leads": 2,
+          "dir": 1,
+          "ind": 0,
+          "conv": 1,
+          "nov": 1,
+          "rec": 0,
+          "cpl": null,
+          "cpc": null,
+          "inv": 0,
+          "taxa": 50
+        }
+      },
+      "tipo": {
+        "conv": 31,
+        "part": 5,
+        "naoInf": 3
+      },
+      "proc": {
+        "consulta": 32,
+        "fisio": 3,
+        "acup": 1,
+        "naoInf": 3
+      },
+      "receitaCanal": {
+        "ind": 0,
+        "google": 0,
+        "meta": 0
+      },
+      "cirurgiasList": [],
+      "receitaRows": [],
+      "mesSeguinte": 2,
+      "mesSeguinteNome": "setembro",
+      "banner": {
+        "t": "Contexto: agenda reduzida em 16 dias",
+        "d": "O Dr. Gilvan Landim suspendeu os atendimentos por <b>16 dias em agosto</b> (viagem). Com metade do mês sem agenda, comparecimentos e receita direta caíram fortemente — leia os resultados à luz desse fator. O topo do funil (leads) se manteve."
+      },
+      "insights": [
+        {
+          "c": "insight warn",
+          "i": "🗓️",
+          "t": "Metade do mês sem agenda (Dr. Gilvan em viagem)",
+          "tag": "Contexto",
+          "p": "A suspensão por <b>16 dias</b> é o fator central: derrubou comparecimentos (1 conversão direta) e zerou a receita. Não é queda de demanda — os leads continuaram entrando."
+        },
+        {
+          "c": "insight",
+          "i": "🔁",
+          "t": "A rede parceira sustentou o mês",
+          "tag": "Parceiros",
+          "p": "8 das 9 conversões vieram de parceiros — <b>Clivale (7)</b> e IAD (1). O amortecedor do funil quando a agenda interna fecha."
+        },
+        {
+          "c": "insight warn",
+          "i": "📈",
+          "t": "Investimento subiu, eficiência caiu",
+          "tag": "Mídia",
+          "p": "Verba +58% (R$ 1.256 → R$ 1.991) com menos leads: <b>CPL quase dobrou</b> (R$ 27 → R$ 54). Alinhar o ritmo de mídia à capacidade de atendimento."
+        },
+        {
+          "c": "insight rec",
+          "i": "✅",
+          "t": "Próximos passos",
+          "tag": "Ação",
+          "p": "Alinhar calendário de mídia à disponibilidade médica; recuperar no-shows e leads de convênio em setembro; acompanhar as 2 marcações de setembro; retomar indicação."
+        }
+      ]
+    }
+  ],
+  "tabs": [
+    {
+      "id": "evolucao",
+      "label": "Evolução",
+      "html": "\n  <div class=\"banner\"><div class=\"ic\">🗓️</div><div><div class=\"t\">Contexto: agenda reduzida em 16 dias</div><div class=\"d\">O Dr. Gilvan Landim suspendeu os atendimentos por <b>16 dias em agosto</b> (viagem). Com metade do mês sem agenda, comparecimentos e receita direta caíram fortemente — leia os resultados à luz desse fator. O topo do funil (leads) se manteve.</div></div></div>\n  <div class=\"section-title\"><span class=\"bar\"></span>Mês mais recente <span class=\"latest-chip\">Agosto/2026</span></div>\n  <div class=\"kpi-grid\">\n    <div class=\"kpi\"><div class=\"label\">Leads recebidos</div><div class=\"value\">39</div><span class=\"mom down\">▼ -20% vs jul</span></div>\n    <div class=\"kpi accent\"><div class=\"label\">Conversões totais</div><div class=\"value\">9</div><div class=\"foot\">23,1% dos leads</div><span class=\"mom down\">▼ -53% vs jul</span></div>\n    <div class=\"kpi\"><div class=\"label\">Novos pacientes</div><div class=\"value\">1</div><div class=\"foot\">diretas (compareceram)</div><span class=\"mom down\">▼ -89% vs jul</span></div>\n    <div class=\"kpi gold\"><div class=\"label\">Receita gerada</div><div class=\"value\">R$ 0</div><span class=\"mom down\">▼ -100% vs jul</span></div>\n    <div class=\"kpi\"><div class=\"label\">Cirurgias geradas</div><div class=\"value\">0</div><div class=\"foot\">procedimento de maior valor</div><span class=\"mom down\">▼ -100% vs jul</span></div>\n    <div class=\"kpi\"><div class=\"label\">Investimento mídia</div><div class=\"value\">R$ 1.991</div><span class=\"mom down\">▲ +58% vs jul</span></div>\n    <div class=\"kpi\"><div class=\"label\">Custo por lead (pago)</div><div class=\"value\">R$ 53,81</div><span class=\"mom down\">▲ +97% vs jul</span></div>\n    <div class=\"kpi\"><div class=\"label\">Marcações p/ mês seguinte</div><div class=\"value\">2</div><div class=\"foot\">agendadas p/ setembro</div></div>\n  </div>\n  <div class=\"grid2\" style=\"margin-top:16px\">\n    <div class=\"chart-box\" style=\"margin-top:0\"><div class=\"section-title\" style=\"margin-top:0\"><span class=\"bar\"></span>Composição do funil por mês</div><div class=\"chart-container\"><canvas id=\"compChart\"></canvas></div></div>\n    <div class=\"chart-box\" style=\"margin-top:0\"><div class=\"section-title\" style=\"margin-top:0\"><span class=\"bar\"></span>Receita × Investimento × CPL</div><div class=\"chart-container\"><canvas id=\"revInvChart\"></canvas></div></div>\n  </div>\n  <div class=\"chart-box\"><div class=\"section-title\" style=\"margin-top:0\"><span class=\"bar\"></span>Taxa de conversão por mês (%)</div><div class=\"chart-container\" style=\"height:220px\"><canvas id=\"taxaChart\"></canvas></div></div>",
+      "charts": [
+        {
+          "id": "compChart",
+          "config": {
+            "type": "bar",
+            "data": {
+              "labels": [
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "Diretas (Landim)",
+                  "data": [
+                    9,
+                    1
+                  ],
+                  "backgroundColor": "#5B2B86"
+                },
+                {
+                  "label": "IAD",
+                  "data": [
+                    7,
+                    1
+                  ],
+                  "backgroundColor": "#E39A34"
+                },
+                {
+                  "label": "Clivale",
+                  "data": [
+                    3,
+                    7
+                  ],
+                  "backgroundColor": "#B48BDD"
+                },
+                {
+                  "label": "Não convertidos",
+                  "data": [
+                    30,
+                    30
+                  ],
+                  "backgroundColor": "#DBD2E8"
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "position": "bottom"
+                }
+              },
+              "scales": {
+                "x": {
+                  "stacked": true,
+                  "grid": {
+                    "display": false
+                  }
+                },
+                "y": {
+                  "stacked": true,
+                  "beginAtZero": true,
+                  "grid": {
+                    "color": "#EFE9F6"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "revInvChart",
+          "config": {
+            "data": {
+              "labels": [
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "type": "bar",
+                  "label": "Receita (R$)",
+                  "data": [
+                    13000,
+                    0
+                  ],
+                  "backgroundColor": "#C9A24B",
+                  "yAxisID": "y",
+                  "borderRadius": 5
+                },
+                {
+                  "type": "bar",
+                  "label": "Investimento (R$)",
+                  "data": [
+                    1256.04,
+                    1990.79
+                  ],
+                  "backgroundColor": "#8E5BC6",
+                  "yAxisID": "y",
+                  "borderRadius": 5
+                },
+                {
+                  "type": "line",
+                  "label": "CPL (R$)",
+                  "data": [
+                    27.31,
+                    53.81
+                  ],
+                  "borderColor": "#D9556B",
+                  "backgroundColor": "#D9556B",
+                  "tension": 0.3,
+                  "yAxisID": "y1"
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "position": "bottom"
+                },
+                "tooltip": {
+                  "callbacks": {
+                    "label": {
+                      "callback": "c=>c.dataset.label+': '+brl2(c.raw)"
+                    }
+                  }
+                }
+              },
+              "scales": {
+                "y": {
+                  "position": "left",
+                  "beginAtZero": true,
+                  "grid": {
+                    "color": "#EFE9F6"
+                  },
+                  "ticks": {
+                    "callback": {
+                      "callback": "v=>'R$ '+v"
+                    }
+                  }
+                },
+                "y1": {
+                  "position": "right",
+                  "beginAtZero": true,
+                  "grid": {
+                    "display": false
+                  },
+                  "ticks": {
+                    "callback": {
+                      "callback": "v=>'R$ '+v"
+                    }
+                  }
+                },
+                "x": {
+                  "grid": {
+                    "display": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "taxaChart",
+          "config": {
+            "type": "line",
+            "data": {
+              "labels": [
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "Taxa de conversão (%)",
+                  "data": [
+                    38.8,
+                    23.1
+                  ],
+                  "borderColor": "#5B2B86",
+                  "backgroundColor": "rgba(91,43,134,.12)",
+                  "fill": true,
+                  "tension": 0.3,
+                  "pointRadius": 5,
+                  "pointBackgroundColor": "#5B2B86"
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "display": false
+                },
+                "tooltip": {
+                  "callbacks": {
+                    "label": {
+                      "callback": "c=>c.raw.toFixed(1).replace('.',',')+'%'"
+                    }
+                  }
+                }
+              },
+              "scales": {
+                "y": {
+                  "beginAtZero": true,
+                  "grid": {
+                    "color": "#EFE9F6"
+                  },
+                  "ticks": {
+                    "callback": {
+                      "callback": "v=>v+'%'"
+                    }
+                  }
+                },
+                "x": {
+                  "grid": {
+                    "display": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "canais",
+      "label": "Canais & Investimento",
+      "html": "\n  <div class=\"section-title\"><span class=\"bar\"></span>Canais &amp; investimento — evolução</div>\n  <p class=\"sub\">SITE, GOOGLE e NÃO INFORMADO = <b>Google Ads</b> (busca). Instagram = <b>Meta Ads</b>. Indicação é orgânica (sem investimento).</p>\n  <div class=\"grid2\">\n    <div class=\"chart-box\" style=\"margin-top:0\"><div class=\"section-title\" style=\"margin-top:0\"><span class=\"bar\"></span>Leads por canal por mês</div><div class=\"chart-container\"><canvas id=\"chanLeadChart\"></canvas></div></div>\n    <div class=\"chart-box\" style=\"margin-top:0\"><div class=\"section-title\" style=\"margin-top:0\"><span class=\"bar\"></span>Investimento por canal × CPL pago</div><div class=\"chart-container\"><canvas id=\"chanInvChart\"></canvas></div></div>\n  </div>\n  <div class=\"section-title\"><span class=\"bar\"></span>Detalhamento por canal e mês</div>\n  <div class=\"table-wrap\"><table>\n    <thead><tr><th>Mês</th><th>Canal</th><th>Invest.</th><th>Leads</th><th>Conv.</th><th>Novos pac.</th><th>Receita</th><th>CPL</th><th>Taxa conv.</th></tr></thead>\n    <tbody><tr><td>Julho</td><td><span class=\"chan c-google\">Google Ads</span></td><td>R$ 607,96</td><td>40</td><td>14</td><td>6</td><td>R$ 1.400</td><td>R$ 15,20</td><td>35,0%</td></tr><tr><td>Julho</td><td><span class=\"chan c-meta\">Meta Ads</span></td><td>R$ 648,08</td><td>6</td><td>2</td><td>0</td><td>R$ 0</td><td>R$ 108,01</td><td>33,3%</td></tr><tr><td>Julho</td><td><span class=\"chan c-ind\">Indicação</span></td><td>—</td><td>3</td><td>3</td><td>3</td><td>R$ 11.600</td><td>—</td><td>100,0%</td></tr><tr><td>Agosto</td><td><span class=\"chan c-google\">Google Ads</span></td><td>R$ 1.010,11</td><td>31</td><td>5</td><td>0</td><td>R$ 0</td><td>R$ 32,58</td><td>16,1%</td></tr><tr><td>Agosto</td><td><span class=\"chan c-meta\">Meta Ads</span></td><td>R$ 980,68</td><td>6</td><td>3</td><td>0</td><td>R$ 0</td><td>R$ 163,45</td><td>50,0%</td></tr><tr><td>Agosto</td><td><span class=\"chan c-ind\">Indicação</span></td><td>—</td><td>2</td><td>1</td><td>1</td><td>R$ 0</td><td>—</td><td>50,0%</td></tr></tbody></table></div>\n  <div class=\"note\">💡 O Google Ads é consistentemente o canal de maior volume e menor CPL. O Meta segue sem gerar paciente direto nos dois meses. A Indicação é o canal de maior taxa de conversão e receita.</div>",
+      "charts": [
+        {
+          "id": "chanLeadChart",
+          "config": {
+            "type": "bar",
+            "data": {
+              "labels": [
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "Google Ads",
+                  "data": [
+                    40,
+                    31
+                  ],
+                  "backgroundColor": "#5B2B86",
+                  "borderRadius": 5
+                },
+                {
+                  "label": "Meta Ads",
+                  "data": [
+                    6,
+                    6
+                  ],
+                  "backgroundColor": "#B0357F",
+                  "borderRadius": 5
+                },
+                {
+                  "label": "Indicação",
+                  "data": [
+                    3,
+                    2
+                  ],
+                  "backgroundColor": "#2E9E6B",
+                  "borderRadius": 5
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "position": "bottom"
+                }
+              },
+              "scales": {
+                "y": {
+                  "beginAtZero": true,
+                  "grid": {
+                    "color": "#EFE9F6"
+                  }
+                },
+                "x": {
+                  "grid": {
+                    "display": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "chanInvChart",
+          "config": {
+            "data": {
+              "labels": [
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "type": "bar",
+                  "label": "Invest. Google (R$)",
+                  "data": [
+                    607.96,
+                    1010.11
+                  ],
+                  "backgroundColor": "#5B2B86",
+                  "yAxisID": "y",
+                  "borderRadius": 5
+                },
+                {
+                  "type": "bar",
+                  "label": "Invest. Meta (R$)",
+                  "data": [
+                    648.08,
+                    980.68
+                  ],
+                  "backgroundColor": "#B0357F",
+                  "yAxisID": "y",
+                  "borderRadius": 5
+                },
+                {
+                  "type": "line",
+                  "label": "CPL pago (R$)",
+                  "data": [
+                    27.31,
+                    53.81
+                  ],
+                  "borderColor": "#D9556B",
+                  "backgroundColor": "#D9556B",
+                  "tension": 0.3,
+                  "yAxisID": "y1"
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "position": "bottom"
+                },
+                "tooltip": {
+                  "callbacks": {
+                    "label": {
+                      "callback": "c=>c.dataset.label+': '+brl2(c.raw)"
+                    }
+                  }
+                }
+              },
+              "scales": {
+                "y": {
+                  "position": "left",
+                  "beginAtZero": true,
+                  "grid": {
+                    "color": "#EFE9F6"
+                  },
+                  "ticks": {
+                    "callback": {
+                      "callback": "v=>'R$ '+v"
+                    }
+                  }
+                },
+                "y1": {
+                  "position": "right",
+                  "beginAtZero": true,
+                  "grid": {
+                    "display": false
+                  },
+                  "ticks": {
+                    "callback": {
+                      "callback": "v=>'R$ '+v"
+                    }
+                  }
+                },
+                "x": {
+                  "grid": {
+                    "display": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "receita",
+      "label": "Receita & Cirurgias",
+      "html": "\n  <div class=\"section-title\"><span class=\"bar\"></span>Receita &amp; cirurgias — evolução</div>\n  <p class=\"sub\">A receita em R$ vem de consultas/procedimentos. A <b>cirurgia</b> não tem valor lançado — é um marcador de que o lead evoluiu para um procedimento de maior valor.</p>\n  <div class=\"grid2\">\n    <div class=\"chart-box\" style=\"margin-top:0\"><div class=\"section-title\" style=\"margin-top:0\"><span class=\"bar\"></span>Receita por mês (convênio × particular)</div><div class=\"chart-container\"><canvas id=\"revChart\"></canvas></div></div>\n    <div class=\"chart-box\" style=\"margin-top:0\"><div class=\"section-title\" style=\"margin-top:0\"><span class=\"bar\"></span>Cirurgias geradas por mês</div><div class=\"chart-container\"><canvas id=\"surgChart\"></canvas></div></div>\n  </div>\n  <div class=\"section-title\"><span class=\"bar\"></span>Cirurgias geradas — destaque por canal</div>\n  <div class=\"surg-grid\"><div class=\"surg-card\"><div class=\"n\">Angela Maria</div><div class=\"s\">Convênio · consulta → cirurgia</div><div class=\"ch\"><span class=\"mtag\">Julho</span><span class=\"chan c-ind\">Indicação</span></div></div><div class=\"surg-card\"><div class=\"n\">Caroline Spínola</div><div class=\"s\">Convênio · consulta → cirurgia (marido também)</div><div class=\"ch\"><span class=\"mtag\">Julho</span><span class=\"chan c-google\">Google Ads</span></div></div></div>\n  <div class=\"section-title\"><span class=\"bar\"></span>Receita detalhada (todos os meses)</div>\n  <div class=\"table-wrap\"><table><thead><tr><th>Mês</th><th>Paciente</th><th>Canal</th><th>Tipo</th><th>Valor</th></tr></thead><tbody><tr><td><span class=\"mtag\">Julho</span></td><td>Isabel Rivas Maximus</td><td><span class=\"chan c-ind\">Indicação</span></td><td>Convênio</td><td><b>R$ 9.200</b></td></tr><tr><td><span class=\"mtag\">Julho</span></td><td>Edgar Metzner</td><td><span class=\"chan c-ind\">Indicação</span></td><td>Particular</td><td><b>R$ 2.400</b></td></tr><tr><td><span class=\"mtag\">Julho</span></td><td>Mariana Benetti</td><td><span class=\"chan c-google\">Google Ads</span></td><td>Convênio</td><td><b>R$ 1.400</b></td></tr></tbody></table></div>",
+      "charts": [
+        {
+          "id": "revChart",
+          "config": {
+            "type": "bar",
+            "data": {
+              "labels": [
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "Convênio (R$)",
+                  "data": [
+                    10600,
+                    0
+                  ],
+                  "backgroundColor": "#5B2B86",
+                  "borderRadius": 5
+                },
+                {
+                  "label": "Particular (R$)",
+                  "data": [
+                    2400,
+                    0
+                  ],
+                  "backgroundColor": "#C9A24B",
+                  "borderRadius": 5
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "position": "bottom"
+                },
+                "tooltip": {
+                  "callbacks": {
+                    "label": {
+                      "callback": "c=>c.dataset.label+': '+brl(c.raw)"
+                    }
+                  }
+                }
+              },
+              "scales": {
+                "x": {
+                  "stacked": true,
+                  "grid": {
+                    "display": false
+                  }
+                },
+                "y": {
+                  "stacked": true,
+                  "beginAtZero": true,
+                  "grid": {
+                    "color": "#EFE9F6"
+                  },
+                  "ticks": {
+                    "callback": {
+                      "callback": "v=>'R$ '+v"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "surgChart",
+          "config": {
+            "type": "bar",
+            "data": {
+              "labels": [
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "Cirurgias",
+                  "data": [
+                    2,
+                    0
+                  ],
+                  "backgroundColor": "#C9A24B",
+                  "borderRadius": 6
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "display": false
+                }
+              },
+              "scales": {
+                "y": {
+                  "beginAtZero": true,
+                  "grid": {
+                    "color": "#EFE9F6"
+                  },
+                  "ticks": {
+                    "stepSize": 1
+                  }
+                },
+                "x": {
+                  "grid": {
+                    "display": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "leads",
+      "label": "Leads",
+      "html": "\n  <div class=\"section-title\"><span class=\"bar\"></span>Perfil dos leads — evolução</div>\n  <p class=\"sub\">Distribuição por tipo de atendimento, procedimento buscado e canal, mês a mês.</p>\n  <div class=\"grid2\">\n    <div class=\"chart-box\" style=\"margin-top:0\"><div class=\"section-title\" style=\"margin-top:0\"><span class=\"bar\"></span>Convênio × Particular por mês</div><div class=\"chart-container\"><canvas id=\"tipoChart\"></canvas></div></div>\n    <div class=\"chart-box\" style=\"margin-top:0\"><div class=\"section-title\" style=\"margin-top:0\"><span class=\"bar\"></span>Procedimento buscado por mês</div><div class=\"chart-container\"><canvas id=\"procChart\"></canvas></div></div>\n  </div>\n  <div class=\"chart-box\"><div class=\"section-title\" style=\"margin-top:0\"><span class=\"bar\"></span>Leads por canal por mês</div><div class=\"chart-container\" style=\"height:240px\"><canvas id=\"leadCanalChart\"></canvas></div></div>",
+      "charts": [
+        {
+          "id": "tipoChart",
+          "config": {
+            "type": "bar",
+            "data": {
+              "labels": [
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "Convênio",
+                  "data": [
+                    31,
+                    31
+                  ],
+                  "backgroundColor": "#5B2B86",
+                  "borderRadius": 5
+                },
+                {
+                  "label": "Particular",
+                  "data": [
+                    14,
+                    5
+                  ],
+                  "backgroundColor": "#C9A24B",
+                  "borderRadius": 5
+                },
+                {
+                  "label": "Não informado",
+                  "data": [
+                    4,
+                    3
+                  ],
+                  "backgroundColor": "#DBD2E8",
+                  "borderRadius": 5
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "position": "bottom"
+                }
+              },
+              "scales": {
+                "x": {
+                  "stacked": true,
+                  "grid": {
+                    "display": false
+                  }
+                },
+                "y": {
+                  "stacked": true,
+                  "beginAtZero": true,
+                  "grid": {
+                    "color": "#EFE9F6"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "procChart",
+          "config": {
+            "type": "bar",
+            "data": {
+              "labels": [
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "Consulta",
+                  "data": [
+                    43,
+                    32
+                  ],
+                  "backgroundColor": "#5B2B86",
+                  "borderRadius": 5
+                },
+                {
+                  "label": "Fisioterapia",
+                  "data": [
+                    4,
+                    3
+                  ],
+                  "backgroundColor": "#8E5BC6",
+                  "borderRadius": 5
+                },
+                {
+                  "label": "Acupuntura",
+                  "data": [
+                    2,
+                    1
+                  ],
+                  "backgroundColor": "#B48BDD",
+                  "borderRadius": 5
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "position": "bottom"
+                }
+              },
+              "scales": {
+                "y": {
+                  "beginAtZero": true,
+                  "grid": {
+                    "color": "#EFE9F6"
+                  }
+                },
+                "x": {
+                  "grid": {
+                    "display": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "leadCanalChart",
+          "config": {
+            "type": "bar",
+            "data": {
+              "labels": [
+                "Julho",
+                "Agosto"
+              ],
+              "datasets": [
+                {
+                  "label": "Google Ads",
+                  "data": [
+                    40,
+                    31
+                  ],
+                  "backgroundColor": "#5B2B86",
+                  "borderRadius": 5
+                },
+                {
+                  "label": "Meta Ads",
+                  "data": [
+                    6,
+                    6
+                  ],
+                  "backgroundColor": "#B0357F",
+                  "borderRadius": 5
+                },
+                {
+                  "label": "Indicação",
+                  "data": [
+                    3,
+                    2
+                  ],
+                  "backgroundColor": "#2E9E6B",
+                  "borderRadius": 5
+                }
+              ]
+            },
+            "options": {
+              "responsive": true,
+              "maintainAspectRatio": false,
+              "plugins": {
+                "legend": {
+                  "position": "bottom"
+                }
+              },
+              "scales": {
+                "y": {
+                  "beginAtZero": true,
+                  "grid": {
+                    "color": "#EFE9F6"
+                  }
+                },
+                "x": {
+                  "grid": {
+                    "display": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "mesames",
+      "label": "Mês a Mês",
+      "html": "\n  <div class=\"section-title\"><span class=\"bar\"></span>Resultado mês a mês</div>\n  <p class=\"sub\">Todos os indicadores em uma visão de planilha. Variação = Agosto vs Julho. Verde = evolução positiva, vermelho = atenção. A mesma tabela está disponível no arquivo Excel entregue junto.</p>\n  <div class=\"table-wrap\"><table class=\"mtable\"><thead><tr><th>Indicador</th><th>Julho</th><th>Agosto</th><th>Variação</th></tr></thead><tbody><tr class=\"grp\"><td colspan=\"4\">FUNIL</td></tr><tr><td class=\"\">Leads recebidos</td><td>49</td><td>39</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -20%</span></td></tr><tr><td class=\"\">Conversões totais</td><td>19</td><td>9</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -53%</span></td></tr><tr><td class=\"\">Taxa de conversão</td><td>38,8%</td><td>23,1%</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -40%</span></td></tr><tr><td class=\"indent\">Conversões diretas (pacientes)</td><td>9</td><td>1</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -89%</span></td></tr><tr><td class=\"indent\">Conversões indiretas</td><td>10</td><td>8</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -20%</span></td></tr><tr><td class=\"indent\">— IAD</td><td>7</td><td>1</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -86%</span></td></tr><tr><td class=\"indent\">— Clivale</td><td>3</td><td>7</td><td style=\"text-align:right\"><span class=\"delta up\">▲ +133%</span></td></tr><tr><td class=\"indent\">Marcações p/ mês seguinte</td><td>3</td><td>2</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -33%</span></td></tr><tr class=\"grp\"><td colspan=\"4\">RECEITA & PROCEDIMENTOS</td></tr><tr><td class=\"\">Receita gerada (R$)</td><td>R$ 13.000</td><td>R$ 0</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -100%</span></td></tr><tr><td class=\"indent\">— Convênio (R$)</td><td>R$ 10.600</td><td>R$ 0</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -100%</span></td></tr><tr><td class=\"indent\">— Particular (R$)</td><td>R$ 2.400</td><td>R$ 0</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -100%</span></td></tr><tr><td class=\"\">Cirurgias geradas</td><td>2</td><td>0</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -100%</span></td></tr><tr class=\"grp\"><td colspan=\"4\">MÍDIA & CUSTO</td></tr><tr><td class=\"\">Investimento total (R$)</td><td>R$ 1.256,04</td><td>R$ 1.990,79</td><td style=\"text-align:right\"><span class=\"delta down\">▲ +58%</span></td></tr><tr><td class=\"indent\">— Google Ads (R$)</td><td>R$ 607,96</td><td>R$ 1.010,11</td><td style=\"text-align:right\"><span class=\"delta down\">▲ +66%</span></td></tr><tr><td class=\"indent\">— Meta Ads (R$)</td><td>R$ 648,08</td><td>R$ 980,68</td><td style=\"text-align:right\"><span class=\"delta down\">▲ +51%</span></td></tr><tr><td class=\"\">Custo por lead — pago (R$)</td><td>R$ 27,31</td><td>R$ 53,81</td><td style=\"text-align:right\"><span class=\"delta down\">▲ +97%</span></td></tr><tr><td class=\"\">Custo por conversão — pago (R$)</td><td>R$ 78,50</td><td>R$ 248,85</td><td style=\"text-align:right\"><span class=\"delta down\">▲ +217%</span></td></tr><tr><td class=\"\">Novos pacientes — pago</td><td>6</td><td>0</td><td style=\"text-align:right\"><span class=\"delta down\">▼ -100%</span></td></tr></tbody></table></div>\n  <div class=\"note\">🗓️ <b>Agosto:</b> O Dr. Gilvan Landim suspendeu os atendimentos por <b>16 dias em agosto</b> (viagem). Com metade do mês sem agenda, comparecimentos e receita direta caíram fortemente — leia os resultados à luz desse fator. O topo do funil (leads) se manteve.</div>",
+      "charts": []
+    },
+    {
+      "id": "insights",
+      "label": "Insights",
+      "html": "\n  <div class=\"section-title\"><span class=\"bar\"></span>Leitura do mês <span class=\"latest-chip\">Agosto/2026</span></div>\n  <div class=\"insight warn\"><h4>🗓️ <span>Metade do mês sem agenda (Dr. Gilvan em viagem)</span> <span class=\"tag\">Contexto</span></h4><p>A suspensão por <b>16 dias</b> é o fator central: derrubou comparecimentos (1 conversão direta) e zerou a receita. Não é queda de demanda — os leads continuaram entrando.</p></div><div class=\"insight\"><h4>🔁 <span>A rede parceira sustentou o mês</span> <span class=\"tag\">Parceiros</span></h4><p>8 das 9 conversões vieram de parceiros — <b>Clivale (7)</b> e IAD (1). O amortecedor do funil quando a agenda interna fecha.</p></div><div class=\"insight warn\"><h4>📈 <span>Investimento subiu, eficiência caiu</span> <span class=\"tag\">Mídia</span></h4><p>Verba +58% (R$ 1.256 → R$ 1.991) com menos leads: <b>CPL quase dobrou</b> (R$ 27 → R$ 54). Alinhar o ritmo de mídia à capacidade de atendimento.</p></div><div class=\"insight rec\"><h4>✅ <span>Próximos passos</span> <span class=\"tag\">Ação</span></h4><p>Alinhar calendário de mídia à disponibilidade médica; recuperar no-shows e leads de convênio em setembro; acompanhar as 2 marcações de setembro; retomar indicação.</p></div>",
+      "charts": []
+    }
+  ]
+}
