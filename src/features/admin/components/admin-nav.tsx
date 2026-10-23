@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, LayoutDashboard, UploadCloud, Users } from "lucide-react";
+import { ClipboardList, LayoutDashboard, ListChecks, UploadCloud, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const ITEMS = [
   { href: "/adm", label: "Visão geral", icon: LayoutDashboard, exact: true },
   { href: "/adm/clientes", label: "Clientes", icon: Users },
   { href: "/adm/pendencias", label: "Pendências", icon: ClipboardList, badgeKey: "pending" as const },
+  { href: "/adm/acoes", label: "Ações", icon: ListChecks },
   { href: "/adm/uploads", label: "Uploads", icon: UploadCloud },
 ];
 

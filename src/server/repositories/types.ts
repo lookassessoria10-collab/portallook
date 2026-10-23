@@ -1,3 +1,4 @@
+import type { ClientActions } from "@/features/actions/schema";
 import type { Client, ClientAccess } from "@/features/clients/schema";
 import type { PortalEvent } from "@/features/events/schema";
 import type { ClientIndex, ReportManifest, ReportType } from "@/features/reports/schema";
@@ -57,10 +58,17 @@ export interface EventRepository {
   listRecent(options?: { months?: number; clientId?: string; limit?: number }): Promise<PortalEvent[]>;
 }
 
+export interface ActionRepository {
+  /** null = o cliente ainda não tem ações gravadas (usa a planilha, quando houver aba). */
+  get(clientId: string): Promise<ClientActions | null>;
+  update(clientId: string, mutate: (current: ClientActions | null) => ClientActions): Promise<ClientActions>;
+}
+
 export interface Repositories {
   clients: ClientRepository;
   access: AccessRepository;
   reports: ReportRepository;
   imports: ImportRepository;
   events: EventRepository;
+  actions: ActionRepository;
 }

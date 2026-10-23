@@ -1,7 +1,7 @@
 const ALPHABET = "0123456789abcdefghijkmnpqrstuvwxyz";
 
 /** Identificador interno aleatório e não sequencial (ex.: `cl_8f3k2m9qa1`). */
-export function createId(prefix: "cl" | "rp" | "im" | "ev" | "in", length = 12): string {
+export function createId(prefix: "cl" | "rp" | "im" | "ev" | "in" | "ac", length = 12): string {
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
   let out = "";
@@ -9,7 +9,7 @@ export function createId(prefix: "cl" | "rp" | "im" | "ev" | "in", length = 12):
   return `${prefix}_${out}`;
 }
 
-export const ID_PATTERN = /^(cl|rp|im|ev|in)_[0-9a-z]{6,32}$/;
+export const ID_PATTERN = /^(cl|rp|im|ev|in|ac)_[0-9a-z]{6,32}$/;
 
 export function isValidId(value: unknown, prefix?: string): value is string {
   if (typeof value !== "string" || !ID_PATTERN.test(value)) return false;

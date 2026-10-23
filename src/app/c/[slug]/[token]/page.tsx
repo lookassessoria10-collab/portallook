@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPortalClient, portalBasePath } from "@/features/portal/access";
 import { loadPortalModel, SCALE_PARAM } from "@/features/portal/model";
+import { ACTIONS_TAB_PARAM } from "@/features/portal/params";
 import { REPORT_TYPE_PATH } from "@/features/reports/schema";
 import { PortalView } from "@/features/portal/components/portal-view";
 import type { PortalLinks } from "@/features/portal/components/portal-sections";
+import { loadPortalActions } from "@/features/actions/service";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +27,9 @@ export default async function ClientPortalPage(props: PageProps<"/c/[slug]/[toke
   if (!client) notFound();
 
   const base = portalBasePath(slug, token);
-  const model = await loadPortalModel(client, { tab: one(search.aba), period: one(search.periodo), scale: one(search.escala), year: one(search.ano), mode: "client" });
+  const actions = await loadPortalActions(client);
+  const showActions = actions !== null && one(search.aba) === ACTIONS_TAB_PARAM;
+  const model = await loadPortalModel(client, { tab: showActions ? null : one(search.aba), period: one(search.periodo), scale: one(search.escala), year: one(search.ano), mode: "client", skipSelection: showActions });
   const tabParam = REPORT_TYPE_PATH[model.tab];
   const scaleParam = model.scales ? `&escala=${SCALE_PARAM[model.scale]}` : "";
   const yearParam = model.year !== null ? `&ano=${model.year}` : "";
@@ -38,5 +42,14 @@ export default async function ClientPortalPage(props: PageProps<"/c/[slug]/[toke
     file: (id, download) => `${base}/arquivo/${id}${download ? "?download=1" : ""}`,
   };
 
-  return <PortalView model={model} basePath={base} links={links} logoUrl={client.logo ? `${base}/logo` : null} section={one(search.secao)} />;
+  return (
+    <PortalView
+      model={model}
+      basePath={base}
+      links={links}
+      logoUrl={client.logo ? `${base}/logo` : null}
+      section={one(search.secao)}
+      actions={actions ? { vm: actions, active: showActions } : null}
+    />
+  );
 }

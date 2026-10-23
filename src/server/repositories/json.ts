@@ -1,4 +1,5 @@
 import "server-only";
+import { ClientActionsSchema } from "@/features/actions/schema";
 import { ClientAccessSchema, ClientSchema, type Client } from "@/features/clients/schema";
 import { EventSchema, type PortalEvent } from "@/features/events/schema";
 import { emptyIndex, toIndexEntry, upsertReportEntry } from "@/features/reports/index-entry";
@@ -10,7 +11,7 @@ import { readJSON, updateJSON, writeJSON } from "@/lib/storage/json";
 import { paths } from "@/lib/storage/paths";
 import { StorageAlreadyExistsError, type StorageProvider } from "@/lib/storage/types";
 import { z } from "zod";
-import type { AccessRepository, ClientRepository, EventRepository, ImportRepository, ReportRepository, Repositories } from "./types";
+import type { AccessRepository, ActionRepository, ClientRepository, EventRepository, ImportRepository, ReportRepository, Repositories } from "./types";
 
 const SlugDocSchema = z.object({ clientId: z.string(), slug: z.string() });
 
@@ -271,6 +272,23 @@ class JsonEventRepository implements EventRepository {
   }
 }
 
+class JsonActionRepository implements ActionRepository {
+  constructor(private readonly storage: StorageProvider) {}
+
+  async get(clientId: string) {
+    if (!isValidId(clientId, "cl")) return null;
+    const doc = await readJSON(this.storage, paths.clientActions(clientId), ClientActionsSchema);
+    return doc?.data ?? null;
+  }
+
+  update(clientId: string, mutate: Parameters<ActionRepository["update"]>[1]) {
+    return updateJSON(this.storage, paths.clientActions(clientId), ClientActionsSchema, (current) => {
+      const next = mutate(current);
+      return { ...next, clientId, updatedAt: nowISO(), version: (current?.version ?? 0) + 1 };
+    });
+  }
+}
+
 export function createJsonRepositories(storage: StorageProvider): Repositories {
   return {
     clients: new JsonClientRepository(storage),
@@ -278,5 +296,6 @@ export function createJsonRepositories(storage: StorageProvider): Repositories {
     reports: new JsonReportRepository(storage),
     imports: new JsonImportRepository(storage),
     events: new JsonEventRepository(storage),
+    actions: new JsonActionRepository(storage),
   };
 }

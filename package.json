@@ -15,7 +15,8 @@
     "seed": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/seed.ts",
     "hash-password": "tsx --conditions=react-server scripts/hash-password.ts",
     "templates": "tsx --conditions=react-server scripts/generate-templates.ts",
-    "links": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/links.ts"
+    "links": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/links.ts",
+    "actions:snapshot": "node scripts/extract-actions.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

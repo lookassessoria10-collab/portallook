@@ -27,28 +27,41 @@ import { SocialDashboard } from "@/features/social/components/social-dashboard";
 import { buildSocialViewModel } from "@/features/social/view-model";
 import { SocialOverview } from "@/features/social/components/social-overview";
 import { buildSocialOverview } from "@/features/social/overview";
-import type { PortalModel, PortalTab } from "@/features/portal/model";
+import type { PortalArea, PortalModel } from "@/features/portal/model";
+import { ActionsBoard } from "@/features/actions/components/actions-board";
+import type { PortalActionsVM } from "@/features/actions/view-model";
 import { PeriodNav, ScaleSwitch, YearSwitch } from "./period-nav";
 import { PortalTabs, TAB_LABEL } from "./portal-tabs";
 import { OriginalDocuments, type PortalLinks } from "./portal-sections";
 
 /** Linha de apoio da faixa do topo: "Terapias e bem-estar · Dashboard comercial 2026". */
-const AREA_TITLE: Record<PortalTab, string> = {
+const AREA_TITLE: Record<PortalArea, string> = {
   commercial: "Dashboard comercial",
   traffic: "Tráfego pago",
   social: "Rede social",
   media_plan: "Plano de mídia",
+  actions: "Painel de ações",
 };
+
+/** Área "Ações" do cliente: aparece no seletor quando há ações visíveis; `active` = é a área aberta. */
+export interface PortalActionsArea {
+  vm: PortalActionsVM;
+  active: boolean;
+}
 
 /**
  * Visão do cliente: produto de relatório, não painel administrativo.
  * Faixa com a identidade do cliente, áreas e períodos logo abaixo e os números em primeiro plano.
  */
-export function PortalView({ model, basePath, links, logoUrl, banner, section }: { model: PortalModel; basePath: string; links: PortalLinks; logoUrl?: string | null; banner?: ReactNode; section?: string | null }) {
+export function PortalView({ model, basePath, links, logoUrl, banner, section, actions }: { model: PortalModel; basePath: string; links: PortalLinks; logoUrl?: string | null; banner?: ReactNode; section?: string | null; actions?: PortalActionsArea | null }) {
   const { client, selection } = model;
-  const landimOriginal = isLandimOriginalReport(client.slug, model.tab, model.periodKey);
-  const larplanOriginal = isLarplanOriginalReport(client.slug, model.tab, model.periodKey);
-  const fullCommercial = isFullCommercialReport(client.slug, model.tab, model.mode);
+  const showActions = Boolean(actions?.active);
+  const areas: PortalArea[] = actions ? [...model.tabs, "actions"] : model.tabs;
+  const area: PortalArea = showActions ? "actions" : model.tab;
+  // Os relatórios fiéis só valem na área de relatórios (nunca por trás da área Ações).
+  const landimOriginal = !showActions && isLandimOriginalReport(client.slug, model.tab, model.periodKey);
+  const larplanOriginal = !showActions && isLarplanOriginalReport(client.slug, model.tab, model.periodKey);
+  const fullCommercial = !showActions && isFullCommercialReport(client.slug, model.tab, model.mode);
   const originalCommercial = fullCommercial && model.periodKey === "2026-09" ? (client.slug === "serenity-terapias" ? "serenity" : "isabor") : null;
   const tz = env().APP_TIMEZONE;
   const tabLabel = TAB_LABEL[model.tab];
@@ -58,14 +71,15 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
 
   // Painel comercial: o mês aberto em foco, com o acumulado do ano até ele.
   const commercial: CommercialDashboardVM | null =
-    model.view === "period" && selection.dataset?.data.type === "commercial"
+    !showActions && model.view === "period" && selection.dataset?.data.type === "commercial"
       ? buildCommercialDashboard({ history: model.history, previous: model.previous, data: selection.dataset.data.data, insights: selection.insights, dashboard: client.dashboard, periodHref: links.period })
       : null;
 
-  const shown = model.view === "overview" && model.overview ? model.overview : selection.primary ? [selection.primary] : [];
-  const chip = larplanOriginal ? "Junho – Agosto / 2026" : landimOriginal ? "Julho – Agosto / 2026" : commercial ? commercial.rangeShort : shown.length ? (shown.length > 1 ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period) : formatPeriod(shown[0].period)) : null;
+  const shown = showActions ? [] : model.view === "overview" && model.overview ? model.overview : selection.primary ? [selection.primary] : [];
+  const actionCount = actions?.vm.summary.total ?? 0;
+  const chip = showActions ? `${actionCount} ${actionCount === 1 ? "ação" : "ações"}` : larplanOriginal ? "Junho – Agosto / 2026" : landimOriginal ? "Julho – Agosto / 2026" : commercial ? commercial.rangeShort : shown.length ? (shown.length > 1 ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period) : formatPeriod(shown[0].period)) : null;
   const year = larplanOriginal ? 2026 : commercial?.year ?? (shown.length ? +shown[shown.length - 1].period.start.slice(0, 4) : null);
-  const subtitle = [client.segment, `${AREA_TITLE[model.tab]}${year ? ` ${year}` : ""}`].filter(Boolean).join(" · ");
+  const subtitle = [client.segment, `${AREA_TITLE[area]}${year ? ` ${year}` : ""}`].filter(Boolean).join(" · ");
   // No comercial, quem fica fixo no topo ao rolar são as abas do painel.
   const stickyBar = !commercial && !larplanOriginal;
 
@@ -97,27 +111,46 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
 
         <p className="pt-4 text-[13px] text-text-2">
           Olá, <strong className="font-bold text-text">{client.greetingName || client.shortName}</strong>
-          <span className="text-text-3"> · {larplanOriginal ? "dados de junho a agosto de 2026" : model.lastUpdatedAt ? <>dados atualizados em {formatTimestampDate(model.lastUpdatedAt, tz)}</> : "aguardando o primeiro relatório"}</span>
+          <span className="text-text-3">
+            {" · "}
+            {showActions ? (
+              actions?.vm.updatedAt ? <>ações atualizadas em {formatTimestampDate(actions.vm.updatedAt, tz)}</> : "ações acompanhadas pela equipe da Look"
+            ) : larplanOriginal ? (
+              "dados de junho a agosto de 2026"
+            ) : model.lastUpdatedAt ? (
+              <>dados atualizados em {formatTimestampDate(model.lastUpdatedAt, tz)}</>
+            ) : (
+              "aguardando o primeiro relatório"
+            )}
+          </span>
         </p>
 
         <div className={cn("-mx-4 border-b border-border px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8", stickyBar && "sticky top-0 z-20 bg-[rgb(6_14_28/0.94)]")}>
-          <div className={model.tabs.length > 3 ? "flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4" : "flex flex-col gap-2.5 md:flex-row md:items-center md:gap-4"}>
-            <PortalTabs tabs={model.tabs} active={model.tab} basePath={basePath} className={tabsWidth(model.tabs)} />
-            {commercial && model.tabs.length < 2 && !fullCommercial ? <p className="hidden shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-text-3 md:block">{commercial.unit.singular === "mês" ? "Mês em foco" : "Período em foco"}</p> : null}
+          <div className={areas.length > 3 ? "flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4" : "flex flex-col gap-2.5 md:flex-row md:items-center md:gap-4"}>
+            <PortalTabs tabs={areas} active={area} basePath={basePath} className={tabsWidth(areas)} />
+            {commercial && areas.length < 2 && !fullCommercial ? <p className="hidden shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-text-3 md:block">{commercial.unit.singular === "mês" ? "Mês em foco" : "Período em foco"}</p> : null}
             <div className="flex min-w-0 gap-2 md:flex-1">
-              <ScaleSwitch options={scaleItems} />
-              <YearSwitch options={yearItems} />
-              {!fullCommercial ? <PeriodNav overviewHref={model.overview ? links.overview : null} items={periodItems} active={model.periodKey} className="min-w-0 flex-1" /> : (
-                <div className="flex min-h-9 items-center text-xs font-semibold text-text-2">
-                  Relatório consolidado · histórico mensal nas tabelas e gráficos
-                </div>
+              {showActions ? (
+                <div className="hidden min-h-9 items-center text-xs font-semibold text-text-2 md:flex">Ações sugeridas e executadas pela Look · da mais recente para a mais antiga</div>
+              ) : (
+                <>
+                  <ScaleSwitch options={scaleItems} />
+                  <YearSwitch options={yearItems} />
+                  {!fullCommercial ? <PeriodNav overviewHref={model.overview ? links.overview : null} items={periodItems} active={model.periodKey} className="min-w-0 flex-1" /> : (
+                    <div className="flex min-h-9 items-center text-xs font-semibold text-text-2">
+                      Relatório consolidado · histórico mensal nas tabelas e gráficos
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
         </div>
 
         <main className={commercial || larplanOriginal ? "mt-0" : "mt-6 sm:mt-8"} id="conteudo">
-          {!model.tabs.length ? (
+          {showActions && actions ? (
+            <ActionsBoard vm={actions.vm} />
+          ) : !model.tabs.length ? (
             <EmptyState icon={<Inbox />} title="Nenhuma área disponível" description="Assim que a Look ativar os relatórios, eles aparecerão aqui." />
           ) : !model.periods.length ? (
             <EmptyState
@@ -198,7 +231,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
         <footer className="mt-16 flex flex-col items-center gap-3 border-t border-border pt-8 text-center">
           <LookLogo width={92} />
           <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
-            {client.name} · {AREA_TITLE[model.tab]}
+            {client.name} · {AREA_TITLE[area]}
             {chip ? ` · ${chip}` : ""}
           </p>
           <p className="text-xs text-text-3">Relatório preparado pela Look Assessoria de Comunicação para {client.name}.</p>
@@ -209,7 +242,8 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section }:
 }
 
 /** Largura do seletor de áreas no desktop, conforme a quantidade e o tamanho dos rótulos. */
-function tabsWidth(tabs: PortalModel["tabs"]): string {
+function tabsWidth(tabs: PortalArea[]): string {
+  if (tabs.length > 4) return "lg:w-[660px] lg:shrink-0";
   if (tabs.length > 3) return "lg:w-[560px] lg:shrink-0";
   if (tabs.length > 2) return "md:w-[420px] md:shrink-0";
   return tabs.includes("media_plan") || tabs.includes("social") ? "md:w-[340px] md:shrink-0" : "md:w-[280px] md:shrink-0";

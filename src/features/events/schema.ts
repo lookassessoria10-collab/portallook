@@ -19,6 +19,7 @@ export const EventTypeSchema = z.enum([
   "access.token_revoked",
   "access.disabled",
   "access.enabled",
+  "actions.updated",
   "auth.login",
   "auth.login_failed",
 ]);
@@ -53,6 +54,7 @@ export const EVENT_LABEL: Record<EventType, string> = {
   "access.token_revoked": "Link revogado",
   "access.disabled": "Acesso desativado",
   "access.enabled": "Acesso reativado",
+  "actions.updated": "Ações atualizadas",
   "auth.login": "Login no painel",
   "auth.login_failed": "Tentativa de login recusada",
 };

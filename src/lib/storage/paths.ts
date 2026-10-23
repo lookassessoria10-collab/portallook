@@ -7,6 +7,7 @@ import type { ReportType } from "@/features/reports/schema";
  *   clients/{clientId}/client.json            perfil e configuração
  *   clients/{clientId}/access.json            token do link (hash + cifrado)
  *   clients/{clientId}/index.json             resumo de relatórios e imports (reconstruível)
+ *   clients/{clientId}/actions.json           ações do cliente (só existe depois da 1ª edição no painel)
  *   clients/{clientId}/logo.{ext}
  *   clients/{clientId}/reports/{type}/{reportId}/manifest.json
  *   clients/{clientId}/reports/{type}/{reportId}/data.json
@@ -34,6 +35,7 @@ export const paths = {
   client: (clientId: string) => `${paths.clientDir(clientId)}/client.json`,
   access: (clientId: string) => `${paths.clientDir(clientId)}/access.json`,
   clientIndex: (clientId: string) => `${paths.clientDir(clientId)}/index.json`,
+  clientActions: (clientId: string) => `${paths.clientDir(clientId)}/actions.json`,
   clientLogo: (clientId: string, extension: string) => `${paths.clientDir(clientId)}/logo.${ext(extension)}`,
   reportsPrefix: (clientId: string) => `${paths.clientDir(clientId)}/reports/`,
   reportDir: (clientId: string, type: ReportType, reportId: string) => `${paths.clientDir(clientId)}/reports/${type}/${id(reportId, "rp")}`,

@@ -4,8 +4,8 @@ Portal de relatórios e dashboards dos clientes da **Look Assessoria de Comunica
 
 **A mesma aplicação, com dados e configurações diferentes, gera um dashboard personalizado para cada cliente.** Não é preciso criar páginas novas para um cliente novo.
 
-- **Painel da Look (`/adm`):** cadastro de clientes, periodicidade das entregas, upload de relatórios, validação, rascunho → publicação, status de pendências, links exclusivos e histórico.
-- **Portal do cliente (`/c/{slug}/{token}`):** sem login. O cliente abre um link exclusivo e vê Comercial, Tráfego, Rede social e Plano de mídia, período a período, pensado primeiro para o celular.
+- **Painel da Look (`/adm`):** cadastro de clientes, periodicidade das entregas, upload de relatórios, validação, rascunho → publicação, status de pendências, links exclusivos, histórico e o painel de **Ações** de cada cliente.
+- **Portal do cliente (`/c/{slug}/{token}`):** sem login. O cliente abre um link exclusivo e vê Comercial, Tráfego, Rede social e Plano de mídia, período a período, e as **Ações** da Look, pensado primeiro para o celular.
 
 ---
 
@@ -25,10 +25,11 @@ Portal de relatórios e dashboards dos clientes da **Look Assessoria de Comunica
 12. [Como publicar](#como-publicar)
 13. [Formatos de arquivo aceitos](#formatos-de-arquivo-aceitos)
 14. [Status de entrega](#status-de-entrega)
-15. [Vercel Blob](#como-configurar-o-vercel-blob)
-16. [Deploy na Vercel](#deploy-na-vercel)
-17. [Evolução: trocar JSON por banco](#evolução-trocar-json-por-banco)
-18. [Limitações conhecidas do MVP](#limitações-conhecidas-do-mvp)
+15. [Ações](#ações)
+16. [Vercel Blob](#como-configurar-o-vercel-blob)
+17. [Deploy na Vercel](#deploy-na-vercel)
+18. [Evolução: trocar JSON por banco](#evolução-trocar-json-por-banco)
+19. [Limitações conhecidas do MVP](#limitações-conhecidas-do-mvp)
 
 ---
 
@@ -65,7 +66,7 @@ ARQUIVO ORIGINAL → VALIDAÇÃO → INTERPRETAÇÃO → NORMALIZAÇÃO → JSON
 
 ```
 app/          rotas finas: carregam dados e compõem componentes
-features/     domínios: clients, reports, commercial, traffic, uploads, portal, auth, events, admin
+features/     domínios: clients, reports, commercial, traffic, uploads, portal, auth, events, admin, actions
   */schema.ts        schemas Zod + tipos
   */service.ts       regras de negócio (server-only)
   */actions.ts       Server Actions (sempre chamam requireAdmin)
@@ -202,6 +203,7 @@ Organização (`src/lib/storage/paths.ts`):
 clients/{clientId}/client.json            perfil e configuração
 clients/{clientId}/access.json            token do link (hash HMAC + cópia cifrada)
 clients/{clientId}/index.json             resumo de relatórios e uploads (reconstruível)
+clients/{clientId}/actions.json           ações do cliente (só existe depois da 1ª edição no painel)
 clients/{clientId}/logo.{png|jpg|webp}
 clients/{clientId}/reports/{commercial|traffic|social|media_plan}/{reportId}/manifest.json
 clients/{clientId}/reports/{commercial|traffic|social|media_plan}/{reportId}/data.json
@@ -316,6 +318,7 @@ Todos os schemas estão em `src/features/*/schema.ts` (Zod).
 - **MediaPlanData** (modelo "Estratégia de Mídia"): `header { title, tagline, summary, tags[], updatedAt }`; `highlights[]` e `goals[]` (`label`, `value`, `display` — texto como foi escrito, ex.: "60–125", "≥ 30%" —, `format`, `description`); `items[] { platform, name, objective, funnel, audience, offers, format, start, end, budget, dailyBudget, resultType, resultLabel, resultTarget, costPerResultTarget, impressionsTarget, reachTarget, clicksTarget, notes }`; `platforms[] { platform, description }`; `sections[] { title, placement (top/bottom), blocks[] }` com blocos `text`, `callout`, `card`, `step`, `item`, `quote`, `warning`, `phase` e `table` (`columns`, `rows`).
 - **SocialData** (rede social, um relatório por mês): `network` (instagram, facebook, tiktok, linkedin, youtube), `metrics { followers, newFollowers, lostFollowers, reach, views, engagement, profileVisits, interactions, likes, comments, saves, shares, linkClicks }` (`null` = não informado), `labels` (nome usado na planilha quando varia: "Impressões" × "Visualizações", "Toque no site" × "Toques em links") e `extraMetrics[]` (outras colunas numéricas, com o nome que vieram). Taxa de engajamento (engajamento ÷ alcance) e saldo de seguidores são calculados.
 - **Insight:** `type` (positive, attention, neutral, recommendation), `title`, `description`, `tag` (tema opcional exibido no cartão) e `source` (manual, import ou auto). Insights automáticos aparecem sinalizados. O MVP não gera recomendações automáticas.
+- **ClientActions** (`actions.json`): `enabled` (mostrar a área no portal), `source { sheet, extractedAt }` (aba da planilha de origem) e `items[] { id, title, category, kind (one_off/continuous), status, suggestedAt, executedAt, lastUpdateAt, progress, notes, clientNote, visible }`. `status` é in_progress, pending, approved, done, suggested (sem status) ou rejected. `progress` e `notes` são internos; o portal recebe só título, frente, tipo, status, datas e `clientNote`.
 - **ImportRecord:** status do upload, erros e avisos, prévia por período e IDs dos rascunhos criados.
   - Os status são awaiting_file, uploaded, validated, invalid, imported, discarded e failed.
 
@@ -436,6 +439,18 @@ Calculado em `src/features/reports/delivery.ts`. Existir um arquivo não signifi
 | Com erro | A última importação do módulo falhou e não foi resolvida |
 | No prazo | Cliente cadastrado depois do prazo do último período (primeiro relatório ainda não vence) |
 | Não aplicável | Módulo desativado |
+
+---
+
+## Ações
+
+O módulo de **Ações** mostra as iniciativas que a Look sugere e executa para cada cliente — o mesmo conteúdo da **planilha de ações da Look** (uma aba por cliente: Ação · Tipo de ação · Quando foi sugerido · Quando foi executado · Status · Observações · Última atualização · Andamento / Pendências).
+
+- **De onde vêm as ações:** `src/features/actions/sheet-snapshot.json` é um retrato da planilha, gerado por `npm run actions:snapshot -- "planilha.xlsx"` (no Google Sheets: Arquivo → Fazer download → Microsoft Excel). Cada cliente do portal usa a aba com o mesmo nome — mesma regra da planilha de rede social (sem acento, caixa ou "Dra."; nome, nome curto ou slug). Clientes que não estão na planilha ficam sem ações, e abas sem cliente no portal são ignoradas (a página **Ações** do painel lista as duas situações).
+- **Nada é gravado até alguém editar.** Enquanto o cliente não tem `actions.json`, o portal lê as ações direto do snapshot. A primeira alteração no painel (nova ação, edição, ocultar, excluir ou importar) grava `clients/{clientId}/actions.json` com a lista completa, que passa a valer no lugar da planilha. Nenhum outro documento do cliente é alterado. Para trazer a planilha de novo, use **Importar da planilha** (substitui a lista).
+- **Status:** lido com as mesmas regras da coluna "Leitura de status" da planilha — `final|conclu` → Concluída; `não aprov|arquiv` → Não aprovada; `andamento|em produção|agendada|ativo` → Em andamento; começa com `aprova` → Aprovada; `aguard|pend|bloque|a fazer` → Pendência; vazio → Sem status. "Executadas" são as ações com data de execução. O termo entre parênteses no fim da ação ("… (Institucional)") vira a **frente**.
+- **Painel:** **Ações** no menu (indicadores gerais como no painel da planilha, tabela por cliente e lista "Em foco"), aba **Ações** em cada cliente (cadastrar, editar, ocultar uma ação do portal, excluir, importar uma aba, esconder a área do portal) e um resumo na visão geral do cliente.
+- **Portal:** a área **Ações** aparece no seletor quando o cliente tem ações visíveis (`?aba=acoes`): resumo (ações no plano, em andamento, executadas, concluídas, sugeridas), filtros por situação, cartões com frente, tipo, datas e o comentário para o cliente, frentes de trabalho e pontuais × contínuas. **Observações e andamento nunca saem do servidor** — são só da equipe.
 
 ---
 

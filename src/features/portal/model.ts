@@ -9,6 +9,9 @@ import { REPORT_TYPES, reportTypeFromParam, type Insight, type ReportIndexEntry,
 
 export type PortalTab = ReportType;
 
+/** Áreas do seletor do portal: as de relatório e a área "Ações" (lista de ações, sem períodos). */
+export type PortalArea = PortalTab | "actions";
+
 /** "overview": todos os períodos juntos; "period": um período específico. */
 export type PortalView = "overview" | "period";
 
@@ -91,6 +94,8 @@ export interface LoadPortalOptions {
   mode: "client" | "preview";
   /** Prévia de um relatório específico no ADM (inclui rascunho/retirado). */
   focusReportId?: string | null;
+  /** Não abre os relatórios do período (a página mostra outra área, ex.: Ações). */
+  skipSelection?: boolean;
 }
 
 const scaleOf = (p: Period): PortalScale => (p.granularity === "week" ? "week" : "month");
@@ -195,18 +200,18 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
 
   let dataset: PortalSelection["dataset"] = null;
   let primaryManifest: ReportManifest | null = null;
-  if (datasetEntry) {
+  if (datasetEntry && !options.skipSelection) {
     const manifest = await getReportManifest(client.id, datasetEntry.id);
     const data = manifest ? await getReportData(manifest) : null;
     if (manifest && data) dataset = { entry: datasetEntry, manifest, data };
     primaryManifest = manifest;
   }
   const primary = dataset?.entry ?? documents[0] ?? null;
-  if (!primaryManifest && primary) primaryManifest = await getReportManifest(client.id, primary.id);
+  if (!primaryManifest && primary && !options.skipSelection) primaryManifest = await getReportManifest(client.id, primary.id);
 
   // Insights: do relatório de dados; se não houver, dos documentos do período.
   let insights: Insight[] = dataset?.manifest.insights ?? [];
-  if (!insights.length && documents.length) {
+  if (!insights.length && documents.length && !options.skipSelection) {
     const docManifests = await Promise.all(documents.map((d) => getReportManifest(client.id, d.id)));
     insights = docManifests.flatMap((m) => m?.insights ?? []);
   }

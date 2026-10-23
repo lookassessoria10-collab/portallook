@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleCheck, History, Link2 } from "lucide-react";
+import { CircleCheck, History, Link2, ListChecks } from "lucide-react";
 import { env } from "@/lib/env";
 import { formatDateTime } from "@/lib/dates/period";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { getPortalLink } from "@/features/clients/access";
 import { getClientOverview, today } from "@/features/clients/service";
 import { listRecentEvents } from "@/features/events/service";
 import { EVENT_LABEL } from "@/features/events/schema";
+import { getClientActions } from "@/features/actions/service";
+import { summarizeActions } from "@/features/actions/view-model";
 
 export async function generateMetadata(props: PageProps<"/adm/clientes/[id]">): Promise<Metadata> {
   const { id } = await props.params;
@@ -25,8 +27,9 @@ export default async function ClientOverviewPage(props: PageProps<"/adm/clientes
   const o = await getClientOverview(id);
   if (!o) notFound();
   const tz = env().APP_TIMEZONE;
-  const [link, events] = await Promise.all([getPortalLink(o.client), listRecentEvents({ clientId: id, limit: 12, months: 3 })]);
+  const [link, events, actions] = await Promise.all([getPortalLink(o.client), listRecentEvents({ clientId: id, limit: 12, months: 3 }), getClientActions(o.client)]);
   const date = today();
+  const actionsSummary = summarizeActions(actions.items);
 
   return (
     <div className="grid gap-4 xl:grid-cols-12">
@@ -41,6 +44,41 @@ export default async function ClientOverviewPage(props: PageProps<"/adm/clientes
         <ModuleStatusCard clientId={id} type="traffic" module={o.client.modules.traffic} delivery={o.delivery.traffic} today={date} />
         {o.client.modules.social.enabled ? <ModuleStatusCard clientId={id} type="social" module={o.client.modules.social} delivery={o.delivery.social} today={date} /> : null}
         {o.client.modules.media_plan.enabled ? <ModuleStatusCard clientId={id} type="media_plan" module={o.client.modules.media_plan} delivery={o.delivery.media_plan} today={date} /> : null}
+
+        <section className="card flex flex-col p-5 md:col-span-2" aria-label="Ações">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-base font-bold text-text">
+              <ListChecks className="size-4 text-text-3" aria-hidden /> Ações
+            </h3>
+            <span className="text-xs font-semibold text-text-3">
+              {actions.origin === "sheet" ? `Planilha · aba ${actions.sheet}` : actions.origin === "stored" ? "Mantidas pelo painel" : "Fora da planilha"}
+              {actions.items.length && !actions.enabled ? " · ocultas no portal" : ""}
+            </span>
+          </div>
+          {actionsSummary.total ? (
+            <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {[
+                ["Total", actionsSummary.total],
+                ["Em andamento", actionsSummary.byStatus.in_progress],
+                ["Executadas", actionsSummary.executed],
+                ["Concluídas", actionsSummary.byStatus.done],
+                ["Sem status", actionsSummary.byStatus.suggested],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-[13px] text-text-3">{label}</dt>
+                  <dd className="tabular text-lg font-bold text-text">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p className="mt-1 text-sm text-text-3">Nenhuma ação cadastrada. A área Ações só aparece no portal quando houver ações visíveis.</p>
+          )}
+          <div className="mt-4">
+            <Link href={`/adm/clientes/${id}/acoes`} className="text-sm font-semibold text-primary hover:underline">
+              {actionsSummary.total ? "Gerenciar ações" : "Cadastrar ações"}
+            </Link>
+          </div>
+        </section>
 
         <Card className="md:col-span-2">
           <CardHeader title="Link do cliente" subtitle="Envie este endereço ao cliente. Ele continua válido a cada novo relatório." icon={<Link2 className="size-4" />} actions={<Link href={`/adm/clientes/${id}/acesso`} className="text-sm font-semibold text-primary hover:underline">Gerenciar</Link>} />
