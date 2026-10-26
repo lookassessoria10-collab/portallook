@@ -20,6 +20,12 @@ const EnvSchema = z.object({
   UPLOAD_MAX_MB: z.coerce.number().min(1).max(500).default(25),
   SERVER_UPLOAD_MAX_MB: z.coerce.number().min(0.5).max(4.5).default(4),
   APP_TIMEZONE: z.string().default("America/Sao_Paulo"),
+  /** Token da API do ClickUp (planejamento de conteúdo). Sem ele, a área Conteúdo fica desligada. */
+  CLICKUP_API_TOKEN: z.string().optional(),
+  /** Workspace do ClickUp (opcional: sem ele, usa o primeiro que o token acessa). */
+  CLICKUP_TEAM_ID: z.string().regex(/^\d+$/).optional(),
+  /** Endereço da API (só muda em testes locais com um servidor simulado). */
+  CLICKUP_API_BASE: z.string().url().default("https://api.clickup.com/api/v2"),
 });
 
 export type ServerEnv = z.infer<typeof EnvSchema>;

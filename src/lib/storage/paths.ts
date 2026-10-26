@@ -8,6 +8,9 @@ import type { ReportType } from "@/features/reports/schema";
  *   clients/{clientId}/access.json            token do link (hash + cifrado)
  *   clients/{clientId}/index.json             resumo de relatórios e imports (reconstruível)
  *   clients/{clientId}/actions.json           ações do cliente (só existe depois da 1ª edição no painel)
+ *   clients/{clientId}/content.json           regras da área Conteúdo (só existe depois de salvar no painel)
+ *   clients/{clientId}/content-cache.json     última leitura da lista do ClickUp (reconstruível)
+ *   integrations/clickup/lists.json           listas do workspace do ClickUp (reconstruível)
  *   clients/{clientId}/logo.{ext}
  *   clients/{clientId}/reports/{type}/{reportId}/manifest.json
  *   clients/{clientId}/reports/{type}/{reportId}/data.json
@@ -36,6 +39,9 @@ export const paths = {
   access: (clientId: string) => `${paths.clientDir(clientId)}/access.json`,
   clientIndex: (clientId: string) => `${paths.clientDir(clientId)}/index.json`,
   clientActions: (clientId: string) => `${paths.clientDir(clientId)}/actions.json`,
+  clientContent: (clientId: string) => `${paths.clientDir(clientId)}/content.json`,
+  clientContentCache: (clientId: string) => `${paths.clientDir(clientId)}/content-cache.json`,
+  clickupLists: () => "integrations/clickup/lists.json",
   clientLogo: (clientId: string, extension: string) => `${paths.clientDir(clientId)}/logo.${ext(extension)}`,
   reportsPrefix: (clientId: string) => `${paths.clientDir(clientId)}/reports/`,
   reportDir: (clientId: string, type: ReportType, reportId: string) => `${paths.clientDir(clientId)}/reports/${type}/${id(reportId, "rp")}`,

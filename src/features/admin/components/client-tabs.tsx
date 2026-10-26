@@ -13,6 +13,7 @@ export function ClientTabs({ clientId, modules }: { clientId: string; modules: {
     ...(modules.traffic ? [{ href: `${base}/trafego`, label: "Tráfego" }] : []),
     ...(modules.social ? [{ href: `${base}/rede-social`, label: "Rede social" }] : []),
     ...(modules.media_plan ? [{ href: `${base}/plano-de-midia`, label: "Plano de mídia" }] : []),
+    { href: `${base}/conteudo`, label: "Conteúdo" },
     { href: `${base}/acoes`, label: "Ações" },
     { href: `${base}/arquivos`, label: "Arquivos" },
     { href: `${base}/configuracoes`, label: "Configurações" },

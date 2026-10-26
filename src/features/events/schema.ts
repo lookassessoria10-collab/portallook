@@ -20,6 +20,7 @@ export const EventTypeSchema = z.enum([
   "access.disabled",
   "access.enabled",
   "actions.updated",
+  "content.updated",
   "auth.login",
   "auth.login_failed",
 ]);
@@ -55,6 +56,7 @@ export const EVENT_LABEL: Record<EventType, string> = {
   "access.disabled": "Acesso desativado",
   "access.enabled": "Acesso reativado",
   "actions.updated": "Ações atualizadas",
+  "content.updated": "Conteúdo atualizado",
   "auth.login": "Login no painel",
   "auth.login_failed": "Tentativa de login recusada",
 };

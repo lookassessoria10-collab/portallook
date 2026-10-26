@@ -30,8 +30,11 @@ import { buildSocialOverview } from "@/features/social/overview";
 import type { PortalArea, PortalModel } from "@/features/portal/model";
 import { ActionsBoard } from "@/features/actions/components/actions-board";
 import type { PortalActionsVM } from "@/features/actions/view-model";
+import { ContentCalendar } from "@/features/content/components/content-calendar";
+import type { PortalContentVM } from "@/features/content/view-model";
+import { TAB_LABEL } from "@/features/portal/labels";
 import { PeriodNav, ScaleSwitch, YearSwitch } from "./period-nav";
-import { PortalTabs, TAB_LABEL } from "./portal-tabs";
+import { PortalTabs } from "./portal-tabs";
 import { OriginalDocuments, type PortalLinks } from "./portal-sections";
 
 /** Linha de apoio da faixa do topo: "Terapias e bem-estar · Dashboard comercial 2026". */
@@ -40,28 +43,36 @@ const AREA_TITLE: Record<PortalArea, string> = {
   traffic: "Tráfego pago",
   social: "Rede social",
   media_plan: "Plano de mídia",
+  content: "Planejamento de conteúdo",
   actions: "Painel de ações",
 };
 
-/** Área "Ações" do cliente: aparece no seletor quando há ações visíveis; `active` = é a área aberta. */
-export interface PortalActionsArea {
-  vm: PortalActionsVM;
-  active: boolean;
+/**
+ * Áreas sem períodos (Conteúdo e Ações): cada uma aparece no seletor quando tem o que mostrar;
+ * `active` é a que está aberta (null = uma área de relatório).
+ */
+export interface PortalExtras {
+  content: PortalContentVM | null;
+  actions: PortalActionsVM | null;
+  active: "content" | "actions" | null;
 }
 
 /**
  * Visão do cliente: produto de relatório, não painel administrativo.
  * Faixa com a identidade do cliente, áreas e períodos logo abaixo e os números em primeiro plano.
  */
-export function PortalView({ model, basePath, links, logoUrl, banner, section, actions }: { model: PortalModel; basePath: string; links: PortalLinks; logoUrl?: string | null; banner?: ReactNode; section?: string | null; actions?: PortalActionsArea | null }) {
+export function PortalView({ model, basePath, links, logoUrl, banner, section, extras }: { model: PortalModel; basePath: string; links: PortalLinks; logoUrl?: string | null; banner?: ReactNode; section?: string | null; extras?: PortalExtras | null }) {
   const { client, selection } = model;
-  const showActions = Boolean(actions?.active);
-  const areas: PortalArea[] = actions ? [...model.tabs, "actions"] : model.tabs;
-  const area: PortalArea = showActions ? "actions" : model.tab;
-  // Os relatórios fiéis só valem na área de relatórios (nunca por trás da área Ações).
-  const landimOriginal = !showActions && isLandimOriginalReport(client.slug, model.tab, model.periodKey);
-  const larplanOriginal = !showActions && isLarplanOriginalReport(client.slug, model.tab, model.periodKey);
-  const fullCommercial = !showActions && isFullCommercialReport(client.slug, model.tab, model.mode);
+  const content = extras?.content ?? null;
+  const actions = extras?.actions ?? null;
+  const extra = extras?.active === "content" && content ? "content" : extras?.active === "actions" && actions ? "actions" : null;
+  const showExtra = extra !== null;
+  const areas: PortalArea[] = [...model.tabs, ...(content ? (["content"] as const) : []), ...(actions ? (["actions"] as const) : [])];
+  const area: PortalArea = extra ?? model.tab;
+  // Os relatórios fiéis só valem na área de relatórios (nunca por trás de Conteúdo ou Ações).
+  const landimOriginal = !showExtra && isLandimOriginalReport(client.slug, model.tab, model.periodKey);
+  const larplanOriginal = !showExtra && isLarplanOriginalReport(client.slug, model.tab, model.periodKey);
+  const fullCommercial = !showExtra && isFullCommercialReport(client.slug, model.tab, model.mode);
   const originalCommercial = fullCommercial && model.periodKey === "2026-09" ? (client.slug === "serenity-terapias" ? "serenity" : "isabor") : null;
   const tz = env().APP_TIMEZONE;
   const tabLabel = TAB_LABEL[model.tab];
@@ -71,13 +82,13 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, a
 
   // Painel comercial: o mês aberto em foco, com o acumulado do ano até ele.
   const commercial: CommercialDashboardVM | null =
-    !showActions && model.view === "period" && selection.dataset?.data.type === "commercial"
+    !showExtra && model.view === "period" && selection.dataset?.data.type === "commercial"
       ? buildCommercialDashboard({ history: model.history, previous: model.previous, data: selection.dataset.data.data, insights: selection.insights, dashboard: client.dashboard, periodHref: links.period })
       : null;
 
-  const shown = showActions ? [] : model.view === "overview" && model.overview ? model.overview : selection.primary ? [selection.primary] : [];
-  const actionCount = actions?.vm.summary.total ?? 0;
-  const chip = showActions ? `${actionCount} ${actionCount === 1 ? "ação" : "ações"}` : larplanOriginal ? "Junho – Agosto / 2026" : landimOriginal ? "Julho – Agosto / 2026" : commercial ? commercial.rangeShort : shown.length ? (shown.length > 1 ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period) : formatPeriod(shown[0].period)) : null;
+  const shown = showExtra ? [] : model.view === "overview" && model.overview ? model.overview : selection.primary ? [selection.primary] : [];
+  const actionCount = actions?.summary.total ?? 0;
+  const chip = extra === "content" ? content!.rangeLabel : extra === "actions" ? `${actionCount} ${actionCount === 1 ? "ação" : "ações"}` : larplanOriginal ? "Junho – Agosto / 2026" : landimOriginal ? "Julho – Agosto / 2026" : commercial ? commercial.rangeShort : shown.length ? (shown.length > 1 ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period) : formatPeriod(shown[0].period)) : null;
   const year = larplanOriginal ? 2026 : commercial?.year ?? (shown.length ? +shown[shown.length - 1].period.start.slice(0, 4) : null);
   const subtitle = [client.segment, `${AREA_TITLE[area]}${year ? ` ${year}` : ""}`].filter(Boolean).join(" · ");
   // No comercial, quem fica fixo no topo ao rolar são as abas do painel.
@@ -113,8 +124,10 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, a
           Olá, <strong className="font-bold text-text">{client.greetingName || client.shortName}</strong>
           <span className="text-text-3">
             {" · "}
-            {showActions ? (
-              actions?.vm.updatedAt ? <>ações atualizadas em {formatTimestampDate(actions.vm.updatedAt, tz)}</> : "ações acompanhadas pela equipe da Look"
+            {extra === "content" ? (
+              <>planejamento atualizado em {formatTimestampDate(content!.fetchedAt, tz)}</>
+            ) : extra === "actions" ? (
+              actions?.updatedAt ? <>ações atualizadas em {formatTimestampDate(actions.updatedAt, tz)}</> : "ações acompanhadas pela equipe da Look"
             ) : larplanOriginal ? (
               "dados de junho a agosto de 2026"
             ) : model.lastUpdatedAt ? (
@@ -130,7 +143,9 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, a
             <PortalTabs tabs={areas} active={area} basePath={basePath} className={tabsWidth(areas)} />
             {commercial && areas.length < 2 && !fullCommercial ? <p className="hidden shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-text-3 md:block">{commercial.unit.singular === "mês" ? "Mês em foco" : "Período em foco"}</p> : null}
             <div className="flex min-w-0 gap-2 md:flex-1">
-              {showActions ? (
+              {extra === "content" ? (
+                <div className="hidden min-h-9 items-center text-xs font-semibold text-text-2 md:flex">Conteúdos planejados pela Look · clique em um post para ver a legenda</div>
+              ) : extra === "actions" ? (
                 <div className="hidden min-h-9 items-center text-xs font-semibold text-text-2 md:flex">Ações sugeridas e executadas pela Look · da mais recente para a mais antiga</div>
               ) : (
                 <>
@@ -148,8 +163,10 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, a
         </div>
 
         <main className={commercial || larplanOriginal ? "mt-0" : "mt-6 sm:mt-8"} id="conteudo">
-          {showActions && actions ? (
-            <ActionsBoard vm={actions.vm} />
+          {extra === "content" && content ? (
+            <ContentCalendar vm={content} />
+          ) : extra === "actions" && actions ? (
+            <ActionsBoard vm={actions} />
           ) : !model.tabs.length ? (
             <EmptyState icon={<Inbox />} title="Nenhuma área disponível" description="Assim que a Look ativar os relatórios, eles aparecerão aqui." />
           ) : !model.periods.length ? (
@@ -243,6 +260,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, a
 
 /** Largura do seletor de áreas no desktop, conforme a quantidade e o tamanho dos rótulos. */
 function tabsWidth(tabs: PortalArea[]): string {
+  if (tabs.length > 5) return "lg:w-[760px] lg:shrink-0";
   if (tabs.length > 4) return "lg:w-[660px] lg:shrink-0";
   if (tabs.length > 3) return "lg:w-[560px] lg:shrink-0";
   if (tabs.length > 2) return "md:w-[420px] md:shrink-0";

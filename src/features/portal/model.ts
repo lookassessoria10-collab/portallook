@@ -9,8 +9,8 @@ import { REPORT_TYPES, reportTypeFromParam, type Insight, type ReportIndexEntry,
 
 export type PortalTab = ReportType;
 
-/** Áreas do seletor do portal: as de relatório e a área "Ações" (lista de ações, sem períodos). */
-export type PortalArea = PortalTab | "actions";
+/** Áreas do seletor do portal: as de relatório, "Conteúdo" (calendário do ClickUp) e "Ações" — as duas últimas sem períodos. */
+export type PortalArea = PortalTab | "content" | "actions";
 
 /** "overview": todos os períodos juntos; "period": um período específico. */
 export type PortalView = "overview" | "period";

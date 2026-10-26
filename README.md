@@ -4,8 +4,8 @@ Portal de relatórios e dashboards dos clientes da **Look Assessoria de Comunica
 
 **A mesma aplicação, com dados e configurações diferentes, gera um dashboard personalizado para cada cliente.** Não é preciso criar páginas novas para um cliente novo.
 
-- **Painel da Look (`/adm`):** cadastro de clientes, periodicidade das entregas, upload de relatórios, validação, rascunho → publicação, status de pendências, links exclusivos, histórico e o painel de **Ações** de cada cliente.
-- **Portal do cliente (`/c/{slug}/{token}`):** sem login. O cliente abre um link exclusivo e vê Comercial, Tráfego, Rede social e Plano de mídia, período a período, e as **Ações** da Look, pensado primeiro para o celular.
+- **Painel da Look (`/adm`):** cadastro de clientes, periodicidade das entregas, upload de relatórios, validação, rascunho → publicação, status de pendências, links exclusivos, histórico, o painel de **Ações** e o **planejamento de conteúdo** (ClickUp) de cada cliente.
+- **Portal do cliente (`/c/{slug}/{token}`):** sem login. O cliente abre um link exclusivo e vê Comercial, Tráfego, Rede social e Plano de mídia, período a período, o calendário de **Conteúdo** e as **Ações** da Look, pensado primeiro para o celular.
 
 ---
 
@@ -26,10 +26,11 @@ Portal de relatórios e dashboards dos clientes da **Look Assessoria de Comunica
 13. [Formatos de arquivo aceitos](#formatos-de-arquivo-aceitos)
 14. [Status de entrega](#status-de-entrega)
 15. [Ações](#ações)
-16. [Vercel Blob](#como-configurar-o-vercel-blob)
-17. [Deploy na Vercel](#deploy-na-vercel)
-18. [Evolução: trocar JSON por banco](#evolução-trocar-json-por-banco)
-19. [Limitações conhecidas do MVP](#limitações-conhecidas-do-mvp)
+16. [Conteúdo (ClickUp)](#conteúdo-clickup)
+17. [Vercel Blob](#como-configurar-o-vercel-blob)
+18. [Deploy na Vercel](#deploy-na-vercel)
+19. [Evolução: trocar JSON por banco](#evolução-trocar-json-por-banco)
+20. [Limitações conhecidas do MVP](#limitações-conhecidas-do-mvp)
 
 ---
 
@@ -66,7 +67,7 @@ ARQUIVO ORIGINAL → VALIDAÇÃO → INTERPRETAÇÃO → NORMALIZAÇÃO → JSON
 
 ```
 app/          rotas finas: carregam dados e compõem componentes
-features/     domínios: clients, reports, commercial, traffic, uploads, portal, auth, events, admin, actions
+features/     domínios: clients, reports, commercial, traffic, uploads, portal, auth, events, admin, actions, content
   */schema.ts        schemas Zod + tipos
   */service.ts       regras de negócio (server-only)
   */actions.ts       Server Actions (sempre chamam requireAdmin)
@@ -181,6 +182,8 @@ Veja `.env.example`. Nenhuma credencial tem valor padrão no código.
 | `UPLOAD_MAX_MB` | não | Tamanho máximo de upload (padrão 25 MB) |
 | `SERVER_UPLOAD_MAX_MB` | não | Acima disso, o upload vai direto ao Blob (padrão 4 MB; a função da Vercel aceita no máximo 4,5 MB) |
 | `APP_TIMEZONE` | não | Fuso usado para "hoje" e para exibição (padrão `America/Sao_Paulo`) |
+| `CLICKUP_API_TOKEN` | não | Token da API do ClickUp para a área Conteúdo. Sem ele, a área fica desligada. Use um usuário só com leitura das listas dos clientes. |
+| `CLICKUP_TEAM_ID` | não | Workspace do ClickUp (sem ele, o primeiro que o token acessa) |
 
 Para gerar um segredo:
 
@@ -204,6 +207,9 @@ clients/{clientId}/client.json            perfil e configuração
 clients/{clientId}/access.json            token do link (hash HMAC + cópia cifrada)
 clients/{clientId}/index.json             resumo de relatórios e uploads (reconstruível)
 clients/{clientId}/actions.json           ações do cliente (só existe depois da 1ª edição no painel)
+clients/{clientId}/content.json           regras da área Conteúdo (só existe depois de salvar no painel)
+clients/{clientId}/content-cache.json     última leitura da lista do ClickUp (reconstruível)
+integrations/clickup/lists.json           listas do workspace do ClickUp (reconstruível)
 clients/{clientId}/logo.{png|jpg|webp}
 clients/{clientId}/reports/{commercial|traffic|social|media_plan}/{reportId}/manifest.json
 clients/{clientId}/reports/{commercial|traffic|social|media_plan}/{reportId}/data.json
@@ -451,6 +457,21 @@ O módulo de **Ações** mostra as iniciativas que a Look sugere e executa para 
 - **Status:** lido com as mesmas regras da coluna "Leitura de status" da planilha — `final|conclu` → Concluída; `não aprov|arquiv` → Não aprovada; `andamento|em produção|agendada|ativo` → Em andamento; começa com `aprova` → Aprovada; `aguard|pend|bloque|a fazer` → Pendência; vazio → Sem status. "Executadas" são as ações com data de execução. O termo entre parênteses no fim da ação ("… (Institucional)") vira a **frente**.
 - **Painel:** **Ações** no menu (indicadores gerais como no painel da planilha, tabela por cliente e lista "Em foco"), aba **Ações** em cada cliente (cadastrar, editar, ocultar uma ação do portal, excluir, importar uma aba, esconder a área do portal) e um resumo na visão geral do cliente.
 - **Portal:** a área **Ações** aparece no seletor quando o cliente tem ações visíveis (`?aba=acoes`): resumo (ações no plano, em andamento, executadas, concluídas, sugeridas), filtros por situação, cartões com frente, tipo, datas e o comentário para o cliente, frentes de trabalho e pontuais × contínuas. **Observações e andamento nunca saem do servidor** — são só da equipe.
+
+---
+
+## Conteúdo (ClickUp)
+
+A área **Conteúdo** mostra ao cliente o calendário dos próximos posts, lido da **lista do cliente no ClickUp** (uma lista por cliente, como a equipe já organiza).
+
+- **Configuração:** defina `CLICKUP_API_TOKEN` na Vercel com o token de um usuário do ClickUp que só tenha **leitura** das listas dos clientes (ClickUp → Settings → Apps → API Token) e faça um novo deploy. O token fica só no servidor. Sem ele, a área não aparece e a aba do painel explica como configurar.
+- **Qual lista é de qual cliente:** automática pelo nome (mesma regra da planilha de rede social; entre duas listas com o mesmo nome, vale a que não está numa pasta "ANTIGO"). Em **Cliente → Conteúdo**, dá para escolher outra lista.
+- **Leitura:** `GET /list/{id}/task` com as tarefas que têm data entre 30 dias atrás e 90 dias à frente (ajustável). Os campos são reconhecidos pelo nome: **Formato**, **CANAL**, **TIPO**, **Legenda** e **Andamento**. A data de entrega é a data do post, no fuso do portal.
+- **Cache:** a leitura fica guardada em `content-cache.json` por **10 minutos**. Depois disso, o portal mostra a cópia guardada na hora e relê o ClickUp em segundo plano (`after` do Next). Se o ClickUp falhar, a última cópia continua valendo e o painel mostra o erro; uma nova tentativa só acontece depois de 2 minutos. **Atualizar agora** (no painel) relê na hora.
+- **O que o cliente vê (padrão, editável por cliente):** itens do TIPO "Conteúdo" e "A pedido/cliente" e itens sem tipo que têm formato ou legenda. Ficam fora: itens chamados "TEMA" sem legenda, itens com "(confirmar …)" no nome, itens com a etiqueta `interno` e os outros tipos (Ação, Anúncio…). O cliente vê a **legenda**; a **descrição da tarefa não vai para o portal** (ela costuma ter notas internas), a menos que a regra seja ligada.
+- **Status para o cliente:** postado/fechado → Publicado; aguardando/pendente → Aguarda sua aprovação; aprovado → Aprovado; revisão/correção/feito → Em produção; o resto → Em planejamento. O painel mostra como cada status da lista foi traduzido.
+- **Portal:** calendário do mês (computador) e agenda por semana (celular), filtro por formato, destaque dos conteúdos que aguardam aprovação e o detalhe de cada post. Com seis áreas, o seletor de áreas rola para o lado no celular.
+- **Painel:** a aba **Conteúdo** de cada cliente mostra a lista vinculada, as regras, a tradução dos status e a prévia (quantos itens vão para o portal, quais ficam fora e por quê, e o que vale corrigir no ClickUp — como conteúdo com data passada ainda em planejamento).
 
 ---
 

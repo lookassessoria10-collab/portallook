@@ -1,5 +1,6 @@
 import type { ClientActions } from "@/features/actions/schema";
 import type { Client, ClientAccess } from "@/features/clients/schema";
+import type { ClickUpListsCache, ContentCache, ContentSettings } from "@/features/content/schema";
 import type { PortalEvent } from "@/features/events/schema";
 import type { ClientIndex, ReportManifest, ReportType } from "@/features/reports/schema";
 import type { ImportRecord } from "@/features/uploads/schema";
@@ -64,6 +65,17 @@ export interface ActionRepository {
   update(clientId: string, mutate: (current: ClientActions | null) => ClientActions): Promise<ClientActions>;
 }
 
+export interface ContentRepository {
+  /** null = o cliente usa os padrões (área ligada, lista escolhida pelo nome). */
+  getSettings(clientId: string): Promise<ContentSettings | null>;
+  updateSettings(clientId: string, mutate: (current: ContentSettings | null) => ContentSettings): Promise<ContentSettings>;
+  /** Última leitura da lista do ClickUp (null = nunca lida ou ilegível: é reconstruível). */
+  getCache(clientId: string): Promise<ContentCache | null>;
+  saveCache(clientId: string, cache: ContentCache): Promise<void>;
+  getLists(): Promise<ClickUpListsCache | null>;
+  saveLists(cache: ClickUpListsCache): Promise<void>;
+}
+
 export interface Repositories {
   clients: ClientRepository;
   access: AccessRepository;
@@ -71,4 +83,5 @@ export interface Repositories {
   imports: ImportRepository;
   events: EventRepository;
   actions: ActionRepository;
+  content: ContentRepository;
 }

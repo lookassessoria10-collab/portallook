@@ -3,11 +3,10 @@ import { notFound } from "next/navigation";
 import { Eye } from "lucide-react";
 import { getClient } from "@/features/clients/service";
 import { loadPortalModel, SCALE_PARAM } from "@/features/portal/model";
-import { ACTIONS_TAB_PARAM } from "@/features/portal/params";
+import { loadPortalExtras } from "@/features/portal/extras";
 import { REPORT_TYPE_PATH } from "@/features/reports/schema";
 import { PortalView } from "@/features/portal/components/portal-view";
 import type { PortalLinks } from "@/features/portal/components/portal-sections";
-import { loadPortalActions } from "@/features/actions/service";
 
 export const metadata: Metadata = { title: "Prévia do portal" };
 
@@ -22,9 +21,9 @@ export default async function PortalPreviewPage(props: PageProps<"/adm/clientes/
   const client = await getClient(id);
   if (!client) notFound();
   const base = `/adm/clientes/${id}/portal`;
-  const actions = await loadPortalActions(client);
-  const showActions = actions !== null && one(search.aba) === ACTIONS_TAB_PARAM;
-  const model = await loadPortalModel(client, { tab: showActions ? null : one(search.aba), period: one(search.periodo), scale: one(search.escala), year: one(search.ano), mode: "preview", skipSelection: showActions });
+  const extras = await loadPortalExtras(client, one(search.aba));
+  const showExtra = extras.active !== null;
+  const model = await loadPortalModel(client, { tab: showExtra ? null : one(search.aba), period: one(search.periodo), scale: one(search.escala), year: one(search.ano), mode: "preview", skipSelection: showExtra });
   const tabParam = REPORT_TYPE_PATH[model.tab];
   const scaleParam = model.scales ? `&escala=${SCALE_PARAM[model.scale]}` : "";
   const yearParam = model.year !== null ? `&ano=${model.year}` : "";
@@ -36,7 +35,7 @@ export default async function PortalPreviewPage(props: PageProps<"/adm/clientes/
     document: (reportId) => `/adm/clientes/${id}/relatorios/${reportId}`,
     file: (reportId, download) => `/api/adm/clientes/${id}/relatorios/${reportId}/arquivo${download ? "?download=1" : ""}`,
   };
-  const isDraft = !showActions && model.selection.primary?.status === "draft";
+  const isDraft = !showExtra && model.selection.primary?.status === "draft";
   return (
     <div className="-mx-4 overflow-clip rounded-[var(--radius-xl)] border border-border sm:mx-0">
       <PortalView
@@ -45,7 +44,7 @@ export default async function PortalPreviewPage(props: PageProps<"/adm/clientes/
         links={links}
         logoUrl={client.logo ? `/api/adm/clientes/${id}/logo` : null}
         section={one(search.secao)}
-        actions={actions ? { vm: actions, active: showActions } : null}
+        extras={extras}
         banner={
           <p className="mt-4 flex items-start gap-2 rounded-xl border border-[rgb(140_156_248/0.3)] bg-info-soft px-3.5 py-2.5 text-[13px] text-text-2">
             <Eye className="mt-0.5 size-4 shrink-0 text-info" aria-hidden />

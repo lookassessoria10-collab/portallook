@@ -1,6 +1,7 @@
 import "server-only";
 import { ClientActionsSchema } from "@/features/actions/schema";
 import { ClientAccessSchema, ClientSchema, type Client } from "@/features/clients/schema";
+import { ClickUpListsCacheSchema, ContentCacheSchema, ContentSettingsSchema, type ClickUpListsCache, type ContentCache } from "@/features/content/schema";
 import { EventSchema, type PortalEvent } from "@/features/events/schema";
 import { emptyIndex, toIndexEntry, upsertReportEntry } from "@/features/reports/index-entry";
 import { ClientIndexSchema, ReportManifestSchema, type ReportManifest, type ReportType } from "@/features/reports/schema";
@@ -11,7 +12,7 @@ import { readJSON, updateJSON, writeJSON } from "@/lib/storage/json";
 import { paths } from "@/lib/storage/paths";
 import { StorageAlreadyExistsError, type StorageProvider } from "@/lib/storage/types";
 import { z } from "zod";
-import type { AccessRepository, ActionRepository, ClientRepository, EventRepository, ImportRepository, ReportRepository, Repositories } from "./types";
+import type { AccessRepository, ActionRepository, ClientRepository, ContentRepository, EventRepository, ImportRepository, ReportRepository, Repositories } from "./types";
 
 const SlugDocSchema = z.object({ clientId: z.string(), slug: z.string() });
 
@@ -289,6 +290,41 @@ class JsonActionRepository implements ActionRepository {
   }
 }
 
+class JsonContentRepository implements ContentRepository {
+  constructor(private readonly storage: StorageProvider) {}
+
+  async getSettings(clientId: string) {
+    if (!isValidId(clientId, "cl")) return null;
+    const doc = await readJSON(this.storage, paths.clientContent(clientId), ContentSettingsSchema);
+    return doc?.data ?? null;
+  }
+
+  updateSettings(clientId: string, mutate: Parameters<ContentRepository["updateSettings"]>[1]) {
+    return updateJSON(this.storage, paths.clientContent(clientId), ContentSettingsSchema, (current) => {
+      const next = mutate(current);
+      return { ...next, clientId, updatedAt: nowISO(), version: (current?.version ?? 0) + 1 };
+    });
+  }
+
+  /** Cópias reconstruíveis: um arquivo ilegível vale como "sem cópia" e é regravado na próxima leitura. */
+  async getCache(clientId: string) {
+    if (!isValidId(clientId, "cl")) return null;
+    return (await readJSON(this.storage, paths.clientContentCache(clientId), ContentCacheSchema).catch(() => null))?.data ?? null;
+  }
+
+  async saveCache(clientId: string, cache: ContentCache) {
+    await writeJSON(this.storage, paths.clientContentCache(clientId), ContentCacheSchema.parse(cache));
+  }
+
+  async getLists() {
+    return (await readJSON(this.storage, paths.clickupLists(), ClickUpListsCacheSchema).catch(() => null))?.data ?? null;
+  }
+
+  async saveLists(cache: ClickUpListsCache) {
+    await writeJSON(this.storage, paths.clickupLists(), ClickUpListsCacheSchema.parse(cache));
+  }
+}
+
 export function createJsonRepositories(storage: StorageProvider): Repositories {
   return {
     clients: new JsonClientRepository(storage),
@@ -297,5 +333,6 @@ export function createJsonRepositories(storage: StorageProvider): Repositories {
     imports: new JsonImportRepository(storage),
     events: new JsonEventRepository(storage),
     actions: new JsonActionRepository(storage),
+    content: new JsonContentRepository(storage),
   };
 }
