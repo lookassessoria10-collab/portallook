@@ -330,7 +330,7 @@ export async function processImport(importId: string): Promise<ImportRecord> {
               : // Rede social: a planilha da Look tem uma aba por cliente — lê só a deste cliente.
                 readExcel(body, sniffed === "xlsx" ? "xlsx" : "xls", record.reportType === "social" ? { select: selectClientSheet(clientNames) } : {});
         if (record.reportType === "commercial") {
-          const result = normalizeCommercial(workbook, { ...periodCtx, csvRole: record.csvContent ? csvRole(record.csvContent) : undefined, csvDimensionLabel: record.csvDimensionLabel }, issues);
+          const result = normalizeCommercial(workbook, { ...periodCtx, csvRole: record.csvContent ? csvRole(record.csvContent) : undefined, csvDimensionLabel: record.csvDimensionLabel, fileName: record.fileName }, issues);
           sheets = result.sheets;
           // Os valores do arquivo estão na moeda do cliente (é a que o portal exibe).
           for (const p of result.periods) (p.data as { currency?: string }).currency = client.currency;

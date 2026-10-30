@@ -1,7 +1,7 @@
 import { formatInteger } from "@/lib/format/number";
 import { normalizeText, slugify } from "@/lib/ids";
-import { formatDate, formatPeriod, periodKey, type Period } from "@/lib/dates/period";
-import { dateCell, findColumn, numberCell, textCell } from "@/lib/parsers/cells";
+import { formatDate, formatPeriod, monthPeriod, periodKey, type Period } from "@/lib/dates/period";
+import { dateCell, findColumn, monthCell, numberCell, textCell } from "@/lib/parsers/cells";
 import type { CellValue, RawSheet, RawWorkbook } from "@/lib/parsers/types";
 import type { IssueCollector } from "@/features/uploads/issues";
 import { isTotalLabel, resolveRowPeriod, type PeriodContext } from "@/features/uploads/row-period";
@@ -99,7 +99,7 @@ const ROLE_LABEL: Record<SheetRole, string> = {
 
 export function normalizeCommercial(
   workbook: RawWorkbook,
-  ctx: PeriodContext & { csvRole?: SheetRole; csvDimensionLabel?: string | null },
+  ctx: PeriodContext & { csvRole?: SheetRole; csvDimensionLabel?: string | null; fileName?: string | null },
   issues: IssueCollector,
 ): CommercialNormalizeResult {
   const accs = new Map<string, Acc>();
@@ -114,8 +114,19 @@ export function normalizeCommercial(
   };
 
   const sheets: CommercialNormalizeResult["sheets"] = [];
+  // Planilha de origem com uma aba por ano (sem Funil): o total de cada mês vira a etapa do funil.
+  const yearlyOrigin = !ctx.csvRole && ctx.granularity === "month" && isYearlyOriginWorkbook(workbook);
+  if (yearlyOrigin) {
+    const label = originStageLabel(ctx.fileName);
+    const stage = { key: slugify(label), label };
+    for (const sheet of workbook.sheets) {
+      const used = sheet.rows.length > 0 && YEAR_SHEET.test(sheet.name.trim());
+      sheets.push({ name: sheet.name, rows: sheet.rows.length, recognizedAs: used ? `Origem por canal · ${sheet.name.trim()}` : null });
+      if (used) readYearlyOrigin(sheet, stage, issues, acc);
+    }
+  }
   let untitledTables = 0;
-  for (const [index, sheet] of workbook.sheets.entries()) {
+  for (const [index, sheet] of yearlyOrigin ? [] : workbook.sheets.entries()) {
     // Dados colados: só a primeira tabela pode ficar sem título (vira Funil); as outras precisam dizer o que são.
     if (sheet.untitled && untitledTables++ > 0) {
       issues.error("untitled_table", `A ${index + 1}ª tabela colada não tem título. Escreva o nome da seção na linha de cima dela (ex.: ## Financeiro, ## Canais).`, { sheet: sheet.name });
@@ -146,7 +157,7 @@ export function normalizeCommercial(
   }
 
   const partial = Boolean(ctx.csvRole);
-  const hasFunnelSheet = workbook.sheets.some((s) => classifySheet(s.name) === "funnel");
+  const hasFunnelSheet = yearlyOrigin || workbook.sheets.some((s) => classifySheet(s.name) === "funnel");
   if (!partial && !hasFunnelSheet) {
     issues.error("missing_sheet", 'A aba "Funil" não foi encontrada. Ela é obrigatória para o relatório comercial (baixe o modelo para ver o formato).');
   }
@@ -179,6 +190,74 @@ export function normalizeCommercial(
     periods.push({ periodKey: key, period: a.period, sections: [...a.sections], data, insights: a.insights });
   }
   return { periods, sheets };
+}
+
+/** Aba com o nome de um ano ("2024", "2025"…): o ano dos meses vem do nome da aba. */
+const YEAR_SHEET = /^(19|20)\d{2}$/;
+const isTotalColumn = (name: string) => /^total\b/.test(normalizeText(name));
+
+/** Colunas de canal de uma aba de origem: as numéricas, menos Mês e Total. */
+function originChannelColumns(sheet: RawSheet): string[] {
+  const periodCol = findColumn(sheet.headers, PERIOD);
+  return sheet.headers.filter((c) => c !== periodCol && !isTotalColumn(c) && sheet.rows.some((r) => numberCell(r.cells[c]).value !== null));
+}
+
+/**
+ * Planilha de origem (ex.: "Origem dos Pacientes"): uma aba por ano, coluna Mês só com o nome do
+ * mês e uma coluna por canal (Google, Indicação…), com ou sem Total. Só vale quando não há aba
+ * Funil e todas as abas com dados são anos — qualquer outro arquivo segue o modelo de sempre.
+ */
+function isYearlyOriginWorkbook(workbook: RawWorkbook): boolean {
+  const used = workbook.sheets.filter((s) => s.rows.length > 0 && classifySheet(s.name) !== "ignored");
+  if (!used.length) return false;
+  return used.every((s) => YEAR_SHEET.test(s.name.trim()) && findColumn(s.headers, PERIOD) !== null && originChannelColumns(s).length > 0);
+}
+
+/** Nome da etapa pelo arquivo: "Origem dos Pacientes" → "Novos pacientes"; "… clientes" → "Novos clientes"; senão "Leads". */
+function originStageLabel(fileName: string | null | undefined): string {
+  const n = normalizeText(fileName ?? "");
+  if (/\bpacientes?\b/.test(n)) return "Novos pacientes";
+  if (/\bclientes?\b/.test(n)) return "Novos clientes";
+  return "Leads";
+}
+
+function readYearlyOrigin(sheet: RawSheet, stage: { key: string; label: string }, issues: IssueCollector, acc: (p: Period) => Acc) {
+  const year = Number(sheet.name.trim());
+  const periodCol = findColumn(sheet.headers, PERIOD)!;
+  const totalCol = sheet.headers.find(isTotalColumn) ?? null;
+  const channelCols = originChannelColumns(sheet);
+  for (const row of sheet.rows) {
+    const label = textCell(row.cells[periodCol]);
+    if (!label || isSummaryRow(label)) continue;
+    const month = monthCell(row.cells[periodCol]) ?? monthCell(`${label} ${year}`);
+    if (!month) {
+      issues.error("invalid_period", `O mês "${label}" na aba ${sheet.name}, linha ${row.line}, não é válido. Use o nome do mês (ex.: "Setembro").`, { sheet: sheet.name, row: row.line, column: periodCol });
+      continue;
+    }
+    const values = channelCols.map((c) => {
+      const n = numberCell(row.cells[c]);
+      if (n.invalid) issues.error("invalid_number", `O valor de "${c}" em ${label} não é um número (aba ${sheet.name}, linha ${row.line}).`, { sheet: sheet.name, row: row.line, column: c });
+      return { c, value: n.value };
+    });
+    // Mês ainda sem dados (ex.: outubro a dezembro em branco, com Total 0): fica de fora.
+    if (values.every((v) => v.value === null)) continue;
+    const period = monthPeriod(month.year, month.month);
+    const sum = values.reduce((s, v) => s + (v.value ?? 0), 0);
+    const total = totalCol ? numberCell(row.cells[totalCol]).value : null;
+    if (total !== null && total !== sum) {
+      issues.warn("channel_sum_mismatch", `Em ${formatPeriod(period)}, o Total da planilha (${formatInteger(total)}) é diferente da soma dos canais (${formatInteger(sum)}). O portal usa a soma dos canais.`, { sheet: sheet.name, row: row.line });
+    }
+    const a = acc(period);
+    if (a.funnel.size) issues.warn("duplicate_item", `${formatPeriod(period)} aparece mais de uma vez (aba ${sheet.name}, linha ${row.line}): vale a última linha.`, { sheet: sheet.name, row: row.line });
+    a.funnel.set(stage.key, { label: stage.label, order: 1, value: sum });
+    // A planilha diz como a pessoa chegou, não quanto foi investido: rede social aqui não é mídia paga.
+    a.channels = values.map(({ c, value }) => {
+      const kind = inferChannelKind(c, null);
+      return { key: slugify(c) || `canal-${c}`, label: c, kind: kind === "paid" ? "organic" : kind, leads: value, conversions: null, revenue: null, investment: null };
+    });
+    a.sections.add("funnel");
+    a.sections.add("channels");
+  }
 }
 
 function readFunnel(sheet: RawSheet, ctx: PeriodContext, issues: IssueCollector, acc: (p: Period) => Acc) {
