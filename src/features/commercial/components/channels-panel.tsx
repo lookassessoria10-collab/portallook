@@ -14,6 +14,16 @@ export function ChannelsPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
   const footnote = ch?.hasLeads
     ? `Colunas dos meses: ${ch.leadsLabel.toLowerCase()} de cada canal. Vazio = não informado na planilha.${unattributed ? ` Sem atribuição: ${ch.leadsLabel.toLowerCase()} do funil sem canal informado (o total do funil menos a soma dos canais), para o total bater com a visão geral.` : ""}`
     : undefined;
+  // Título da tabela no nome da etapa do cliente ("Novos pacientes"), citando receita só quando há receita.
+  const tableTitle = ch
+    ? ch.hasConversions
+      ? ch.hasRevenue
+        ? "Conversão e receita por canal"
+        : "Conversão por canal"
+      : ch.hasRevenue
+        ? `${ch.leadsLabel} e receita por canal`
+        : `${ch.leadsLabel} por canal, mês a mês`
+    : "";
   return (
     <div className="space-y-9">
       {ch ? (
@@ -33,7 +43,7 @@ export function ChannelsPanel({ vm, currency }: { vm: CommercialDashboardVM; cur
           ) : null}
 
           <section aria-labelledby="canais-tabela-titulo">
-            <SectionLabel id="canais-tabela-titulo">{ch.hasConversions ? "Conversão e receita por canal" : "Leads e receita por canal"}</SectionLabel>
+            <SectionLabel id="canais-tabela-titulo">{tableTitle}</SectionLabel>
             <TableFrame caption="Resultados por canal" footnote={footnote}>
               <thead>
                 <tr>
