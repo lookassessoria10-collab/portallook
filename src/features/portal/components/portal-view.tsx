@@ -92,7 +92,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
   // Painel comercial: o mês aberto em foco, com o acumulado do ano até ele.
   const commercial: CommercialDashboardVM | null =
     !showExtra && model.view === "period" && selection.dataset?.data.type === "commercial"
-      ? buildCommercialDashboard({ history: model.history, previous: model.previous, data: selection.dataset.data.data, insights: selection.insights, dashboard: client.dashboard, periodHref: links.period })
+      ? buildCommercialDashboard({ history: model.history, previous: model.previous, data: selection.dataset.data.data, insights: selection.insights, dashboard: client.dashboard, periodHref: model.singleReport ? undefined : links.period })
       : null;
 
   const shown = showExtra ? [] : model.view === "overview" && model.overview ? model.overview : selection.primary ? [selection.primary] : [];
@@ -168,7 +168,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
         <div className={cn("-mx-4 border-b border-border px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8", stickyBar && "sticky top-0 z-20 bg-[rgb(6_14_28/0.94)]")}>
           <div className={areas.length > 3 ? "flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4" : "flex flex-col gap-2.5 md:flex-row md:items-center md:gap-4"}>
             <PortalTabs tabs={areas} active={area} basePath={basePath} className={tabsWidth(areas)} />
-            {commercial && areas.length < 2 && !fullCommercial ? <p className="hidden shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-text-3 md:block">{commercial.unit.singular === "mês" ? "Mês em foco" : "Período em foco"}</p> : null}
+            {commercial && areas.length < 2 && !fullCommercial && !model.singleReport ? <p className="hidden shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-text-3 md:block">{commercial.unit.singular === "mês" ? "Mês em foco" : "Período em foco"}</p> : null}
             <div className="flex min-w-0 gap-2 md:flex-1">
               {extra === "content" ? (
                 <div className="hidden min-h-9 items-center text-xs font-semibold text-text-2 md:flex">Conteúdos planejados pela Look · clique em um post para ver a legenda</div>
@@ -178,7 +178,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
                 <>
                   <ScaleSwitch options={scaleItems} />
                   <YearSwitch options={yearItems} />
-                  {!fullCommercial ? <PeriodNav overviewHref={model.overview ? links.overview : null} items={periodItems} active={model.periodKey} className="min-w-0 flex-1" /> : (
+                  {!fullCommercial && !model.singleReport ? <PeriodNav overviewHref={model.overview ? links.overview : null} items={periodItems} active={model.periodKey} className="min-w-0 flex-1" /> : (
                     <div className="flex min-h-9 items-center text-xs font-semibold text-text-2">
                       Relatório consolidado · histórico mensal nas tabelas e gráficos
                     </div>

@@ -73,16 +73,22 @@ describe("Larplan sem planilha: integração e importações futuras", () => {
     expect((await loadPortalModel(other, { tab: "comercial", mode: "client" })).periods).toHaveLength(0);
   });
 
-  it("abre períodos posteriores normalmente e mantém o original acessível sem duplicar agosto", async () => {
+  it("com um envio mais novo, o cliente vê só o mais recente (sem abas de mês); o original segue na prévia do ADM", async () => {
     const client = await createClient(clientInput("larplan"), null);
+    const ids = {};
     for (const month of [8, 9]) {
       const draft = await createDraftReport({ clientId: client.id, type: "commercial", kind: "document", period: monthPeriod(2026, month), source: null });
       await publishReport(client.id, draft.id, null);
+      ids[month] = draft.id;
     }
     const latest = await loadPortalModel(client, { tab: "comercial", mode: "client" });
+    expect(latest.singleReport).toBe(true);
     expect(latest.periodKey).toBe("2026-09");
     expect(latest.periods.map((p) => p.key)).toEqual(["2026-08", "2026-09"]);
-    const original = await loadPortalModel(client, { tab: "comercial", period: "2026-08", mode: "client" });
+    // Comercial sem navegação por mês: o link antigo com ?periodo= abre o relatório atual.
+    const old = await loadPortalModel(client, { tab: "comercial", period: "2026-08", mode: "client" });
+    expect(old.periodKey).toBe("2026-09");
+    const original = await loadPortalModel(client, { tab: "comercial", mode: "preview", focusReportId: ids[8] });
     expect(original.periodKey).toBe("2026-08");
     expect(isLarplanOriginalReport(client.slug, original.tab, original.periodKey)).toBe(true);
   });

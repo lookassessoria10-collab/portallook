@@ -84,6 +84,8 @@ export interface PortalModel {
   notices: PortalNotice[];
   /** Mês aberto sem relatório, só com justificativa. */
   missing: PortalNotice | null;
+  /** Comercial: um relatório só (o último HTML enviado), sem abas de mês nem de ano. */
+  singleReport: boolean;
   today: string;
   lastUpdatedAt: string | null;
   mode: "client" | "preview";
@@ -150,16 +152,28 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
   // Justificativas da área (meses sem dados ou com dados incompletos).
   const tabNotes = client.periodNotes.filter((n) => n.type === tab);
 
+  // Comercial: um relatório só, sem abas de mês — o HTML enviado já traz o mês a mês. Vale o último HTML
+  // enviado para o mês mais recente; se o mês mais recente não tem HTML (ex.: cliente que segue com
+  // planilhas e tem um HTML antigo), abre o relatório mais recente, como antes. Nada do que já subiu muda.
+  const singleReport = tab === "commercial" && !focus;
+  const latestStart = allEntries.reduce((max, e) => (e.period.start > max ? e.period.start : max), "");
+  const pinned = singleReport
+    ? (allEntries
+        .filter((e) => isHtmlReport(e) && e.period.start === latestStart)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0] ?? null)
+    : null;
+  const periodParam = singleReport ? null : (options.period ?? null);
+
   // Escala: a do período pedido (ou do relatório em foco); senão a periodicidade do cliente, se houver relatórios nela.
   // Sem nenhum relatório, as justificativas (mensais) abrem a escala de meses.
   const available = [...new Set(allEntries.map((e) => scaleOf(e.period)))];
   if (!available.length && tabNotes.length) available.push("month");
   const cadenceScale: PortalScale = client.modules[tab].cadence === "weekly" ? "week" : "month";
-  const requestedEntry = focus ?? (options.period ? allEntries.find((e) => e.periodKey === options.period) : undefined);
-  const requestedNote = !requestedEntry && options.period ? tabNotes.find((n) => n.periodKey === options.period) : undefined;
+  const requestedEntry = focus ?? pinned ?? (periodParam ? allEntries.find((e) => e.periodKey === periodParam) : undefined);
+  const requestedNote = !requestedEntry && periodParam ? tabNotes.find((n) => n.periodKey === periodParam) : undefined;
   const requestedScale = requestedEntry ? scaleOf(requestedEntry.period) : requestedNote && available.includes("month") ? "month" : scaleFromParam(options.scale);
   const scale: PortalScale = requestedScale && available.includes(requestedScale) ? requestedScale : available.includes(cadenceScale) ? cadenceScale : (available[0] ?? cadenceScale);
-  const scales = available.length > 1 ? (["month", "week"] as const).filter((s) => available.includes(s)) : null;
+  const scales = !singleReport && available.length > 1 ? (["month", "week"] as const).filter((s) => available.includes(s)) : null;
 
   const entries = allEntries.filter((e) => scaleOf(e.period) === scale);
   const group = (list: ReportIndexEntry[]) => {
@@ -177,9 +191,9 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
   // Ano: o do período pedido (ou do relatório em foco), o do parâmetro ou o mais recente.
   const yearOf = (e: ReportIndexEntry) => +e.period.start.slice(0, 4);
   const allYears = [...new Set([...entries.map(yearOf), ...monthNotes.map(noteYearOf), ...(larplanSource ? [2026] : [])])].sort((a, b) => a - b);
-  const yearly = YEARLY_TABS.has(tab) && scale === "month" && allYears.length > 1;
-  const yearEntry = focus ?? (options.period ? entries.find((e) => e.periodKey === options.period) : undefined);
-  const yearNote = !yearEntry && options.period ? monthNotes.find((n) => n.periodKey === options.period) : undefined;
+  const yearly = !singleReport && YEARLY_TABS.has(tab) && scale === "month" && allYears.length > 1;
+  const yearEntry = focus ?? (periodParam ? entries.find((e) => e.periodKey === periodParam) : undefined);
+  const yearNote = !yearEntry && periodParam ? monthNotes.find((n) => n.periodKey === periodParam) : undefined;
   const paramYear = options.year && /^\d{4}$/.test(options.year) ? +options.year : null;
   const year = yearly
     ? yearEntry
@@ -233,14 +247,15 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
   // (os meses só com justificativa mais novos aparecem como aviso). Plano de mídia: o mês corrente, quando existe.
   const fullCommercial = isFullCommercialReport(client.slug, tab, options.mode);
   const requestedKey =
-    !fullCommercial && options.period && (byPeriod.has(options.period) || noteByKey.has(options.period) || (larplanSource && options.period === "2026-08")) ? options.period : null;
+    !fullCommercial && periodParam && (byPeriod.has(periodParam) || noteByKey.has(periodParam) || (larplanSource && periodParam === "2026-08")) ? periodParam : null;
   const currentPlanKey = tab === "media_plan" ? keyOf(monthPeriod(+today.slice(0, 4), +today.slice(5, 7))) : null;
   const noteOnlyKeys = new Set([...noteByKey.keys()].filter((k) => !byPeriod.has(k)));
   const latestWithReport = [...periods].reverse().find((p) => !noteOnlyKeys.has(p.key))?.key ?? null;
   const defaultKey = currentPlanKey && (byPeriod.has(currentPlanKey) || noteByKey.has(currentPlanKey)) ? currentPlanKey : (latestWithReport ?? periods.at(-1)?.key ?? null);
   const view: PortalView = focus || requestedKey || !overview ? "period" : "overview";
-  const selectedKey = view === "overview" ? null : (focus?.periodKey ?? requestedKey ?? defaultKey);
-  const inPeriod = selectedKey ? (byPeriod.get(selectedKey) ?? []) : [];
+  const selectedKey = view === "overview" ? null : (focus?.periodKey ?? pinned?.periodKey ?? requestedKey ?? defaultKey);
+  // HTML fixado: só ele (mesmo que o mês também tenha planilha).
+  const inPeriod = pinned ? [pinned] : selectedKey ? (byPeriod.get(selectedKey) ?? []) : [];
 
   // Justificativas: o mês aberto sem relatório vira a própria página; as demais, avisos no topo.
   const notePeriod = (n: PeriodNote) => parsePeriodKey(n.periodKey) as Period;
@@ -256,7 +271,12 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
       if (n === selectedNote) return false;
       const p = notePeriod(n);
       // Mês(es) do período aberto (uma semana pode cruzar dois meses) e, na abertura padrão, os meses mais novos.
-      return (p.start <= selectedPeriod.end && p.end >= selectedPeriod.start) || (isDefault && p.start > selectedPeriod.end);
+      // Comercial (relatório único com o mês a mês): todos os meses do ano do relatório.
+      return (
+        (p.start <= selectedPeriod.end && p.end >= selectedPeriod.start) ||
+        (isDefault && p.start > selectedPeriod.end) ||
+        (singleReport && p.start.slice(0, 4) === selectedPeriod.start.slice(0, 4))
+      );
     });
   }
 
@@ -319,10 +339,16 @@ export async function loadPortalModel(client: Client, options: LoadPortalOptions
     relatedTraffic,
     notices: sortPeriodNotes(noticeNotes).map(toNotice),
     missing: selectedNote ? toNotice(selectedNote) : null,
+    singleReport,
     today,
     lastUpdatedAt: publishedTimes.at(-1) ?? null,
     mode: options.mode,
   };
+}
+
+/** Relatório enviado como HTML (documento ou HTML estruturado). */
+function isHtmlReport(entry: ReportIndexEntry): boolean {
+  return entry.sourceType === "html_legacy" || entry.sourceType === "html_structured";
 }
 
 function statusRank(status: ReportStatus): number {
