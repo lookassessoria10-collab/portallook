@@ -36,7 +36,7 @@ function matches(row: ClientRow, filter: Filter): boolean {
     case "inactive":
       return row.status !== "active";
     case "updated":
-      return row.status === "active" && states.length > 0 && states.every((s) => s === "updated" || s === "upcoming");
+      return row.status === "active" && states.length > 0 && states.every((s) => s === "updated" || s === "upcoming" || s === "justified");
     default:
       return row.status === "active" && states.includes(filter);
   }

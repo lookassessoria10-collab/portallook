@@ -138,6 +138,7 @@ export function buildOverview(client: Client, index: ClientIndex, date: string):
       today: date,
       clientSince: client.createdAt,
       planning: type === "media_plan",
+      justifiedMonths: client.periodNotes.filter((n) => n.type === type && n.status === "no_data").map((n) => n.periodKey),
     });
   }
   const timestamps = index.reports.map((r) => r.publishedAt).filter((t): t is string => Boolean(t));

@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useMemoryStorage } from "./helpers/setup";
 import { monthPeriod, periodKey, weekPeriod, type Period } from "@/lib/dates/period";
-import { createClient } from "@/features/clients/service";
+import { buildOverview, createClient } from "@/features/clients/service";
+import { buildAdminOverview } from "@/features/admin/overview";
+import { computeDelivery, isDeliveryOk } from "@/features/reports/delivery";
 import { createDraftReport, publishReport } from "@/features/reports/service";
 import { TrafficDataSchema } from "@/features/traffic/schema";
 import { loadPortalModel } from "@/features/portal/model";
@@ -120,6 +122,38 @@ describe("justificativas de meses", () => {
     expect(model.periods.map((p) => p.key)).toEqual([periodKey(week)]);
     // Abertura padrão: a semana (setembro) e o mês mais novo sem dados.
     expect(model.notices.map((n) => n.key)).toEqual(["2026-10", "2026-09"]);
+  });
+
+  it("mês justificado como sem dados deixa de ser pendência no ADM", async () => {
+    const created = await createClient(baseInput, null);
+    await publishTraffic(created.id, monthPeriod(2026, 8));
+    // Hoje (06/11) o relatório esperado é o de outubro, já vencido.
+    const delivery = async () => buildOverview(await reload(created.id), await getRepositories().reports.getIndex(created.id), "2026-11-06").delivery.traffic;
+    expect((await delivery()).state).toBe("pending");
+
+    // "Dados incompletos" sem relatório ainda é pendência: o relatório precisa subir.
+    await savePeriodNote(created.id, { type: "traffic", periodKey: "2026-10", status: "partial", text: "Parcial." }, null);
+    expect((await delivery()).state).toBe("pending");
+
+    await savePeriodNote(created.id, { type: "traffic", periodKey: "2026-10", status: "no_data", text: "Campanhas pausadas." }, null);
+    const d = await delivery();
+    expect(d.state).toBe("justified");
+    expect(isDeliveryOk(d.state)).toBe(true);
+    expect(d.expectedPeriod && periodKey(d.expectedPeriod)).toBe("2026-10");
+    expect(d.daysOverdue).toBeNull();
+
+    // Fora do painel de pendências e contado como em dia.
+    const admin = buildAdminOverview([buildOverview(await reload(created.id), await getRepositories().reports.getIndex(created.id), "2026-11-06")]);
+    expect(admin.attention).toEqual([]);
+    expect(admin.modules.traffic).toMatchObject({ updated: 1, pending: 0 });
+  });
+
+  it("semana de um mês justificado também não é cobrada", () => {
+    const weekly = { enabled: true, cadence: "weekly" as const, dueDay: 2, allowOriginalDownload: false };
+    // 06/11/2026 (sexta): a semana esperada é 26/10 a 01/11, que cruza outubro e novembro.
+    expect(computeDelivery({ module: weekly, reports: [], today: "2026-11-06" }).state).toBe("pending");
+    expect(computeDelivery({ module: weekly, reports: [], today: "2026-11-06", justifiedMonths: ["2026-10"] }).state).toBe("justified");
+    expect(computeDelivery({ module: weekly, reports: [], today: "2026-11-06", justifiedMonths: ["2026-09"] }).state).toBe("pending");
   });
 
   it("assistente oferece de janeiro de dois anos atrás até o mês corrente", () => {

@@ -5,7 +5,7 @@ import { buttonClass } from "@/components/ui/button";
 import { DeliveryBadge } from "@/components/dashboard/status-badge";
 import { uploadHref } from "@/features/admin/overview";
 import type { ModuleConfig } from "@/features/clients/schema";
-import type { DeliveryStatus } from "@/features/reports/delivery";
+import { isDeliveryOk, type DeliveryStatus } from "@/features/reports/delivery";
 import { REPORT_TYPE_LABEL, REPORT_TYPE_PATH, type ReportType } from "@/features/reports/schema";
 
 export function cadenceLabel(m: ModuleConfig, type?: ReportType): string {
@@ -24,12 +24,15 @@ export function ModuleStatusCard({ clientId, type, module, delivery, today }: { 
     );
   }
   const d = delivery;
+  const ok = isDeliveryOk(d.state);
   const rows: Array<[string, string]> = [
     ["Periodicidade", cadenceLabel(module, type)],
     ["Último publicado", d.latestPublished ? formatPeriod(d.latestPublished.period) : "Nenhum"],
+    // Mês sem dados com justificativa: aparece aqui, mas não é cobrado.
+    ...(d.state === "justified" && d.expectedPeriod ? [["Sem dados (justificado)", formatPeriod(d.expectedPeriod)] as [string, string]] : []),
     [
-      d.state === "updated" || d.state === "upcoming" ? (type === "media_plan" ? "Próximo plano" : "Próximo relatório") : type === "media_plan" ? "Plano esperado" : "Relatório esperado",
-      d.state === "updated" || d.state === "upcoming"
+      ok ? (type === "media_plan" ? "Próximo plano" : "Próximo relatório") : type === "media_plan" ? "Plano esperado" : "Relatório esperado",
+      ok
         ? d.nextPeriod
           ? `${formatPeriod(d.nextPeriod)} · até ${formatDate(d.nextDueDate)}`
           : "—"
@@ -58,7 +61,7 @@ export function ModuleStatusCard({ clientId, type, module, delivery, today }: { 
             Revisar e publicar <ArrowRight className="size-3.5" aria-hidden />
           </Link>
         ) : null}
-        <Link href={uploadHref(clientId, type, d.state === "updated" || d.state === "upcoming" ? null : d)} className={buttonClass(d.state === "pending" || d.state === "error" ? "primary" : "secondary", "sm")}>
+        <Link href={uploadHref(clientId, type, ok ? null : d)} className={buttonClass(d.state === "pending" || d.state === "error" ? "primary" : "secondary", "sm")}>
           <UploadCloud className="size-4" aria-hidden /> {type === "media_plan" ? "Enviar plano" : "Enviar relatório"}
         </Link>
         <Link href={`/adm/clientes/${clientId}/${REPORT_TYPE_PATH[type]}`} className={buttonClass("ghost", "sm")}>

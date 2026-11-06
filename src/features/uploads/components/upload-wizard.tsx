@@ -14,8 +14,8 @@ import { extensionOf } from "@/lib/parsers/sniff";
 import { CSV_CONTENT_OPTIONS, UPLOAD_PLATFORM_OPTIONS, type CsvContent, type ImportMode, type ImportRecord, type PreviewPeriod, type UploadPlatform } from "@/features/uploads/schema";
 import { REPORT_TYPE_LABEL, REPORT_TYPES, type ReportType } from "@/features/reports/schema";
 import { confirmImportAction, discardImportAction, initImportAction, processImportAction, publishImportAction } from "@/features/uploads/actions";
-import { periodOptions } from "@/features/uploads/period-options";
-import { PeriodPicker } from "@/components/ui/period-picker";
+import { periodOptions, type PeriodOption } from "@/features/uploads/period-options";
+import { PeriodPicker, type PeriodPickerMark } from "@/components/ui/period-picker";
 import { UploadDropzone } from "./upload-dropzone";
 import { ValidationList } from "./validation-list";
 import { FormatGuide, pasteExample } from "./format-guide";
@@ -24,7 +24,28 @@ import { sendFile } from "./transport";
 export interface WizardClient {
   id: string;
   name: string;
-  modules: Record<ReportType, { enabled: boolean; cadence: "monthly" | "weekly"; allowOriginalDownload: boolean; expectedKey: string | null }>;
+  modules: Record<
+    ReportType,
+    {
+      enabled: boolean;
+      cadence: "monthly" | "weekly";
+      allowOriginalDownload: boolean;
+      /** Período sugerido: o pendente ou, sem pendência, o próximo. */
+      expectedKey: string | null;
+      /** O período sugerido está de fato pendente (senão é só o próximo). */
+      expectedPending: boolean;
+      /** Meses (AAAA-MM) justificados como "Sem dados". */
+      justifiedMonths: string[];
+    }
+  >;
+}
+
+/** Marcas do seletor de período: o pendente (ou o próximo) e os meses justificados como sem dados. */
+function periodMarks(mod: WizardClient["modules"][ReportType], options: PeriodOption[]): Record<string, PeriodPickerMark> {
+  const marks: Record<string, PeriodPickerMark> = {};
+  for (const o of options) if (mod.justifiedMonths.includes(o.key.slice(0, 7))) marks[o.key] = { label: "justificado", tone: "info" };
+  if (mod.expectedKey) marks[mod.expectedKey] = mod.expectedPending ? { label: "pendente", tone: "attention" } : { label: "próximo", tone: "muted" };
+  return marks;
 }
 
 const STEPS = ["Cliente", "Tipo", "Período", "Arquivo", "Validação", "Prévia", "Confirmação", "Rascunho"] as const;
@@ -318,7 +339,7 @@ export function UploadWizard({
               <div role="radiogroup" aria-label="Como definir o período" className="grid gap-2 sm:grid-cols-2">
                 {(
                   [
-                    { detect: false, label: mod.cadence === "weekly" ? "Escolher a semana" : "Escolher o mês", hint: mod.expectedKey ? `Sugerido: ${options.find((o) => o.key === mod.expectedKey)?.label ?? mod.expectedKey}` : "Primeiro o ano, depois o mês" },
+                    { detect: false, label: mod.cadence === "weekly" ? "Escolher a semana" : "Escolher o mês", hint: mod.expectedKey ? `${mod.expectedPending ? "Pendente" : "Próximo"}: ${options.find((o) => o.key === mod.expectedKey)?.label ?? mod.expectedKey}` : "Primeiro o ano, depois o mês" },
                     { detect: true, label: "Detectar pelos dados", hint: "O sistema lê os períodos da planilha ou da tabela colada" },
                   ] as const
                 ).map((o) => (
@@ -345,7 +366,7 @@ export function UploadWizard({
                   value={periodKey}
                   onChange={setPeriodKey}
                   anchorKey={mod.expectedKey}
-                  marks={mod.expectedKey ? { [mod.expectedKey]: { label: "pendente", tone: "attention" } } : undefined}
+                  marks={periodMarks(mod, options)}
                 />
               ) : null}
             </div>

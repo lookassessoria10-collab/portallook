@@ -1,7 +1,7 @@
 import "server-only";
 import { periodKey } from "@/lib/dates/period";
 import type { ClientOverview } from "@/features/clients/service";
-import type { DeliveryState, DeliveryStatus } from "@/features/reports/delivery";
+import { isDeliveryOk, type DeliveryState, type DeliveryStatus } from "@/features/reports/delivery";
 import { REPORT_TYPES, type ImportIndexEntry, type ReportIndexEntry, type ReportType } from "@/features/reports/schema";
 
 export interface ModuleCounts {
@@ -45,7 +45,7 @@ export function buildAdminOverview(overviews: ClientOverview[]): AdminOverview {
       if (d.state === "not_applicable") continue;
       const c = modules[type];
       c.total++;
-      if (d.state === "updated" || d.state === "upcoming") c.updated++;
+      if (isDeliveryOk(d.state)) c.updated++;
       if (d.state === "pending") c.pending++;
       if (d.state === "draft") c.draft++;
       if (d.state === "error") c.error++;

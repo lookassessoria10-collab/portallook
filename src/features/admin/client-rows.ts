@@ -45,7 +45,15 @@ export async function buildClientRows(overviews: ClientOverview[]): Promise<Clie
         modules[type] = {
           enabled,
           state: d.state,
-          periodLabel: pendingNow ? (d.expectedPeriod ? formatPeriod(d.expectedPeriod, "short") : null) : d.latestPublished ? formatPeriod(d.latestPublished.period, "short") : null,
+          // Justificado: o mês sem dados (o que seria cobrado), não o último publicado.
+          periodLabel:
+            (pendingNow || d.state === "justified") && d.expectedPeriod
+              ? formatPeriod(d.expectedPeriod, "short")
+              : pendingNow
+                ? null
+                : d.latestPublished
+                  ? formatPeriod(d.latestPublished.period, "short")
+                  : null,
           dueDate: due,
           daysOverdue: d.daysOverdue,
           latestLabel: d.latestPublished ? formatPeriod(d.latestPublished.period, "short") : null,

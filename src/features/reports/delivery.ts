@@ -13,7 +13,8 @@ import {
 } from "@/lib/dates/period";
 import type { ImportIndexEntry, ReportIndexEntry } from "./schema";
 
-export type DeliveryState = "updated" | "pending" | "draft" | "error" | "upcoming" | "not_applicable";
+/** "justified": o período esperado não tem relatório, mas tem justificativa de "Sem dados" — não é pendência. */
+export type DeliveryState = "updated" | "pending" | "draft" | "error" | "upcoming" | "justified" | "not_applicable";
 
 export const DELIVERY_LABEL: Record<DeliveryState, string> = {
   updated: "Atualizado",
@@ -21,8 +22,14 @@ export const DELIVERY_LABEL: Record<DeliveryState, string> = {
   draft: "Rascunho",
   error: "Com erro",
   upcoming: "No prazo",
+  justified: "Sem dados · justificado",
   not_applicable: "Não aplicável",
 };
+
+/** Estados sem nada a fazer agora (contam como "em dia"). */
+export function isDeliveryOk(state: DeliveryState): boolean {
+  return state === "updated" || state === "upcoming" || state === "justified";
+}
 
 export interface DeliveryStatus {
   state: DeliveryState;
@@ -78,6 +85,8 @@ export function computeDelivery(input: {
   clientSince?: string;
   /** Plano de mídia: o período entregue é o mês que começa, não o que terminou. */
   planning?: boolean;
+  /** Meses (AAAA-MM) justificados como "Sem dados": o relatório deles não é cobrado. */
+  justifiedMonths?: readonly string[];
 }): DeliveryStatus {
   const { module, today } = input;
   const empty: DeliveryStatus = {
@@ -123,6 +132,10 @@ export function computeDelivery(input: {
   const latestImport = [...(input.imports ?? [])].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
   if (latestImport && ERROR_STATUSES.has(latestImport.status)) return { ...base, state: "error" };
   if (draftForPeriod) return { ...base, state: "draft" };
+
+  // Mês sem dados, com justificativa: nada a enviar (numa semana, vale o mês em que ela começa ou termina).
+  const justified = input.justifiedMonths ?? [];
+  if (justified.includes(expected.start.slice(0, 7)) || justified.includes(expected.end.slice(0, 7))) return { ...base, state: "justified" };
 
   const since = input.clientSince?.slice(0, 10);
   if (!input.reports.length && since && since > expectedDueDate) return { ...base, state: "upcoming" };

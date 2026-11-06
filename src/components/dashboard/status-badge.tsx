@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, CircleDashed, Clock, FilePen, Minus, Archive, EyeOff, Layers } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed, Clock, FilePen, Minus, Archive, EyeOff, Layers, MessageSquareText } from "lucide-react";
 import { Badge, type Tone } from "@/components/ui/badge";
 import { DELIVERY_LABEL, type DeliveryState } from "@/features/reports/delivery";
 import type { ReportStatus } from "@/features/reports/schema";
@@ -10,6 +10,7 @@ const DELIVERY: Record<DeliveryState, { tone: Tone; icon: typeof Clock }> = {
   draft: { tone: "info", icon: FilePen },
   error: { tone: "negative", icon: CircleAlert },
   upcoming: { tone: "neutral", icon: CircleDashed },
+  justified: { tone: "primary", icon: MessageSquareText },
   not_applicable: { tone: "muted", icon: Minus },
 };
 

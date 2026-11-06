@@ -18,6 +18,8 @@ export function toWizardClients(overviews: ClientOverview[]): WizardClient[] {
           cadence: m.cadence,
           allowOriginalDownload: m.allowOriginalDownload,
           expectedKey: m.enabled && pending && d.expectedPeriod ? periodKey(d.expectedPeriod) : m.enabled && d.nextPeriod ? periodKey(d.nextPeriod) : null,
+          expectedPending: m.enabled && pending,
+          justifiedMonths: o.client.periodNotes.filter((n) => n.type === t && n.status === "no_data").map((n) => n.periodKey),
         };
       };
       return { id: o.client.id, name: o.client.name, modules: { commercial: mod("commercial"), traffic: mod("traffic"), social: mod("social"), media_plan: mod("media_plan") } };
