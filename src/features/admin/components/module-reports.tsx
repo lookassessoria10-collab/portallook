@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { History, UploadCloud } from "lucide-react";
 import { env } from "@/lib/env";
-import { formatPeriod } from "@/lib/dates/period";
+import { formatPeriod, periodKey } from "@/lib/dates/period";
 import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { getClientOverview, today } from "@/features/clients/service";
 import { REPORT_TYPE_LABEL, type ReportIndexEntry, type ReportType } from "@/features/reports/schema";
 import { retroactiveUploadHref, uploadHref } from "@/features/admin/overview";
+import { PeriodNotesCard } from "@/features/period-notes/components/period-notes-card";
+import { periodOptions } from "@/features/uploads/period-options";
 import { ModuleStatusCard } from "./module-status-card";
 import { ReportList } from "./report-list";
 
@@ -18,6 +20,7 @@ export async function ModuleReports({ clientId, type }: { clientId: string; type
   const entries = o.index.reports.filter((r) => r.type === type);
   const active = entries.filter((r) => r.status !== "archived" && r.status !== "superseded");
   const history = entries.filter((r) => r.status === "archived" || r.status === "superseded");
+  const expected = o.delivery[type].expectedPeriod;
   const upload = (
     <Link href={uploadHref(clientId, type, o.delivery[type])} className={buttonClass("primary", "sm")}>
       <UploadCloud className="size-4" aria-hidden /> {type === "media_plan" ? "Enviar plano" : "Enviar relatório"}
@@ -27,6 +30,16 @@ export async function ModuleReports({ clientId, type }: { clientId: string; type
     <div className="grid gap-4 xl:grid-cols-12">
       <div className="space-y-4 xl:col-span-4">
         <ModuleStatusCard clientId={clientId} type={type} module={o.client.modules[type]} delivery={o.delivery[type]} today={today()} />
+        {o.client.modules[type].enabled ? (
+          <PeriodNotesCard
+            clientId={clientId}
+            type={type}
+            notes={o.client.periodNotes.filter((n) => n.type === type)}
+            options={periodOptions("monthly", today(), undefined, type === "media_plan" ? 3 : 0)}
+            reportKeys={[...new Set(active.map((e) => e.period.start.slice(0, 7)))]}
+            anchorKey={expected ? periodKey(expected).slice(0, 7) : null}
+          />
+        ) : null}
         {type === "traffic" ? <RetroactiveCard clientId={clientId} entries={active} weekly={o.client.modules.traffic.cadence === "weekly"} /> : null}
       </div>
       <div className="space-y-4 xl:col-span-8">

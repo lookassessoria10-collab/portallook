@@ -43,7 +43,7 @@ async function main() {
       continue;
     }
     const id = createId("cl");
-    const client = await repos.clients.create({ ...demo.client, id, logo: null, createdAt: demo.createdAt, updatedAt: demo.createdAt, version: 1 });
+    const client = await repos.clients.create({ ...demo.client, id, logo: null, periodNotes: [], createdAt: demo.createdAt, updatedAt: demo.createdAt, version: 1 });
     const token = await rotateAccessToken(client.id, "seed");
     links.push(`${client.name.padEnd(28)} ${portalBaseUrl()}${buildPortalPath(client.slug, token)}`);
 

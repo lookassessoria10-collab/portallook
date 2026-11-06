@@ -6,7 +6,7 @@ import { CalendarPlus, CalendarRange } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Select } from "@/components/ui/field";
+import { PeriodPicker } from "@/components/ui/period-picker";
 import { changeReportPeriodAction } from "@/features/reports/actions";
 import { importFromReportAction } from "@/features/uploads/actions";
 import type { PeriodOption } from "@/features/uploads/period-options";
@@ -70,7 +70,6 @@ export function ReportPeriodDialog({
         open={open}
         onClose={close}
         title="Corrigir período"
-        size="sm"
         description={
           <>
             Use quando o relatório entrou no mês errado (ex.: planilha com as datas de outro período). Os dados continuam os mesmos; muda só o período em que ele aparece.
@@ -88,16 +87,10 @@ export function ReportPeriodDialog({
           </>
         }
       >
-        <Field label="Período correto" htmlFor={`period-${reportId}`} hint={`Atual: ${current.label}`}>
-          <Select id={`period-${reportId}`} value={key} onChange={(e) => setKey(e.target.value)} disabled={pending}>
-            {list.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-                {o.key === current.key ? " (atual)" : ""}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <p className="mb-3 text-[13px] text-text-3">
+          Período atual: <strong className="font-semibold text-text-2">{current.label}</strong>
+        </p>
+        <PeriodPicker idPrefix={`period-${reportId}`} options={list} value={key} onChange={setKey} marks={{ [current.key]: { label: "atual", tone: "muted" } }} disabled={pending} />
         {sourceFileName ? (
           <div className="mt-5 rounded-xl border border-border bg-surface-2/60 p-3.5">
             <p className="text-sm font-bold text-text">A planilha tem outros meses?</p>

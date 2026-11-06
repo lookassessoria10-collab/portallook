@@ -31,7 +31,7 @@ export interface DemoImportError {
 }
 
 export interface DemoClient {
-  client: Omit<Client, "id" | "createdAt" | "updatedAt" | "version" | "logo">;
+  client: Omit<Client, "id" | "createdAt" | "updatedAt" | "version" | "logo" | "periodNotes">;
   createdAt: string;
   reports: DemoReport[];
   importErrors?: DemoImportError[];

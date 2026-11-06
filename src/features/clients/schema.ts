@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { SLUG_PATTERN } from "@/lib/ids";
 import { TimestampSchema } from "@/features/reports/schema";
+import { PeriodNoteSchema } from "@/features/period-notes/schema";
 
 export const CadenceSchema = z.enum(["monthly", "weekly"]);
 export type Cadence = z.infer<typeof CadenceSchema>;
@@ -72,6 +73,8 @@ export const ClientSchema = z.object({
   }),
   dashboard: DashboardConfigSchema.default({ roiMetric: "roas", highlightMetrics: [], commercialLayout: "detalhamentos" }),
   notes: z.string().max(4000).default(""),
+  /** Justificativas de meses sem dados ou com dados incompletos, por área (aparecem no portal). */
+  periodNotes: z.array(PeriodNoteSchema).default([]),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
   version: z.number().int().default(1),

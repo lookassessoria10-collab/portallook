@@ -3,7 +3,7 @@
 import Link, { useLinkStatus } from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { LayoutGrid } from "lucide-react";
+import { Info, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { SECTION_PARAM } from "@/features/portal/params";
 
@@ -13,6 +13,8 @@ export interface PeriodNavItem {
   title: string;
   href: string;
   draft?: boolean;
+  /** Mês com justificativa: "no_data" (só a justificativa) ou "partial" (dados incompletos). */
+  note?: "no_data" | "partial" | null;
 }
 
 /** Mantém a aba aberta do painel (ex.: Terapeutas) ao trocar de mês ou de ano. */
@@ -68,6 +70,12 @@ export function PeriodNav({ overviewHref, items, active, className }: { overview
             <Link key={item.key} href={withSection(item.href)} scroll={false} title={item.draft ? `${item.title} (rascunho)` : item.title} aria-current={isActive ? "page" : undefined} className={pill(isActive)}>
               <PendingLabel>
                 {item.label}
+                {item.note ? (
+                  <>
+                    <Info className={cn("size-3.5", isActive ? "text-primary" : item.note === "no_data" ? "text-attention" : "text-info")} aria-hidden />
+                    <span className="sr-only">{item.note === "no_data" ? "(sem dados, com justificativa)" : "(dados incompletos, com justificativa)"}</span>
+                  </>
+                ) : null}
                 {item.draft ? (
                   <>
                     <span className="size-1.5 rounded-full bg-attention" aria-hidden />

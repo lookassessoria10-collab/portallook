@@ -36,6 +36,8 @@ import { TAB_LABEL } from "@/features/portal/labels";
 import { PeriodNav, ScaleSwitch, YearSwitch } from "./period-nav";
 import { PortalTabs } from "./portal-tabs";
 import { OriginalDocuments, type PortalLinks } from "./portal-sections";
+import { MissingPeriod, PeriodNotices } from "./period-notices";
+import { PERIOD_NOTE_STATUS_LABEL } from "@/features/period-notes/schema";
 
 /** Linha de apoio da faixa do topo: "Terapias e bem-estar · Dashboard comercial 2026". */
 const AREA_TITLE: Record<PortalArea, string> = {
@@ -76,7 +78,14 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
   const originalCommercial = fullCommercial && model.periodKey === "2026-09" ? (client.slug === "serenity-terapias" ? "serenity" : "isabor") : null;
   const tz = env().APP_TIMEZONE;
   const tabLabel = TAB_LABEL[model.tab];
-  const periodItems = model.periods.map((p) => ({ key: p.key, label: p.short, title: p.label, href: links.period(p.key), draft: model.mode === "preview" && p.draft }));
+  const periodItems = model.periods.map((p) => ({
+    key: p.key,
+    label: p.short,
+    title: p.note ? `${p.label} · ${PERIOD_NOTE_STATUS_LABEL[p.note].toLowerCase()}` : p.label,
+    href: links.period(p.key),
+    draft: model.mode === "preview" && p.draft,
+    note: p.note,
+  }));
   const scaleItems = (model.scales ?? []).map((s) => ({ key: s, label: s === "month" ? "Meses" : "Semanas", href: links.scale(s), active: s === model.scale }));
   const yearItems = (model.years ?? []).map((y) => ({ key: String(y), label: String(y), href: links.year(y), active: y === model.year }));
 
@@ -87,10 +96,28 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
       : null;
 
   const shown = showExtra ? [] : model.view === "overview" && model.overview ? model.overview : selection.primary ? [selection.primary] : [];
+  // Mês aberto só com justificativa (sem relatório).
+  const missing = showExtra ? null : model.missing;
   const actionCount = actions?.summary.total ?? 0;
-  const chip = extra === "content" ? content!.rangeLabel : extra === "actions" ? `${actionCount} ${actionCount === 1 ? "ação" : "ações"}` : larplanOriginal ? "Junho – Agosto / 2026" : landimOriginal ? "Julho – Agosto / 2026" : commercial ? commercial.rangeShort : shown.length ? (shown.length > 1 ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period) : formatPeriod(shown[0].period)) : null;
-  const year = larplanOriginal ? 2026 : commercial?.year ?? (shown.length ? +shown[shown.length - 1].period.start.slice(0, 4) : null);
+  const chip =
+    extra === "content"
+      ? content!.rangeLabel
+      : extra === "actions"
+        ? `${actionCount} ${actionCount === 1 ? "ação" : "ações"}`
+        : larplanOriginal
+          ? "Junho – Agosto / 2026"
+          : landimOriginal
+            ? "Julho – Agosto / 2026"
+            : commercial
+              ? commercial.rangeShort
+              : shown.length
+                ? shown.length > 1
+                  ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period)
+                  : formatPeriod(shown[0].period)
+                : (missing?.label ?? null);
+  const year = larplanOriginal ? 2026 : (commercial?.year ?? (shown.length ? +shown[shown.length - 1].period.start.slice(0, 4) : missing ? +missing.key.slice(0, 4) : null));
   const subtitle = [client.segment, `${AREA_TITLE[area]}${year ? ` ${year}` : ""}`].filter(Boolean).join(" · ");
+  const notices = <PeriodNotices notices={model.notices} className={commercial || larplanOriginal ? "pt-6 sm:pt-8" : undefined} />;
   // No comercial, quem fica fixo no topo ao rolar são as abas do painel.
   const stickyBar = !commercial && !larplanOriginal;
 
@@ -189,6 +216,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
                   <span className="shrink-0 font-semibold text-info">Abrir →</span>
                 </Link>
               ) : null}
+              {notices}
               {model.tab === "social" ? (
                 <SocialOverview vm={buildSocialOverview(model.overview, { current: !model.years || model.year === model.years[model.years.length - 1] })} periodHref={links.period} />
               ) : (
@@ -197,6 +225,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
             </div>
           ) : (
             <div className="space-y-8 sm:space-y-10">
+              {model.notices.length ? notices : null}
               {larplanOriginal ? (
                 <LarplanFaithfulReport logoUrl={logoUrl} />
               ) : landimOriginal ? (
@@ -236,6 +265,8 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
                     </DashboardSection>
                   ) : null}
                 </>
+              ) : model.missing ? (
+                <MissingPeriod notice={model.missing} />
               ) : null}
 
               <div className="grid gap-4 lg:grid-cols-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { ArrowLeft, ArrowRight, Check, CircleCheck, ClipboardPaste, Download, FileWarning, LoaderCircle, RotateCcw, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
@@ -15,6 +15,7 @@ import { CSV_CONTENT_OPTIONS, UPLOAD_PLATFORM_OPTIONS, type CsvContent, type Imp
 import { REPORT_TYPE_LABEL, REPORT_TYPES, type ReportType } from "@/features/reports/schema";
 import { confirmImportAction, discardImportAction, initImportAction, processImportAction, publishImportAction } from "@/features/uploads/actions";
 import { periodOptions } from "@/features/uploads/period-options";
+import { PeriodPicker } from "@/components/ui/period-picker";
 import { UploadDropzone } from "./upload-dropzone";
 import { ValidationList } from "./validation-list";
 import { FormatGuide, pasteExample } from "./format-guide";
@@ -67,6 +68,12 @@ export function UploadWizard({
   /** "retroactive": meses anteriores de tráfego (sem passo de período; os meses vêm dos dados). */
   const [mode, setMode] = useState<ImportMode>(firstMode);
   const [periodKey, setPeriodKey] = useState<string>(resume?.requestedPeriod ? keyFromRecord(resume) : firstMode === "retroactive" ? "" : (initial?.periodKey ?? (firstClient && firstType ? (firstClient.modules[firstType].expectedKey ?? "") : "")));
+  /** Passo Período: detectar pelos dados (sem período escolhido) ou escolher ano → mês (→ semana). */
+  const [detectPeriod, setDetectPeriod] = useState(periodKey === "");
+  const choosePeriod = (key: string) => {
+    setPeriodKey(key);
+    setDetectPeriod(key === "");
+  };
   const [file, setFile] = useState<File | null>(null);
   /** Enviar um arquivo ou colar os dados (tabela Markdown ou células copiadas da planilha). */
   const [source, setSource] = useState<"file" | "paste">(resume?.format === "md" ? "paste" : "file");
@@ -106,7 +113,7 @@ export function UploadWizard({
   const mod = client && type ? client.modules[type] : null;
   const retro = type === "traffic" && mode === "retroactive";
   // Plano de mídia: os próximos meses aparecem primeiro (o plano é enviado antes do mês começar).
-  const options = useMemo(() => (mod ? periodOptions(mod.cadence, today, undefined, type === "media_plan" ? 3 : 0) : []), [mod, today, type]);
+  const options = mod ? periodOptions(mod.cadence, today, undefined, type === "media_plan" ? 3 : 0) : [];
   const ext = source === "file" && file ? extensionOf(file.name) : "";
   const isCsv = ext === "csv";
   const isDocument = ext === "pdf" || ext === "html" || ext === "htm";
@@ -119,7 +126,7 @@ export function UploadWizard({
     setType(t);
     if (t !== "traffic") setMode("regular");
     if (c && t) {
-      setPeriodKey(t === "traffic" && mode === "retroactive" ? "" : (c.modules[t].expectedKey ?? ""));
+      choosePeriod(t === "traffic" && mode === "retroactive" ? "" : (c.modules[t].expectedKey ?? ""));
       setAllowDownload(c.modules[t].allowOriginalDownload);
     }
   };
@@ -130,7 +137,7 @@ export function UploadWizard({
     setCsvContent("");
     if (t !== "traffic") setPlatform("");
     if (client) {
-      setPeriodKey(m === "retroactive" ? "" : (client.modules[t].expectedKey ?? ""));
+      choosePeriod(m === "retroactive" ? "" : (client.modules[t].expectedKey ?? ""));
       setAllowDownload(client.modules[t].allowOriginalDownload);
     }
   };
@@ -305,18 +312,43 @@ export function UploadWizard({
             }
             onBack={() => setStep(1)}
             onNext={() => setStep(3)}
+            nextDisabled={!detectPeriod && !periodKey}
           >
-            <Field label="Período" htmlFor="wiz-period" hint={mod.expectedKey ? "Sugerimos o período pendente mais recente." : undefined}>
-              <Select id="wiz-period" value={periodKey} onChange={(e) => setPeriodKey(e.target.value)}>
-                <option value="">Detectar pelos dados (planilha ou tabela colada)</option>
-                {options.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
-                    {o.key === mod.expectedKey ? " (pendente)" : ""}
-                  </option>
+            <div className="space-y-5">
+              <div role="radiogroup" aria-label="Como definir o período" className="grid gap-2 sm:grid-cols-2">
+                {(
+                  [
+                    { detect: false, label: mod.cadence === "weekly" ? "Escolher a semana" : "Escolher o mês", hint: mod.expectedKey ? `Sugerido: ${options.find((o) => o.key === mod.expectedKey)?.label ?? mod.expectedKey}` : "Primeiro o ano, depois o mês" },
+                    { detect: true, label: "Detectar pelos dados", hint: "O sistema lê os períodos da planilha ou da tabela colada" },
+                  ] as const
+                ).map((o) => (
+                  <button
+                    key={o.label}
+                    type="button"
+                    role="radio"
+                    aria-checked={detectPeriod === o.detect}
+                    onClick={() => {
+                      setDetectPeriod(o.detect);
+                      setPeriodKey(o.detect ? "" : periodKey || (mod.expectedKey && options.some((x) => x.key === mod.expectedKey) ? mod.expectedKey : ""));
+                    }}
+                    className={cn("rounded-[var(--radius-lg)] border p-4 text-left transition-colors", detectPeriod === o.detect ? "border-primary bg-primary-soft" : "border-border-strong hover:bg-surface-2")}
+                  >
+                    <span className="block font-bold text-text">{o.label}</span>
+                    <span className="mt-0.5 block text-[13px] text-text-3">{o.hint}</span>
+                  </button>
                 ))}
-              </Select>
-            </Field>
+              </div>
+              {!detectPeriod ? (
+                <PeriodPicker
+                  idPrefix="wiz-period"
+                  options={options}
+                  value={periodKey}
+                  onChange={setPeriodKey}
+                  anchorKey={mod.expectedKey}
+                  marks={mod.expectedKey ? { [mod.expectedKey]: { label: "pendente", tone: "attention" } } : undefined}
+                />
+              ) : null}
+            </div>
           </StepFrame>
         ) : null}
 

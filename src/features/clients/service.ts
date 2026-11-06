@@ -55,6 +55,7 @@ export async function createClient(input: ClientInput, actor: string | null): Pr
     modules: modulesFromInput(input),
     dashboard: { roiMetric: input.roiMetric, highlightMetrics: [], commercialLayout: input.commercialLayout ?? "detalhamentos" },
     notes: input.notes,
+    periodNotes: [],
     createdAt: now,
     updatedAt: now,
     version: 1,
