@@ -251,7 +251,8 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
                 ) : null
               ) : selection.documents[0] ? (
                 <>
-                  <DashboardSection id="relatorio" title={selection.documents[0].title ?? "Relatório do período"}>
+                  {/* O relatório (HTML/PDF) já traz o próprio título: aqui ele fica só para leitores de tela. */}
+                  <DashboardSection id="relatorio" title={selection.documents[0].title ?? "Relatório do período"} hideTitle>
                     <ReportViewer
                       source={selection.documents[0].sourceType ?? "pdf"}
                       src={links.file(selection.documents[0].id)}
