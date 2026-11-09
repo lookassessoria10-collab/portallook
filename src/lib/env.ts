@@ -26,6 +26,18 @@ const EnvSchema = z.object({
   CLICKUP_TEAM_ID: z.string().regex(/^\d+$/).optional(),
   /** Endereço da API (só muda em testes locais com um servidor simulado). */
   CLICKUP_API_BASE: z.string().url().default("https://api.clickup.com/api/v2"),
+  /**
+   * Planilha Google de análise de dados de rede social (compartilhada por link, só leitura).
+   * Os meses novos de cada cliente com Rede social ativa entram sozinhos no portal.
+   */
+  SOCIAL_SHEET_ID: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{20,100}$/)
+    .default("1fmFc-tPSSE0SLeBXPeg5Mrrfp6FarmbN8Wiq6357NUI"),
+  /** "off" desliga a leitura da planilha (o portal segue só com os uploads). */
+  SOCIAL_SHEET_SYNC: z.enum(["on", "off"]).default("on"),
+  /** Endereço base do Google Sheets (só muda em testes locais com um servidor simulado). */
+  SOCIAL_SHEET_BASE: z.string().url().default("https://docs.google.com/spreadsheets/d"),
 });
 
 export type ServerEnv = z.infer<typeof EnvSchema>;

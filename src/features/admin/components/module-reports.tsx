@@ -12,6 +12,7 @@ import { PeriodNotesCard } from "@/features/period-notes/components/period-notes
 import { periodOptions } from "@/features/uploads/period-options";
 import { ModuleStatusCard } from "./module-status-card";
 import { ReportList } from "./report-list";
+import { SheetSyncCard } from "@/features/social/components/sheet-sync-card";
 
 /** Aba Comercial/Tráfego/Plano de mídia do cliente: status da entrega + todos os relatórios do tipo. */
 export async function ModuleReports({ clientId, type }: { clientId: string; type: ReportType }) {
@@ -40,6 +41,7 @@ export async function ModuleReports({ clientId, type }: { clientId: string; type
             anchorKey={expected ? periodKey(expected).slice(0, 7) : null}
           />
         ) : null}
+        {type === "social" ? <SheetSyncCard clientId={clientId} moduleEnabled={o.client.modules.social.enabled} /> : null}
         {type === "traffic" ? <RetroactiveCard clientId={clientId} entries={active} weekly={o.client.modules.traffic.cadence === "weekly"} /> : null}
       </div>
       <div className="space-y-4 xl:col-span-8">

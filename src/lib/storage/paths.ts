@@ -42,6 +42,7 @@ export const paths = {
   clientContent: (clientId: string) => `${paths.clientDir(clientId)}/content.json`,
   clientContentCache: (clientId: string) => `${paths.clientDir(clientId)}/content-cache.json`,
   clickupLists: () => "integrations/clickup/lists.json",
+  socialSheetState: () => "integrations/google-sheets/social.json",
   clientLogo: (clientId: string, extension: string) => `${paths.clientDir(clientId)}/logo.${ext(extension)}`,
   reportsPrefix: (clientId: string) => `${paths.clientDir(clientId)}/reports/`,
   reportDir: (clientId: string, type: ReportType, reportId: string) => `${paths.clientDir(clientId)}/reports/${type}/${id(reportId, "rp")}`,

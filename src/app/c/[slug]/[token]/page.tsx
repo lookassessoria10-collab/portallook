@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { getPortalClient, portalBasePath } from "@/features/portal/access";
 import { loadPortalModel, SCALE_PARAM } from "@/features/portal/model";
 import { loadPortalExtras } from "@/features/portal/extras";
-import { REPORT_TYPE_PATH } from "@/features/reports/schema";
+import { REPORT_TYPE_PATH, REPORT_TYPES, reportTypeFromParam } from "@/features/reports/schema";
+import { refreshSocialSheetIfStale } from "@/features/social/sheet-sync";
 import { PortalView } from "@/features/portal/components/portal-view";
 import type { PortalLinks } from "@/features/portal/components/portal-sections";
 
@@ -26,6 +27,13 @@ export default async function ClientPortalPage(props: PageProps<"/c/[slug]/[toke
   if (!client) notFound();
 
   const base = portalBasePath(slug, token);
+  // Rede social: meses novos da planilha Google (no máximo uma leitura a cada 10 min). Quem abre a própria
+  // aba espera até 3 s para já ver o mês novo; nas outras abas, a leitura fica para depois da resposta.
+  if (client.modules.social.enabled) {
+    const requested = reportTypeFromParam(one(search.aba));
+    const firstTab = REPORT_TYPES.find((t) => client.modules[t].enabled);
+    await refreshSocialSheetIfStale({ waitMs: requested === "social" || (!one(search.aba) && firstTab === "social") ? 3000 : 0 });
+  }
   const extras = await loadPortalExtras(client, one(search.aba));
   const model = await loadPortalModel(client, { tab: extras.active ? null : one(search.aba), period: one(search.periodo), scale: one(search.escala), year: one(search.ano), mode: "client", skipSelection: extras.active !== null });
   const tabParam = REPORT_TYPE_PATH[model.tab];
