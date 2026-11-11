@@ -71,14 +71,16 @@ describe("planilha de ações: extração", () => {
     expect(splitActionTitle("Ação sem frente")).toEqual({ title: "Ação sem frente", category: "" });
   });
 
-  it("o snapshot bate com o painel da planilha (229 ações, 28 em andamento, 147 executadas, 16 concluídas, 78 sem status)", () => {
+  // 148 executadas = 147 da planilha + a ação em andamento do SENGE, que recebeu data de execução
+  // quando as datas que faltavam foram preenchidas no snapshot.
+  it("o snapshot bate com o painel da planilha (229 ações, 28 em andamento, 148 executadas, 16 concluídas, 78 sem status)", () => {
     const items = ACTIONS_SNAPSHOT.sheets.flatMap((s) => s.actions);
     expect(ACTIONS_SNAPSHOT.sheets).toHaveLength(19);
     expect(new Set(items.map((a) => a.id)).size).toBe(items.length);
     const summary = summarizeActions(items.map(actionFromSheetRow));
     expect(summary.total).toBe(229);
     expect(summary.byStatus.in_progress).toBe(28);
-    expect(summary.executed).toBe(147);
+    expect(summary.executed).toBe(148);
     expect(summary.byStatus.done).toBe(16);
     expect(summary.byStatus.suggested).toBe(78);
     expect(summary.byStatus.approved).toBe(104);
