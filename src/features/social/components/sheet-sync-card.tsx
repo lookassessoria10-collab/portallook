@@ -26,12 +26,13 @@ export async function SheetSyncCard({ clientId, moduleEnabled }: { clientId: str
   const tz = env().APP_TIMEZONE;
   const mine = state.sheetId === env().SOCIAL_SHEET_ID ? (state.clients[clientId] ?? null) : null;
   const recent = mine?.created.slice(-6).reverse() ?? [];
+  const swapped = mine?.replaced.slice(-6).reverse() ?? [];
   return (
     <Card>
       {header}
       <CardBody className="space-y-3">
         <p className="text-[13px] leading-relaxed text-text-2">
-          A cada 10 minutos (quando alguém abre o portal) a aba do cliente na planilha de análise de dados é lida. Os meses encerrados que ainda não estão no portal são publicados na hora. Meses que já existem nunca são alterados.
+          A cada 10 minutos (quando alguém abre o portal) a aba do cliente na planilha de análise de dados é lida. Os meses encerrados que ainda não estão no portal são publicados na hora. Meses já publicados só mudam no “Sincronizar agora”, que troca os que mudaram na planilha (a versão anterior fica no histórico).
         </p>
         {!moduleEnabled ? <p className="text-xs text-text-3">A Rede social está desativada para este cliente: a planilha não é lida para ele.</p> : null}
         <dl className="grid gap-1 text-xs text-text-3">
@@ -66,10 +67,23 @@ export async function SheetSyncCard({ clientId, moduleEnabled }: { clientId: str
             </ul>
           </div>
         ) : null}
+        {swapped.length ? (
+          <div className="text-xs text-text-3">
+            <p className="font-semibold text-text-2">Atualizados pela planilha</p>
+            <ul className="mt-1 space-y-0.5">
+              {swapped.map((c) => (
+                <li key={c.reportId}>
+                  {describeMonths([c.periodKey])} · {formatDateTime(c.at, tz)}
+                  {c.fields.length ? ` · ${c.fields.map((f) => `${f.label} ${value(f.portal)} → ${value(f.sheet)}`).join("; ")}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         {mine?.divergent.length ? (
           <details className="text-xs text-text-3">
             <summary className="cursor-pointer font-semibold text-text-2">Diferenças com o que está publicado ({mine.divergent.length})</summary>
-            <p className="mt-1">O portal mantém o valor publicado. Para usar o da planilha, envie a planilha de novo pelo upload deste mês.</p>
+            <p className="mt-1">O portal mantém o valor publicado até alguém clicar em “Sincronizar agora”. Meses em rascunho, retirados ou arquivados não são trocados pela planilha.</p>
             <ul className="mt-1 space-y-1">
               {mine.divergent.map((d) => (
                 <li key={d.periodKey}>

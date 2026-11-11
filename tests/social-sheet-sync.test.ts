@@ -153,6 +153,44 @@ describe("rede social: sincronização com a planilha Google", () => {
     expect(state.clients[cardio.id].divergent).toEqual([{ periodKey: "2026-09", fields: [{ key: "followers", label: "Seguidores", portal: 3700, sheet: 3699 }] }]);
   });
 
+  it("“Sincronizar agora” troca o mês publicado que mudou, mantém insights e guarda a versão anterior", async () => {
+    const cardio = await createClient(input("Cardiocenter", "cardio-center"), null);
+    await publishMonths(cardio.id, [1, 2, 3, 4, 5, 6, 7, 8, 9], { 9: { followers: 3700 } });
+    const before = await socialEntries(cardio.id);
+    const oldSep = before.find((e) => e.periodKey === "2026-09")!;
+
+    const result = await syncSocialSheet({ force: true, replaceChanged: true });
+    expect(result.replaced[cardio.id]).toEqual(["2026-09"]);
+    expect(result.created[cardio.id]).toEqual(["2026-10"]);
+
+    const entries = await socialEntries(cardio.id);
+    const sep = entries.filter((e) => e.periodKey === "2026-09");
+    expect(sep.find((e) => e.id === oldSep.id)?.status).toBe("superseded");
+    const current = sep.find((e) => e.status === "published")!;
+    expect(current.summary.followers).toBe(3699);
+    expect((await getReportManifest(cardio.id, current.id))!.insights.map((i) => i.title)).toEqual(["Leitura da Look"]);
+    // Meses iguais à planilha não ganham versão nova.
+    for (const e of before.filter((x) => x.periodKey !== "2026-09")) expect(entries.find((x) => x.id === e.id)?.status).toBe("published");
+
+    const state = await getSocialSheetState();
+    expect(state.clients[cardio.id].divergent).toEqual([]);
+    expect(state.clients[cardio.id].replaced).toMatchObject([{ periodKey: "2026-09", fields: [{ key: "followers", portal: 3700, sheet: 3699 }] }]);
+
+    // De novo: nada mais a trocar.
+    const again = await syncSocialSheet({ force: true, replaceChanged: true });
+    expect(again.replaced[cardio.id]).toBeUndefined();
+  });
+
+  it("“Sincronizar agora” não troca mês em rascunho (só aponta a diferença)", async () => {
+    const cardio = await createClient(input("Cardiocenter", "cardio-center"), null);
+    const data = SocialDataSchema.parse({ schemaVersion: 1, period: monthPeriod(2026, 10), metrics: { followers: 1 } });
+    await createDraftReport({ clientId: cardio.id, type: "social", kind: "dataset", period: data.period, source: null, data: { type: "social", data } });
+    const result = await syncSocialSheet({ force: true, replaceChanged: true });
+    expect(result.replaced[cardio.id]).toBeUndefined();
+    expect((await socialEntries(cardio.id)).filter((e) => e.periodKey === "2026-10").map((e) => e.status)).toEqual(["draft"]);
+    expect((await getSocialSheetState()).clients[cardio.id].divergent.map((d) => d.periodKey)).toEqual(["2026-10"]);
+  });
+
   it("rascunho, retirado ou arquivado do mês conta como existente", async () => {
     const cardio = await createClient(input("Cardiocenter", "cardio-center"), null);
     const data = SocialDataSchema.parse({ schemaVersion: 1, period: monthPeriod(2026, 10), metrics: { followers: 1 } });

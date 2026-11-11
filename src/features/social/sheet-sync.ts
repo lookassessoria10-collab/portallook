@@ -11,7 +11,7 @@ import { paths } from "@/lib/storage/paths";
 import { matrixToSheet } from "@/lib/parsers/sheet";
 import { MAX_ROWS_PER_SHEET, type RawWorkbook } from "@/lib/parsers/types";
 import { getRepositories } from "@/server/repositories";
-import { createDraftReport, publishReport } from "@/features/reports/service";
+import { createDraftReport, getReportManifest, publishReport } from "@/features/reports/service";
 import type { ReportIndexEntry } from "@/features/reports/schema";
 import type { Client } from "@/features/clients/schema";
 import { IssueCollector } from "@/features/uploads/issues";
@@ -61,7 +61,9 @@ const ClientSyncSchema = z.object({
   months: z.array(z.string()).default([]),
   /** Meses criados pela sincronização (os mais recentes por último). */
   created: z.array(z.object({ periodKey: z.string(), reportId: z.string(), at: z.string() })).default([]),
-  /** Meses que já existiam no portal com valores diferentes dos da planilha (não são alterados). */
+  /** Meses publicados trocados pela versão da planilha no "Sincronizar agora" (os mais recentes por último). */
+  replaced: z.array(z.object({ periodKey: z.string(), reportId: z.string(), at: z.string(), fields: z.array(DiffSchema).default([]) })).default([]),
+  /** Meses que já existiam no portal com valores diferentes dos da planilha (não foram alterados). */
   divergent: z.array(z.object({ periodKey: z.string(), fields: z.array(DiffSchema) })).default([]),
   /** Motivo de nada ter sido lido (sem aba, aba com erro…). */
   problem: z.string().nullable().default(null),
@@ -189,6 +191,8 @@ export interface SocialSheetSyncResult {
   error: string | null;
   /** Meses publicados por cliente nesta execução. */
   created: Record<string, string[]>;
+  /** Meses publicados trocados pela versão da planilha, por cliente. */
+  replaced: Record<string, string[]>;
   clients: Record<string, ClientSheetSync>;
 }
 
@@ -200,9 +204,9 @@ function visibleEntry(list: ReportIndexEntry[]): ReportIndexEntry | null {
   return [...list].filter((e) => e.kind === "dataset").sort((a, b) => rank(a.status) - rank(b.status) || (a.updatedAt < b.updatedAt ? 1 : -1))[0] ?? null;
 }
 
-async function syncClient(client: Client, wb: XLSX.WorkBook, size: number, today: string, previous: ClientSheetSync | undefined): Promise<ClientSheetSync> {
+async function syncClient(client: Client, wb: XLSX.WorkBook, size: number, today: string, previous: ClientSheetSync | undefined, replaceChanged: boolean): Promise<ClientSheetSync> {
   const at = new Date().toISOString();
-  const base: ClientSheetSync = { at, sheets: [], months: [], created: previous?.created ?? [], divergent: [], problem: null };
+  const base: ClientSheetSync = { at, sheets: [], months: [], created: previous?.created ?? [], replaced: previous?.replaced ?? [], divergent: [], problem: null };
   const match = matchClientSheet(wb.SheetNames, clientNames(client));
   if (match.kind === "none") return { ...base, problem: "A planilha não tem uma aba com o nome deste cliente." };
   if (match.kind === "ambiguous") return { ...base, problem: `Mais de uma aba parece ser deste cliente: ${match.names.map((n) => n.trim()).join(", ")}.` };
@@ -221,12 +225,12 @@ async function syncClient(client: Client, wb: XLSX.WorkBook, size: number, today
   // Índice lido na hora (sem cache): um upload feito há pouco conta como mês existente.
   const index = await repos.reports.getIndex(client.id);
   const created = [...base.created];
+  const replaced = [...base.replaced];
   const divergent: ClientSheetSync["divergent"] = [];
   for (const p of closed) {
     const data = SocialDataSchema.parse(p.data);
     const existing = index.reports.filter((r) => r.type === "social" && r.periodKey === p.periodKey);
     if (existing.length) {
-      // Já está no portal: não muda nada; só aponta as diferenças para o ADM.
       const entry = visibleEntry(existing);
       if (!entry) continue;
       const { summary, labels } = socialSummary(data);
@@ -236,7 +240,28 @@ async function syncClient(client: Client, wb: XLSX.WorkBook, size: number, today
         portal: entry.summary[k] ?? null,
         sheet: summary[k] ?? null,
       }));
-      if (fields.length) divergent.push({ periodKey: p.periodKey, fields });
+      if (!fields.length) continue;
+      // "Sincronizar agora": o mês publicado que mudou na planilha ganha uma versão nova (a anterior fica no
+      // histórico como substituída), com o título e os insights escritos no ADM. Rascunho, retirado ou
+      // arquivado nunca são trocados; a leitura automática só aponta as diferenças.
+      if (replaceChanged && entry.status === "published") {
+        const current = await getReportManifest(client.id, entry.id);
+        const draft = await createDraftReport({
+          clientId: client.id,
+          type: "social",
+          kind: "dataset",
+          period: p.period,
+          title: current?.title ?? null,
+          source: { type: "xlsx", fileName: SOURCE_FILE_NAME, size, contentType: XLSX_MIME },
+          data: { type: "social", data },
+          insights: current?.insights ?? [],
+          allowDownload: false,
+        });
+        await publishReport(client.id, draft.id, SHEET_SYNC_ACTOR);
+        replaced.push({ periodKey: p.periodKey, reportId: draft.id, at: new Date().toISOString(), fields });
+        continue;
+      }
+      divergent.push({ periodKey: p.periodKey, fields });
       continue;
     }
     const draft = await createDraftReport({
@@ -251,15 +276,15 @@ async function syncClient(client: Client, wb: XLSX.WorkBook, size: number, today
     await publishReport(client.id, draft.id, SHEET_SYNC_ACTOR);
     created.push({ periodKey: p.periodKey, reportId: draft.id, at: new Date().toISOString() });
   }
-  return { ...base, sheets, months, created: created.slice(-HISTORY), divergent };
+  return { ...base, sheets, months, created: created.slice(-HISTORY), replaced: replaced.slice(-HISTORY), divergent };
 }
 
 /**
  * Lê a planilha e publica os meses que faltam em todos os clientes elegíveis.
  * Sem `force`, só roda se a última leitura tiver mais de 10 minutos. Nunca roda duas ao mesmo tempo.
  */
-export async function syncSocialSheet(options: { force?: boolean } = {}): Promise<SocialSheetSyncResult> {
-  const empty: SocialSheetSyncResult = { ran: false, error: null, created: {}, clients: {} };
+export async function syncSocialSheet(options: { force?: boolean; replaceChanged?: boolean } = {}): Promise<SocialSheetSyncResult> {
+  const empty: SocialSheetSyncResult = { ran: false, error: null, created: {}, replaced: {}, clients: {} };
   if (!socialSheetEnabled()) return empty;
   if (!(await claim(Boolean(options.force)))) return empty;
 
@@ -268,6 +293,7 @@ export async function syncSocialSheet(options: { force?: boolean } = {}): Promis
   const today = todayISO(env().APP_TIMEZONE);
   const clients: Record<string, ClientSheetSync> = {};
   const created: Record<string, string[]> = {};
+  const replaced: Record<string, string[]> = {};
   let error: string | null = null;
   try {
     const { wb, size } = await downloadWorkbook(Boolean(options.force));
@@ -276,13 +302,15 @@ export async function syncSocialSheet(options: { force?: boolean } = {}): Promis
       if (client.status !== "active" || !client.modules.social.enabled) continue;
       const before = previous.sheetId === sheetId ? previous.clients[client.id] : undefined;
       try {
-        const next = await syncClient(client, wb, size, today, before);
+        const next = await syncClient(client, wb, size, today, before, Boolean(options.replaceChanged));
         clients[client.id] = next;
         const fresh = next.created.filter((c) => !before?.created.some((b) => b.reportId === c.reportId)).map((c) => c.periodKey);
         if (fresh.length) created[client.id] = fresh;
+        const swapped = next.replaced.filter((c) => !before?.replaced.some((b) => b.reportId === c.reportId)).map((c) => c.periodKey);
+        if (swapped.length) replaced[client.id] = swapped;
       } catch (e) {
         logError("social-sheet:client", e);
-        clients[client.id] = { at: new Date().toISOString(), sheets: [], months: [], created: before?.created ?? [], divergent: [], problem: "Falha ao atualizar este cliente. Tente “Sincronizar agora” de novo." };
+        clients[client.id] = { at: new Date().toISOString(), sheets: [], months: [], created: before?.created ?? [], replaced: before?.replaced ?? [], divergent: [], problem: "Falha ao atualizar este cliente. Tente “Sincronizar agora” de novo." };
       }
     }
   } catch (e) {
@@ -304,7 +332,7 @@ export async function syncSocialSheet(options: { force?: boolean } = {}): Promis
       clients: error ? keep : clients,
     };
   }).catch((e) => logError("social-sheet:state", e));
-  return { ran: true, error, created, clients };
+  return { ran: true, error, created, replaced, clients };
 }
 
 /**
