@@ -17,20 +17,24 @@ import { DeliveryBadge } from "@/components/dashboard/status-badge";
 import type { ClientRow, ModuleCell } from "@/features/admin/client-rows";
 import { DeleteClientDialog } from "./delete-client-dialog";
 
-type Filter = "all" | "updated" | "pending" | "draft" | "error" | "inactive";
+type Filter = "active" | "updated" | "pending" | "draft" | "error" | "inactive" | "all";
 
+// "Ativos" abre por padrão: os inativos só aparecem na aba deles (ou em "Todos").
 const FILTERS: Array<{ key: Filter; label: string }> = [
-  { key: "all", label: "Todos" },
+  { key: "active", label: "Ativos" },
   { key: "updated", label: "Atualizados" },
   { key: "pending", label: "Pendentes" },
   { key: "draft", label: "Rascunho" },
   { key: "error", label: "Com erro" },
   { key: "inactive", label: "Inativos" },
+  { key: "all", label: "Todos" },
 ];
 
 function matches(row: ClientRow, filter: Filter): boolean {
   const states = (["commercial", "traffic", "social", "media_plan"] as const).filter((t) => row.modules[t].enabled).map((t) => row.modules[t].state);
   switch (filter) {
+    case "active":
+      return row.status === "active";
     case "all":
       return row.status !== "archived";
     case "inactive":
@@ -43,7 +47,7 @@ function matches(row: ClientRow, filter: Filter): boolean {
 }
 
 export function ClientsTable({ rows, timeZone }: { rows: ClientRow[]; timeZone: string }) {
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("active");
   const [query, setQuery] = useState("");
   const [toDelete, setToDelete] = useState<ClientRow | null>(null);
   const router = useRouter();
