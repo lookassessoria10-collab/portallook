@@ -218,7 +218,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
               ) : null}
               {notices}
               {model.tab === "social" ? (
-                <SocialOverview vm={buildSocialOverview(model.overview, { current: !model.years || model.year === model.years[model.years.length - 1] })} periodHref={links.period} />
+                <SocialOverview vm={buildSocialOverview(model.overview)} periodHref={links.period} />
               ) : (
                 <TrafficOverview vm={buildTrafficOverview(model.overview, client.currency)} currency={client.currency} periodHref={links.period} />
               )}

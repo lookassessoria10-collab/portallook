@@ -254,19 +254,16 @@ describe("rede social: cálculos e telas", () => {
     expect(vm.glossary.find((g) => g.key === "reach")?.description).toMatch(/contas únicas/i);
   });
 
-  it("visão geral: seguidores do último mês, contagens somadas e alcance em média (nunca somado)", () => {
+  it("visão geral: tabela mês a mês com as colunas da planilha, sem destaques, total nem taxa calculada", () => {
     const vm = buildSocialOverview([entry(aug), entry(sep)]);
-    const value = (key: string) => [...vm.kpis, ...vm.secondary].find((k) => k.key === key)?.value;
-    expect(value("followers")).toBe(3699);
-    expect(value("newFollowers")).toBe(204);
-    expect(value("reach")).toBe((10985 + 7393) / 2);
-    expect(value("interactions")).toBe(395);
-    expect(vm.kpis[0].footnote).toBe("+76 desde agosto (+2,1%)");
-    expect(vm.table.total?.followers).toBeNull();
-    expect(vm.table.total?.reach).toBeNull();
-    expect(vm.table.total?.views).toBe(93971 + 32277);
-    expect(vm.interactionSeries?.map((s) => s.key)).toEqual(["likes", "comments", "saves", "shares"]);
-    expect(vm.headline).toBe("Agosto a setembro de 2026: o perfil passou de 3.623 para 3.699 seguidores (+76), somou 395 interações e alcançou, em média, 9.189 contas por mês.");
+    const columns = vm.table.groups[0].columns;
+    expect(columns.map((c) => c.key)).toEqual(["followers", "newFollowers", "lostFollowers", "reach", "views", "engagement", "interactions", "likes", "comments", "shares", "saves", "linkClicks"]);
+    expect(columns.some((c) => c.key === "engagementRate" || c.key === "netFollowers")).toBe(false);
+    expect(vm.table.total).toBeNull();
+    expect(vm.table.rows.map((r) => r.values.followers)).toEqual([3623, 3699]);
+    expect(vm.table.rows[1].values.reach).toBe(7393);
+    expect(vm).not.toHaveProperty("kpis");
+    expect(vm.interactionSeries?.map((s) => s.key)).toEqual(["likes", "comments", "shares", "saves"]);
   });
 
   it("prazo: o relatório do mês vence no dia escolhido do mês seguinte", () => {
@@ -381,7 +378,7 @@ describe("fluxo: rede social no portal", () => {
     const past = await loadPortalModel(client, { tab: "rede-social", year: "2025", mode: "client" });
     expect(past.year).toBe(2025);
     expect(past.periods.map((p) => p.key)).toEqual(["2025-11", "2025-12"]);
-    expect(buildSocialOverview(past.overview!, { current: false }).kpis[0].label).toBe("Seguidores em dezembro de 2025");
+    expect(buildSocialOverview(past.overview!).table.rows.map((r) => r.key)).toEqual(["2025-11", "2025-12"]);
 
     const january = await loadPortalModel(client, { tab: "rede-social", period: "2026-01", mode: "client" });
     expect(january.year).toBe(2026);
