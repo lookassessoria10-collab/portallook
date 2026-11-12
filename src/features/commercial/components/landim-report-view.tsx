@@ -35,14 +35,14 @@ function LandimSection({ tab }: { tab: LandimTab }) {
   </section>;
 }
 
-export function LandimReportView({ tabs, period }: { tabs: LandimTab[]; period: string }) {
+/**
+ * Sem o cabeçalho do HTML original ("Dashboard Comercial" e período): o portal já mostra o nome,
+ * a marca e o período. O relatório começa nas abas.
+ */
+export function LandimReportView({ tabs }: { tabs: LandimTab[] }) {
   const [active, setActive] = useState(tabs[0].id);
   const selected = tabs.find((tab) => tab.id === active) ?? tabs[0];
   return <div className={styles.report} data-landim-report>
-    <div className={styles.heading}>
-      <div><h2>Dashboard Comercial</h2><p>Instituto Landim - Funil, Mídia e Conversão</p></div>
-      <span className="period-chip">{period}</span>
-    </div>
     <nav aria-label="Seções do relatório comercial Instituto Landim" role="tablist">
       {tabs.map((tab) => <button key={tab.id} id={`landim-tab-${tab.id}`} type="button" role="tab" aria-selected={active === tab.id} aria-controls={`landim-${tab.id}`} className={`tab-btn${active === tab.id ? " active" : ""}`} onClick={() => setActive(tab.id)}>{tab.label}</button>)}
     </nav>

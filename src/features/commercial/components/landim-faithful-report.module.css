@@ -79,9 +79,6 @@
 }
 
 
-.heading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; padding:18px 22px; border-bottom:3px solid var(--primary); background:var(--surface); }
-.heading h2 { font-size:1.35rem; font-weight:700; color:var(--primary); letter-spacing:.3px; }
-.heading p { font-size:.8rem; color:var(--text-2); font-weight:500; margin-top:2px; }
 .content { max-width:1180px; margin:0 auto; padding:26px 22px 60px; }
 .footer { text-align:center; color:var(--text-2); font-size:.75rem; padding:24px; }
 .report :global(nav) { background:var(--bg-elevated); }
@@ -94,4 +91,4 @@
 .report :global(canvas) { max-width:100%; }
 .report :global(table) { min-width:560px; }
 .report :global(.mtable) { min-width:650px; }
-@media(max-width:768px) { .content { padding:18px 12px 50px; } .heading { align-items:flex-start; flex-direction:column; } }
+@media(max-width:768px) { .content { padding:18px 12px 50px; } }

@@ -4,5 +4,5 @@ import { LandimReportView } from "./landim-report-view";
 
 /** Kept on the server so patient details are sent only through the authorized portal. */
 export function LandimFaithfulReport() {
-  return <LandimReportView tabs={report.tabs} period={report.period} />;
+  return <LandimReportView tabs={report.tabs} />;
 }
