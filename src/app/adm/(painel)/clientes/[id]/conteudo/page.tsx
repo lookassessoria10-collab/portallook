@@ -38,7 +38,7 @@ export default async function ClientContentPage(props: PageProps<"/adm/clientes/
 
   const { settings, data, resolved, lists, teamId, today } = view;
   const classified = data ? applyContentRules(data.items, settings.rules) : null;
-  const warnings = classified ? contentWarnings(classified.visible, today) : { pastNotPublished: [], awaiting: [], noFormat: [] };
+  const warnings = classified ? contentWarnings(classified.visible, today) : { pastNotPublished: [], noFormat: [] };
   const brief = (i: { id: string; date: string; name: string }) => ({ id: i.id, date: i.date, name: i.name });
 
   // Status da lista agrupados pela situação que o cliente vê.
@@ -67,7 +67,7 @@ export default async function ClientContentPage(props: PageProps<"/adm/clientes/
       rules={settings.rules}
       typeOptions={[...typeOptions].map(([value, label]) => ({ value, label }))}
       sync={{ fetchedLabel: data ? formatDateTime(data.fetchedAt, env().APP_TIMEZONE) : null, error: view.error, from: data?.from ?? null, to: data?.to ?? null }}
-      preview={classified ? { total: data!.items.length, visible: classified.visible.length, hidden: classified.hidden.length, awaiting: warnings.awaiting.length } : null}
+      preview={classified ? { total: data!.items.length, visible: classified.visible.length, hidden: classified.hidden.length } : null}
       hidden={(classified?.hidden ?? []).map((h) => ({ id: h.item.id, date: h.item.date, name: h.item.name, reason: HIDDEN_REASON_LABEL[h.reason], url: h.item.url }))}
       warnings={{ pastNotPublished: warnings.pastNotPublished.map(brief), noFormat: warnings.noFormat.map(brief) }}
       statusMap={statusMap}

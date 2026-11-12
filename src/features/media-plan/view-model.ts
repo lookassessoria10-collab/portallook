@@ -141,7 +141,7 @@ export function buildMediaPlanViewModel(
       format: "currency",
       comparison: prev ? compareValues(m.budget, prev.budget ?? null, { direction: "neutral" }) : null,
       trend: trend("budget"),
-      description: "Soma da verba prevista para todas as campanhas e ações do mês.",
+      description: "Soma da verba prevista para todas as campanhas e ações do plano.",
       icon: "investment",
     },
     {
@@ -237,7 +237,8 @@ export function buildMediaPlanViewModel(
 
 function buildHeadline(data: MediaPlanData, m: MediaPlanMetrics): string {
   const where = m.platforms.length <= 3 ? m.platforms.map((p) => p.label).join(", ").replace(/, ([^,]+)$/, " e $1") : `${m.platforms.length} plataformas e veículos`;
-  let sentence = `${formatPeriod(data.period)}: ${formatCurrency(m.budget, data.currency, { noCents: Number.isInteger(m.budget) })} planejados em ${m.itemCount} ${m.itemCount === 1 ? "campanha" : "campanhas e ações"} (${where})`;
+  // Sem o mês: o cliente vê o plano em vigor (nem todo plano é refeito todo mês).
+  let sentence = `${formatCurrency(m.budget, data.currency, { noCents: Number.isInteger(m.budget) })} planejados em ${m.itemCount} ${m.itemCount === 1 ? "campanha" : "campanhas e ações"} (${where})`;
   if (m.resultGroups.length) sentence += `, com meta de ${m.resultGroups.map((g) => `${formatInteger(g.target)} ${lowerFirst(g.label)}`).join(" e ")}`;
   return `${sentence}.`;
 }

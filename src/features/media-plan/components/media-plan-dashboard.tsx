@@ -70,7 +70,7 @@ export function MediaPlanDashboard({ vm, insights, currency, trafficEnabled }: {
         <DashboardSection
           id="realizado"
           title="Planejado × realizado"
-          description={vm.execution.status === "partial" ? "Mês em andamento: o realizado considera o relatório de tráfego publicado até agora." : "Verba planejada contra o investimento do relatório de tráfego do mês."}
+          description={vm.execution.status === "partial" ? "Em andamento: o realizado considera o relatório de tráfego publicado até agora." : "Verba planejada contra o investimento do relatório de tráfego."}
         >
           <Card>
             <CardBody className="pt-4 sm:pt-5">
@@ -89,7 +89,7 @@ export function MediaPlanDashboard({ vm, insights, currency, trafficEnabled }: {
         </DashboardSection>
       ) : vm.executionPending && trafficEnabled ? (
         <p className="flex items-start gap-2 rounded-[var(--radius-lg)] border border-border px-4 py-3 text-[13px] text-text-3">
-          <Info className="mt-0.5 size-4 shrink-0" aria-hidden />O comparativo planejado × realizado aparece aqui quando o relatório de tráfego de {vm.periodLabel.toLowerCase()} for publicado.
+          <Info className="mt-0.5 size-4 shrink-0" aria-hidden />O comparativo planejado × realizado aparece aqui quando o relatório de tráfego for publicado.
         </p>
       ) : null}
 
@@ -143,7 +143,7 @@ export function MediaPlanDashboard({ vm, insights, currency, trafficEnabled }: {
         </div>
       </DashboardSection>
 
-      <DashboardSection id="campanhas" title="Campanhas" description={`${vm.metrics.itemCount} ${vm.metrics.itemCount === 1 ? "campanha planejada" : "campanhas e ações planejadas"} para ${vm.periodLabel.toLowerCase()}`}>
+      <DashboardSection id="campanhas" title="Campanhas" description={`${vm.metrics.itemCount} ${vm.metrics.itemCount === 1 ? "campanha planejada" : "campanhas e ações planejadas"}`}>
         <div className="space-y-4">
           {vm.platforms.map((p) => (
             <Card key={p.platform}>
@@ -170,7 +170,7 @@ export function MediaPlanDashboard({ vm, insights, currency, trafficEnabled }: {
       </DashboardSection>
 
       {vm.timeline ? (
-        <DashboardSection id="cronograma" title="Cronograma" description="Quando cada campanha ou ação fica no ar durante o mês">
+        <DashboardSection id="cronograma" title="Cronograma" description="Quando cada campanha ou ação fica no ar">
           <Card>
             <CardBody className="pt-4 sm:pt-5">
               <div className="relative h-5 sm:ml-[38%]" aria-hidden>

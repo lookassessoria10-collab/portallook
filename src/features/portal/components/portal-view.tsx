@@ -78,6 +78,8 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
   const originalCommercial = fullCommercial && model.periodKey === "2026-09" ? (client.slug === "serenity-terapias" ? "serenity" : "isabor") : null;
   const tz = env().APP_TIMEZONE;
   const tabLabel = TAB_LABEL[model.tab];
+  // Plano de mídia: o cliente vê o plano em vigor, sem mês (nem todo plano é refeito todo mês).
+  const timelessPlan = !showExtra && model.tab === "media_plan";
   const periodItems = model.periods.map((p) => ({
     key: p.key,
     label: p.short,
@@ -99,8 +101,9 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
   // Mês aberto só com justificativa (sem relatório).
   const missing = showExtra ? null : model.missing;
   const actionCount = actions?.summary.total ?? 0;
-  const chip =
-    extra === "content"
+  const chip = timelessPlan
+    ? null
+    : extra === "content"
       ? content!.rangeLabel
       : extra === "actions"
         ? `${actionCount} ${actionCount === 1 ? "ação" : "ações"}`
@@ -115,7 +118,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
                   ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period)
                   : formatPeriod(shown[0].period)
                 : (missing?.label ?? null);
-  const year = larplanOriginal ? 2026 : (commercial?.year ?? (shown.length ? +shown[shown.length - 1].period.start.slice(0, 4) : missing ? +missing.key.slice(0, 4) : null));
+  const year = timelessPlan ? null : larplanOriginal ? 2026 : (commercial?.year ?? (shown.length ? +shown[shown.length - 1].period.start.slice(0, 4) : missing ? +missing.key.slice(0, 4) : null));
   const subtitle = [client.segment, `${AREA_TITLE[area]}${year ? ` ${year}` : ""}`].filter(Boolean).join(" · ");
   const notices = <PeriodNotices notices={model.notices} className={commercial || larplanOriginal ? "pt-6 sm:pt-8" : undefined} />;
   // No comercial, quem fica fixo no topo ao rolar são as abas do painel.
@@ -174,6 +177,8 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
                 <div className="hidden min-h-9 items-center text-xs font-semibold text-text-2 md:flex">Conteúdos planejados pela Look · clique em um post para ver a legenda</div>
               ) : extra === "actions" ? (
                 <div className="hidden min-h-9 items-center text-xs font-semibold text-text-2 md:flex">Ações sugeridas e executadas pela Look · da mais recente para a mais antiga</div>
+              ) : timelessPlan ? (
+                <div className="hidden min-h-9 items-center text-xs font-semibold text-text-2 md:flex">Plano de mídia em vigor · estratégia e verba planejadas pela Look</div>
               ) : (
                 <>
                   <ScaleSwitch options={scaleItems} />
@@ -200,7 +205,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
             <EmptyState
               icon={<Inbox />}
               title={model.tab === "media_plan" ? "Ainda não há plano de mídia publicado" : model.tab === "social" ? "Ainda não há relatórios de rede social" : `Ainda não há relatórios de ${tabLabel.toLowerCase()}`}
-              description={model.tab === "media_plan" ? "O plano do mês aparecerá aqui assim que for publicado pela equipe da Look." : "Os relatórios aparecerão aqui assim que forem publicados pela equipe da Look."}
+              description={model.tab === "media_plan" ? "O plano de mídia aparecerá aqui assim que for publicado pela equipe da Look." : "Os relatórios aparecerão aqui assim que forem publicados pela equipe da Look."}
             />
           ) : model.view === "overview" && model.overview ? (
             <div className="space-y-6">
@@ -240,8 +245,9 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
                 selection.dataset.data.type === "social" ? (
                   <SocialDashboard vm={buildSocialViewModel(selection.dataset.data.data, { previous: model.previous, history: model.history })} insights={selection.insights} />
                 ) : selection.dataset.data.type === "media_plan" ? (
+                  // Sem comparação com o "plano do mês anterior": o plano não é refeito todo mês.
                   <MediaPlanDashboard
-                    vm={buildMediaPlanViewModel(selection.dataset.data.data, { previous: model.previous, history: model.history, actual: model.relatedTraffic, today: model.today })}
+                    vm={buildMediaPlanViewModel(selection.dataset.data.data, { previous: null, history: [], actual: model.relatedTraffic, today: model.today })}
                     insights={selection.insights}
                     currency={client.currency}
                     trafficEnabled={client.modules.traffic.enabled}

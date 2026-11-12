@@ -5,15 +5,15 @@ import type { ClickUpListRef, ContentItem, ContentRules, ContentStatus } from ".
 
 /**
  * Status do ClickUp → situação para o cliente. Cada lista tem os seus status; a leitura é
- * pelo nome (sem acento e emoji): postado/fechado → Publicado; aguardando/pendente → Aguarda
- * sua aprovação; aprovado → Aprovado; revisão/correção/feito → Em produção; o resto → Em planejamento.
+ * pelo nome (sem acento e emoji): postado/fechado → Publicado; aprovado → Pronto para publicar;
+ * aguardando/pendente/revisão/correção/feito → Em produção; o resto → Em planejamento.
+ * O cliente não aprova pelo portal, então "aguardando o cliente" aparece só como Em produção.
  */
 export function contentStatus(item: Pick<ContentItem, "statusName" | "statusType" | "progress">): ContentStatus {
   const s = normalizeText(item.statusName);
   if (item.statusType === "closed" || /postad|publicad/.test(s) || item.progress.some((p) => /postad|publicad/.test(normalizeText(p)))) return "published";
-  if (/aguard|pendente/.test(s)) return "awaiting";
   if (/^aprovad/.test(s)) return "approved";
-  if (/revis|corre|feito|produc|edica|ajuste/.test(s)) return "production";
+  if (/aguard|pendente|revis|corre|feito|produc|edica|ajuste/.test(s)) return "production";
   return "planning";
 }
 
@@ -56,7 +56,6 @@ export function applyContentRules(items: readonly ContentItem[], rules: ContentR
 export function contentWarnings(visible: readonly ContentItem[], today: string) {
   return {
     pastNotPublished: visible.filter((i) => i.date < today && ["planning", "production"].includes(contentStatus(i))),
-    awaiting: visible.filter((i) => contentStatus(i) === "awaiting"),
     noFormat: visible.filter((i) => !i.format),
   };
 }

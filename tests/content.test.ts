@@ -101,7 +101,8 @@ describe("ClickUp → itens do portal", () => {
     const status = (statusName: string, statusType = "custom") => contentStatus({ statusName, statusType, progress: [] });
     expect(["planejamento", "rascunho - plan.", "extra - marcelo", "a fazer - pautas semanais", "aleatórios"].map((s) => status(s))).toEqual(Array(5).fill("planning"));
     expect(["revisão ⚠️", "correção 🛑", "feito - enviar para aprova"].map((s) => status(s))).toEqual(Array(3).fill("production"));
-    expect(["aguardando o cliente", "pendente cliente"].map((s) => status(s))).toEqual(["awaiting", "awaiting"]);
+    // O cliente não aprova pelo portal: "aguardando o cliente" aparece como Em produção.
+    expect(["aguardando o cliente", "pendente cliente"].map((s) => status(s))).toEqual(["production", "production"]);
     expect(status("aprovado ✅")).toBe("approved");
     expect([status("postado"), status("Closed", "closed")]).toEqual(["published", "published"]);
     expect(contentStatus({ statusName: "aprovado ✅", statusType: "custom", progress: ["Postado"] })).toBe("published");

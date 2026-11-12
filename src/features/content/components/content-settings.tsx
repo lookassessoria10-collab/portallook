@@ -27,7 +27,7 @@ export interface ContentSettingsProps {
   rules: ContentRules;
   typeOptions: Array<{ value: string; label: string }>;
   sync: { fetchedLabel: string | null; error: string | null; from: string | null; to: string | null };
-  preview: { total: number; visible: number; hidden: number; awaiting: number } | null;
+  preview: { total: number; visible: number; hidden: number } | null;
   hidden: Array<{ id: string; date: string; name: string; reason: string; url: string | null }>;
   warnings: { pastNotPublished: Array<{ id: string; date: string; name: string }>; noFormat: Array<{ id: string; date: string; name: string }> };
   statusMap: Array<{ status: ContentStatus; sources: Array<{ name: string; color: string | null }> }>;
@@ -235,11 +235,10 @@ export function ContentSettings(props: ContentSettingsProps) {
       {preview ? (
         <section className="card space-y-4 p-4 sm:p-5 xl:col-span-2" aria-label="Prévia da sincronização">
           <h2 className="text-base font-bold text-text">Prévia da sincronização</h2>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-3 gap-3">
             <Stat label="Na lista" value={preview.total} />
             <Stat label="No portal" value={preview.visible} tone="text-primary" />
             <Stat label="Ocultos" value={preview.hidden} />
-            <Stat label="Aguardam o cliente" value={preview.awaiting} tone={preview.awaiting ? "text-attention" : undefined} />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
@@ -270,9 +269,8 @@ export function ContentSettings(props: ContentSettingsProps) {
                 {warnings.pastNotPublished.length ? (
                   <Warning tone="attention" title={`${warnings.pastNotPublished.length} ${warnings.pastNotPublished.length === 1 ? "conteúdo com data passada ainda não publicado" : "conteúdos com data passada ainda não publicados"}`} items={warnings.pastNotPublished} hint="O cliente vê o status que está no ClickUp." />
                 ) : null}
-                {preview.awaiting ? <Warning tone="attention" title={`${preview.awaiting} ${preview.awaiting === 1 ? "conteúdo aguarda" : "conteúdos aguardam"} o cliente`} hint="O cliente vê o destaque “Aguardam sua aprovação” no topo do calendário." /> : null}
                 {warnings.noFormat.length ? <Warning title={`${warnings.noFormat.length} ${warnings.noFormat.length === 1 ? "conteúdo sem formato" : "conteúdos sem formato"}`} items={warnings.noFormat} hint="Aparecem como “Formato a definir”." /> : null}
-                {!warnings.pastNotPublished.length && !preview.awaiting && !warnings.noFormat.length ? <li className="text-[13px] text-text-3">Nada para revisar.</li> : null}
+                {!warnings.pastNotPublished.length && !warnings.noFormat.length ? <li className="text-[13px] text-text-3">Nada para revisar.</li> : null}
               </ul>
             </div>
           </div>

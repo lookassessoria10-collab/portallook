@@ -37,14 +37,12 @@ export function ContentCalendar({ vm }: { vm: PortalContentVM }) {
   const [monthIdx, setMonthIdx] = useState(() => Math.max(0, months.findIndex((m) => m.key === vm.defaultMonth)));
   const [view, setView] = useState<View>("auto");
   const [fmt, setFmt] = useState<string>("all");
-  const [onlyAwaiting, setOnlyAwaiting] = useState(false);
   const [selId, setSelId] = useState(() => (items.find((i) => i.date >= today) ?? items[items.length - 1]).id);
   const [sheet, setSheet] = useState(false);
 
   const month = months[monthIdx];
   const monthItems = useMemo(() => items.filter((i) => i.date.startsWith(month.key)), [items, month.key]);
-  const awaitingAll = useMemo(() => items.filter((i) => i.status === "awaiting"), [items]);
-  const base = onlyAwaiting ? awaitingAll : monthItems;
+  const base = monthItems;
   const shown = fmt === "all" ? base : base.filter((i) => i.format === fmt);
   const selected = items.find((i) => i.id === selId) ?? items[0];
   const upcoming = items.filter((i) => i.date >= today).slice(0, 5);
@@ -55,12 +53,12 @@ export function ContentCalendar({ vm }: { vm: PortalContentVM }) {
     return [...map.values()];
   }, [base]);
 
-  const count = (s: ContentStatus) => monthItems.filter((i) => i.status === s).length;
+  const count = (...s: ContentStatus[]) => monthItems.filter((i) => s.includes(i.status)).length;
 
   const pick = (item: PortalContentItem) => {
     setSelId(item.id);
     const idx = months.findIndex((m) => item.date.startsWith(m.key));
-    if (idx >= 0 && !onlyAwaiting) setMonthIdx(idx);
+    if (idx >= 0) setMonthIdx(idx);
     // Sem o painel lateral (abaixo de 1280 px), o detalhe abre numa janela.
     if (window.matchMedia("(max-width: 1279px)").matches) setSheet(true);
   };
@@ -68,7 +66,6 @@ export function ContentCalendar({ vm }: { vm: PortalContentVM }) {
   const goMonth = (delta: number) => {
     setMonthIdx((i) => Math.min(months.length - 1, Math.max(0, i + delta)));
     setFmt("all");
-    setOnlyAwaiting(false);
   };
 
   // Calendário do mês: semanas de segunda a domingo.
@@ -105,7 +102,7 @@ export function ContentCalendar({ vm }: { vm: PortalContentVM }) {
   }, [shown, today]);
   const [showPast, setShowPast] = useState(false);
   // No mês atual, a agenda abre nesta semana; as que já passaram ficam atrás de um botão.
-  const pastWeeks = !onlyAwaiting && !showPast && groups.some((g) => !g.past) ? groups.filter((g) => g.past).length : 0;
+  const pastWeeks = !showPast && groups.some((g) => !g.past) ? groups.filter((g) => g.past).length : 0;
   const agenda = pastWeeks ? groups.filter((g) => !g.past) : groups;
 
   const viewBtn = (v: Exclude<View, "auto">) =>
@@ -118,11 +115,11 @@ export function ContentCalendar({ vm }: { vm: PortalContentVM }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1 rounded-[14px] border border-border bg-surface p-1">
-          <button type="button" onClick={() => goMonth(-1)} disabled={monthIdx === 0 || onlyAwaiting} aria-label="Mês anterior" className="grid size-9 place-items-center rounded-[10px] text-text-2 hover:bg-surface-2 disabled:opacity-35">
+          <button type="button" onClick={() => goMonth(-1)} disabled={monthIdx === 0} aria-label="Mês anterior" className="grid size-9 place-items-center rounded-[10px] text-text-2 hover:bg-surface-2 disabled:opacity-35">
             <ChevronLeft className="size-4" aria-hidden />
           </button>
-          <span className="min-w-[150px] text-center text-sm font-bold text-text sm:min-w-[170px]">{onlyAwaiting ? "Aguardando aprovação" : month.label}</span>
-          <button type="button" onClick={() => goMonth(1)} disabled={monthIdx === months.length - 1 || onlyAwaiting} aria-label="Próximo mês" className="grid size-9 place-items-center rounded-[10px] text-text-2 hover:bg-surface-2 disabled:opacity-35">
+          <span className="min-w-[150px] text-center text-sm font-bold text-text sm:min-w-[170px]">{month.label}</span>
+          <button type="button" onClick={() => goMonth(1)} disabled={monthIdx === months.length - 1} aria-label="Próximo mês" className="grid size-9 place-items-center rounded-[10px] text-text-2 hover:bg-surface-2 disabled:opacity-35">
             <ChevronRight className="size-4" aria-hidden />
           </button>
         </div>
@@ -138,29 +135,10 @@ export function ContentCalendar({ vm }: { vm: PortalContentVM }) {
 
       <section aria-label="Resumo do mês" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Kpi label="Conteúdos no mês" value={monthItems.length} hint={monthItems.length ? `Planejados para ${MONTHS_PT[+month.key.slice(5, 7) - 1]}` : "Nada planejado neste mês"} highlight />
-        <Kpi label="Aguardam sua aprovação" value={count("awaiting")} hint="Revise e responda à equipe da Look" tone={count("awaiting") ? "attention" : undefined} />
-        <Kpi label="Aprovados" value={count("approved")} hint="Prontos para publicar" />
+        <Kpi label="Em preparação" value={count("planning", "production")} hint="Em planejamento ou produção pela Look" />
+        <Kpi label="Prontos para publicar" value={count("approved")} hint="Finalizados, aguardando a data" />
         <Kpi label="Publicados" value={count("published")} hint="Já no ar" tone="positive" />
       </section>
-
-      {awaitingAll.length ? (
-        <button
-          type="button"
-          onClick={() => {
-            setOnlyAwaiting((v) => !v);
-            setFmt("all");
-          }}
-          aria-pressed={onlyAwaiting}
-          className="flex w-full items-center gap-3 rounded-[14px] border border-[rgb(246_189_91/0.3)] bg-attention-soft px-4 py-3 text-left text-sm text-text hover:brightness-110"
-        >
-          <span className="size-2.5 shrink-0 rounded-full bg-attention shadow-[0_0_0_4px_rgb(246_189_91/0.2)]" aria-hidden />
-          <span className="min-w-0 flex-1">
-            <strong className="font-bold">{awaitingAll.length === 1 ? "1 conteúdo aguarda a sua aprovação" : `${awaitingAll.length} conteúdos aguardam a sua aprovação`}</strong>
-            <span className="text-text-2"> · aparecem marcados em amarelo no calendário.</span>
-          </span>
-          <span className="shrink-0 text-[13px] font-bold text-attention">{onlyAwaiting ? "Mostrar todos" : "Ver só esses"}</span>
-        </button>
-      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
         <section aria-label="Calendário de conteúdos" className="min-w-0 space-y-3.5">
@@ -173,7 +151,7 @@ export function ContentCalendar({ vm }: { vm: PortalContentVM }) {
             </div>
           ) : null}
 
-          <div className={cn(view === "list" || onlyAwaiting ? "hidden" : view === "auto" ? "hidden md:block" : "block")}>
+          <div className={cn(view === "list" ? "hidden" : view === "auto" ? "hidden md:block" : "block")}>
             <div className="overflow-x-auto">
               <div className="min-w-[720px] space-y-1.5">
                 <div className="grid grid-cols-7 gap-1.5">
@@ -211,7 +189,6 @@ export function ContentCalendar({ vm }: { vm: PortalContentVM }) {
                             >
                               <span className="size-[7px] shrink-0 rounded-full" style={{ background: item.formatColor }} aria-hidden />
                               <span className={cn("line-clamp-2 min-w-0 flex-1 leading-tight", item.status === "published" && "opacity-80")}>{item.title}</span>
-                              {item.status === "awaiting" ? <span className="size-[7px] shrink-0 rounded-full bg-attention shadow-[0_0_0_3px_rgb(246_189_91/0.2)]" aria-hidden /> : null}
                               {item.status === "published" ? <Check className="size-3 shrink-0 text-positive" strokeWidth={3} aria-hidden /> : null}
                             </button>
                           ))}
@@ -224,7 +201,7 @@ export function ContentCalendar({ vm }: { vm: PortalContentVM }) {
             </div>
           </div>
 
-          <div className={cn(view === "month" && !onlyAwaiting ? "hidden" : view === "auto" && !onlyAwaiting ? "md:hidden" : "block", "space-y-6")}>
+          <div className={cn(view === "month" ? "hidden" : view === "auto" ? "md:hidden" : "block", "space-y-6")}>
             {pastWeeks ? (
               <button type="button" onClick={() => setShowPast(true)} className="flex h-11 w-full items-center justify-center rounded-[12px] border border-border-strong text-[13px] font-bold text-text-2 hover:bg-surface-2">
                 {pastWeeks === 1 ? "Mostrar a semana anterior" : `Mostrar ${pastWeeks} semanas anteriores`}
@@ -279,11 +256,11 @@ export function ContentCalendar({ vm }: { vm: PortalContentVM }) {
   );
 }
 
-function Kpi({ label, value, hint, highlight, tone }: { label: string; value: number; hint: string; highlight?: boolean; tone?: "attention" | "positive" }) {
+function Kpi({ label, value, hint, highlight, tone }: { label: string; value: number; hint: string; highlight?: boolean; tone?: "positive" }) {
   return (
-    <article className={cn("card flex min-w-0 flex-col gap-2 p-4 sm:p-5", highlight && "border-[rgb(0_174_239/0.3)] bg-[linear-gradient(135deg,rgb(0_174_239/0.12),transparent_70%)]", tone === "attention" && "border-[rgb(246_189_91/0.35)]")}>
+    <article className={cn("card flex min-w-0 flex-col gap-2 p-4 sm:p-5", highlight && "border-[rgb(0_174_239/0.3)] bg-[linear-gradient(135deg,rgb(0_174_239/0.12),transparent_70%)]")}>
       <h3 className="text-[13px] font-semibold leading-snug text-text-2">{label}</h3>
-      <p className={cn("tabular text-[1.75rem] font-bold leading-none tracking-tight text-text", tone === "attention" && "text-attention", tone === "positive" && "text-positive")}>{value}</p>
+      <p className={cn("tabular text-[1.75rem] font-bold leading-none tracking-tight text-text", tone === "positive" && "text-positive")}>{value}</p>
       <p className="text-xs text-text-3">{hint}</p>
     </article>
   );
@@ -357,9 +334,6 @@ function ContentDetail({ item, hideTitle }: { item: PortalContentItem; hideTitle
           <h3 className="mb-1.5 text-[13px] font-bold text-text">Texto do conteúdo</h3>
           <p className="max-h-60 overflow-y-auto whitespace-pre-line text-[13px] leading-relaxed text-text-2">{item.description}</p>
         </div>
-      ) : null}
-      {item.status === "awaiting" ? (
-        <p className="rounded-[10px] bg-attention-soft px-3 py-2.5 text-[13px] leading-relaxed text-attention">Este conteúdo aguarda a sua aprovação. Responda à equipe da Look pelo canal de sempre.</p>
       ) : null}
     </div>
   );

@@ -1,23 +1,24 @@
 import { z } from "zod";
 import { IsoDateSchema, TimestampSchema } from "@/features/reports/schema";
 
-/** Situação do conteúdo na linguagem do cliente (os status do ClickUp são agrupados nestas cinco). */
-export const CONTENT_STATUSES = ["planning", "production", "awaiting", "approved", "published"] as const;
+/**
+ * Situação do conteúdo na linguagem do cliente (os status do ClickUp são agrupados nestas quatro).
+ * O cliente só acompanha o planejamento: nada no portal fala em aprovação.
+ */
+export const CONTENT_STATUSES = ["planning", "production", "approved", "published"] as const;
 export const ContentStatusSchema = z.enum(CONTENT_STATUSES);
 export type ContentStatus = z.infer<typeof ContentStatusSchema>;
 
 export const CONTENT_STATUS_LABEL: Record<ContentStatus, string> = {
   planning: "Em planejamento",
   production: "Em produção",
-  awaiting: "Aguarda sua aprovação",
-  approved: "Aprovado",
+  approved: "Pronto para publicar",
   published: "Publicado",
 };
 
-export const CONTENT_STATUS_TONE: Record<ContentStatus, "neutral" | "primary" | "attention" | "info" | "positive"> = {
+export const CONTENT_STATUS_TONE: Record<ContentStatus, "neutral" | "primary" | "info" | "positive"> = {
   planning: "neutral",
   production: "primary",
-  awaiting: "attention",
   approved: "info",
   published: "positive",
 };
