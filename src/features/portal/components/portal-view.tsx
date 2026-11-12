@@ -232,7 +232,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
             <div className="space-y-8 sm:space-y-10">
               {model.notices.length ? notices : null}
               {larplanOriginal ? (
-                <LarplanFaithfulReport logoUrl={logoUrl} />
+                <LarplanFaithfulReport />
               ) : landimOriginal ? (
                 <LandimFaithfulReport />
               ) : originalCommercial === "isabor" ? (

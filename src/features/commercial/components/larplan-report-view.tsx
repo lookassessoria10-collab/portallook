@@ -35,11 +35,15 @@ function LarplanSection({ tab }: { tab: LarplanTab }) {
   </section>;
 }
 
-export function LarplanReportView({ tabs, header, banner, footer }: { tabs: LarplanTab[]; header: string; banner: string; footer: string }) {
+/**
+ * O cabeçalho do HTML original ("Dashboard Comercial", logo e ano) não aparece: o portal já mostra
+ * o nome, a marca e o período. O relatório começa no destaque do mês atual.
+ */
+export function LarplanReportView({ tabs, banner, footer }: { tabs: LarplanTab[]; banner: string; footer: string }) {
   const [active, setActive] = useState(tabs[0].id);
   const selected = tabs.find((tab) => tab.id === active) ?? tabs[0];
   return <div className={styles.report} data-larplan-report>
-    <div dangerouslySetInnerHTML={{ __html: header + banner }} />
+    <div dangerouslySetInnerHTML={{ __html: banner }} />
     <nav className="tabs" aria-label="Seções do relatório comercial Larplan" role="tablist">
       {tabs.map((tab) => <button key={tab.id} id={`larplan-tab-${tab.id}`} type="button" role="tab" aria-selected={active === tab.id} aria-controls={`larplan-${tab.id}`} className={`tab${active === tab.id ? " active" : ""}`} onClick={() => setActive(tab.id)}>{tab.label}</button>)}
     </nav>
