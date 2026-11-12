@@ -14,7 +14,8 @@ export interface ActionsSummary {
 
 type Summarizable = Pick<ClientAction, "status" | "executedAt" | "kind" | "category">;
 
-export function summarizeActions(items: readonly Summarizable[]): ActionsSummary {
+/** Com `today`, só conta como executada a ação com data de execução até hoje (as futuras são previstas). */
+export function summarizeActions(items: readonly Summarizable[], today?: string): ActionsSummary {
   const byStatus = Object.fromEntries(ACTION_STATUSES.map((s) => [s, 0])) as Record<ActionStatus, number>;
   const categories = new Map<string, number>();
   let executed = 0;
@@ -22,7 +23,7 @@ export function summarizeActions(items: readonly Summarizable[]): ActionsSummary
   let continuous = 0;
   for (const a of items) {
     byStatus[a.status] += 1;
-    if (a.executedAt) executed += 1;
+    if (a.executedAt && (!today || a.executedAt <= today)) executed += 1;
     if (a.kind === "one_off") oneOff += 1;
     if (a.kind === "continuous") continuous += 1;
     if (a.category) categories.set(a.category, (categories.get(a.category) ?? 0) + 1);
@@ -71,18 +72,20 @@ export interface PortalActionsVM {
   groups: PortalActionGroup[];
   /** Data da última alteração no painel (null = dados da planilha). */
   updatedAt: string | null;
+  /** Hoje (AAAA-MM-DD): datas de execução depois dele aparecem como previstas. */
+  today: string;
 }
 
 /** Ordem das seções no portal: o que está acontecendo, o que já foi feito e as próximas ideias. */
 const PORTAL_GROUP_ORDER: ActionStatus[] = ["in_progress", "pending", "done", "approved", "suggested", "rejected"];
 
 /** Ações visíveis do cliente → portal. null quando não há nada para mostrar. */
-export function buildPortalActions(items: readonly ClientAction[], updatedAt: string | null): PortalActionsVM | null {
+export function buildPortalActions(items: readonly ClientAction[], updatedAt: string | null, today: string): PortalActionsVM | null {
   const visible = items.filter((a) => a.visible);
   if (!visible.length) return null;
   const sorted = sortActions(visible).map(
     (a): PortalActionItem => ({ id: a.id, title: a.title, category: a.category, kind: a.kind, status: a.status, suggestedAt: a.suggestedAt, executedAt: a.executedAt, note: a.clientNote }),
   );
   const groups = PORTAL_GROUP_ORDER.map((status) => ({ status, label: ACTION_STATUS_CLIENT_LABEL[status], items: sorted.filter((a) => a.status === status) })).filter((g) => g.items.length);
-  return { summary: summarizeActions(visible), groups, updatedAt };
+  return { summary: summarizeActions(visible, today), groups, updatedAt, today };
 }

@@ -1,6 +1,8 @@
 import "server-only";
 import { cache } from "react";
 import { createId } from "@/lib/ids";
+import { env } from "@/lib/env";
+import { todayISO } from "@/lib/dates/period";
 import { NotFoundError, UserFacingError } from "@/lib/errors";
 import { logEvent } from "@/features/events/service";
 import { listClients, requireClient } from "@/features/clients/service";
@@ -58,7 +60,7 @@ export const getClientActions = cache(async (client: Client): Promise<ResolvedAc
 export async function loadPortalActions(client: Client): Promise<PortalActionsVM | null> {
   const actions = await getClientActions(client);
   if (!actions.enabled) return null;
-  return buildPortalActions(actions.items, actions.updatedAt);
+  return buildPortalActions(actions.items, actions.updatedAt, todayISO(env().APP_TIMEZONE));
 }
 
 /**

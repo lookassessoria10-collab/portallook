@@ -25,7 +25,7 @@ export function ActionsBoard({ vm }: { vm: PortalActionsVM }) {
       <section aria-label="Resumo das ações" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <Kpi label="Ações no plano" value={summary.total} icon={<ListChecks />} className="col-span-2 lg:col-span-1" highlight />
         <Kpi label="Em andamento" value={summary.byStatus.in_progress + summary.byStatus.pending} icon={<LoaderCircle />} />
-        <Kpi label="Executadas" value={summary.executed} icon={<Rocket />} hint="Com data de execução" />
+        <Kpi label="Executadas" value={summary.executed} icon={<Rocket />} hint="Já realizadas" />
         <Kpi label="Concluídas" value={summary.byStatus.done} icon={<CircleCheck />} />
         <Kpi label="Sugeridas" value={summary.byStatus.suggested} icon={<Lightbulb />} hint="Ideias aguardando decisão" />
       </section>
@@ -55,7 +55,7 @@ export function ActionsBoard({ vm }: { vm: PortalActionsVM }) {
                 </h3>
                 <ul className="grid gap-3 md:grid-cols-2">
                   {g.items.map((a) => (
-                    <ActionCard key={a.id} action={a} />
+                    <ActionCard key={a.id} action={a} today={vm.today} />
                   ))}
                 </ul>
               </section>
@@ -170,7 +170,7 @@ function FilterChip({ active, onClick, label, count }: { active: boolean; onClic
   );
 }
 
-function ActionCard({ action: a }: { action: PortalActionItem }) {
+function ActionCard({ action: a, today }: { action: PortalActionItem; today: string }) {
   return (
     <li className="card flex min-w-0 flex-col p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -189,7 +189,7 @@ function ActionCard({ action: a }: { action: PortalActionItem }) {
           ) : null}
           {a.executedAt ? (
             <div className="flex gap-1">
-              <dt className="text-text-3">Executada em</dt>
+              <dt className="text-text-3">{a.executedAt > today ? "Execução prevista para" : "Executada em"}</dt>
               <dd className="tabular font-semibold text-text-2">{formatDate(a.executedAt)}</dd>
             </div>
           ) : null}
