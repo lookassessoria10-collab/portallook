@@ -1,33 +1,36 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CircleCheck, Lightbulb, ListChecks, LoaderCircle, Rocket } from "lucide-react";
+import { CalendarClock, CircleCheck, Lightbulb, ListChecks, LoaderCircle, Rocket } from "lucide-react";
 import { formatDate } from "@/lib/dates/period";
 import { formatInteger } from "@/lib/format/number";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui/badge";
-import { ACTION_KIND_LABEL, ACTION_STATUS_CLIENT_LABEL, ACTION_STATUS_TONE, type ActionStatus } from "@/features/actions/schema";
-import type { PortalActionItem, PortalActionsVM } from "@/features/actions/view-model";
+import { ACTION_KIND_LABEL, ACTION_STATUS_CLIENT_LABEL, ACTION_STATUS_TONE } from "@/features/actions/schema";
+import type { PortalActionGroupKey, PortalActionItem, PortalActionsVM } from "@/features/actions/view-model";
 
 /**
  * Área "Ações" do portal: o que a Look está fazendo, o que já foi feito e as próximas ideias.
  * Recebe só os campos públicos de cada ação (nunca as observações internas).
  */
 export function ActionsBoard({ vm }: { vm: PortalActionsVM }) {
-  const [filter, setFilter] = useState<ActionStatus | "all">("all");
+  const [filter, setFilter] = useState<PortalActionGroupKey | "all">("all");
   const { summary } = vm;
   const groups = filter === "all" ? vm.groups : vm.groups.filter((g) => g.status === filter);
   const kinds = summary.oneOff + summary.continuous;
+  // Os cartões contam como as listas: a ação prevista sai das sugestões e entra em Previstas.
+  const groupCount = (key: PortalActionGroupKey) => vm.groups.find((g) => g.status === key)?.items.length ?? 0;
   const topCategory = summary.categories[0]?.count ?? 0;
 
   return (
     <div className="space-y-8 sm:space-y-10">
-      <section aria-label="Resumo das ações" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-        <Kpi label="Ações no plano" value={summary.total} icon={<ListChecks />} className="col-span-2 lg:col-span-1" highlight />
-        <Kpi label="Em andamento" value={summary.byStatus.in_progress + summary.byStatus.pending} icon={<LoaderCircle />} />
+      <section aria-label="Resumo das ações" className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
+        <Kpi label="Ações no plano" value={summary.total} icon={<ListChecks />} highlight />
+        <Kpi label="Previstas" value={groupCount("planned")} icon={<CalendarClock />} hint="Com execução marcada" />
+        <Kpi label="Em andamento" value={groupCount("in_progress") + groupCount("pending")} icon={<LoaderCircle />} />
         <Kpi label="Executadas" value={summary.executed} icon={<Rocket />} hint="Já realizadas" />
         <Kpi label="Concluídas" value={summary.byStatus.done} icon={<CircleCheck />} />
-        <Kpi label="Sugeridas" value={summary.byStatus.suggested} icon={<Lightbulb />} hint="Ideias aguardando decisão" />
+        <Kpi label="Sugeridas" value={groupCount("suggested")} icon={<Lightbulb />} hint="Ideias aguardando decisão" />
       </section>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -118,7 +121,8 @@ export function ActionsBoard({ vm }: { vm: PortalActionsVM }) {
   );
 }
 
-const GROUP_TITLE: Record<ActionStatus, [string, string]> = {
+const GROUP_TITLE: Record<PortalActionGroupKey, [string, string]> = {
+  planned: ["Prevista", "Previstas"],
   in_progress: ["Em andamento", "Em andamento"],
   pending: ["Pendente", "Pendentes"],
   done: ["Concluída", "Concluídas"],
@@ -127,9 +131,10 @@ const GROUP_TITLE: Record<ActionStatus, [string, string]> = {
   rejected: ["Não aprovada", "Não aprovadas"],
 };
 
-const plural = (status: ActionStatus, n: number) => GROUP_TITLE[status][n === 1 ? 0 : 1];
+const plural = (status: PortalActionGroupKey, n: number) => GROUP_TITLE[status][n === 1 ? 0 : 1];
 
-const CHIP_LABEL: Record<ActionStatus, string> = {
+const CHIP_LABEL: Record<PortalActionGroupKey, string> = {
+  planned: "Previstas",
   in_progress: "Em andamento",
   pending: "Pendentes",
   done: "Concluídas",

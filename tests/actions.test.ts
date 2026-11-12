@@ -7,7 +7,8 @@ import { createClient } from "@/features/clients/service";
 import type { ClientInput } from "@/features/clients/input";
 import { actionKindFromText, actionStatusFromText, splitActionTitle } from "@/features/actions/schema";
 import { ACTIONS_SNAPSHOT, actionFromSheetRow, findActionsSheet } from "@/features/actions/sheet";
-import { summarizeActions } from "@/features/actions/view-model";
+import { buildPortalActions, summarizeActions } from "@/features/actions/view-model";
+import { ClientActionSchema } from "@/features/actions/schema";
 import { deleteAction, getClientActions, importActionsFromSheet, listActionsOverview, loadPortalActions, saveAction, setActionsEnabled, setActionVisible } from "@/features/actions/service";
 import { loadPortalModel } from "@/features/portal/model";
 
@@ -26,6 +27,33 @@ const input = (name: string, slug: string, shortName = name): ClientInput => ({
 });
 
 const HEADER = ["Ação", "Tipo de ação", "Quando foi sugerido", "Quando foi executado", "Status", "Observações", "Última atualização", "Andamento / Pendências"];
+
+describe("portal: ações previstas", () => {
+  const action = (id: string, status: string, executedAt: string | null) => ClientActionSchema.parse({ id: `ac_${id.padEnd(12, "0")}`, title: id, status, suggestedAt: "2026-11-01", executedAt });
+
+  it("execução depois de hoje vai para Previstas (primeiro, da mais próxima), sai do grupo do status e não conta como executada", () => {
+    const vm = buildPortalActions(
+      [
+        action("pendente", "pending", null),
+        action("marco", "suggested", "2027-03-07"),
+        action("janeiro", "suggested", "2027-01-14"),
+        action("feita", "approved", "2026-10-02"),
+        action("concluida", "done", "2027-01-20"),
+        action("hoje", "in_progress", "2026-11-12"),
+      ],
+      null,
+      "2026-11-12",
+    )!;
+    expect(vm.groups.map((g) => [g.status, g.items.map((i) => i.title)])).toEqual([
+      ["planned", ["janeiro", "marco"]],
+      ["in_progress", ["hoje"]],
+      ["pending", ["pendente"]],
+      ["done", ["concluida"]],
+      ["approved", ["feita"]],
+    ]);
+    expect(vm.summary.executed).toBe(2);
+  });
+});
 
 describe("planilha de ações: extração", () => {
   it("lê uma aba por cliente, ignora as abas de apoio e mantém IDs estáveis", () => {

@@ -61,8 +61,11 @@ export interface PortalActionItem {
   note: string;
 }
 
+/** Grupos do portal: os status, mais "planned" (ações com execução marcada para depois de hoje). */
+export type PortalActionGroupKey = ActionStatus | "planned";
+
 export interface PortalActionGroup {
-  status: ActionStatus;
+  status: PortalActionGroupKey;
   label: string;
   items: PortalActionItem[];
 }
@@ -76,8 +79,15 @@ export interface PortalActionsVM {
   today: string;
 }
 
-/** Ordem das seções no portal: o que está acontecendo, o que já foi feito e as próximas ideias. */
+/**
+ * Ordem das seções no portal: o que vai acontecer (previstas), o que está acontecendo,
+ * o que já foi feito e as próximas ideias.
+ */
 const PORTAL_GROUP_ORDER: ActionStatus[] = ["in_progress", "pending", "done", "approved", "suggested", "rejected"];
+
+/** Ação prevista: execução marcada para depois de hoje (concluídas e não aprovadas nunca são previstas). */
+export const isPlannedAction = (a: Pick<ClientAction, "status" | "executedAt">, today: string) =>
+  Boolean(a.executedAt && a.executedAt > today && a.status !== "done" && a.status !== "rejected");
 
 /** Ações visíveis do cliente → portal. null quando não há nada para mostrar. */
 export function buildPortalActions(items: readonly ClientAction[], updatedAt: string | null, today: string): PortalActionsVM | null {
@@ -86,6 +96,12 @@ export function buildPortalActions(items: readonly ClientAction[], updatedAt: st
   const sorted = sortActions(visible).map(
     (a): PortalActionItem => ({ id: a.id, title: a.title, category: a.category, kind: a.kind, status: a.status, suggestedAt: a.suggestedAt, executedAt: a.executedAt, note: a.clientNote }),
   );
-  const groups = PORTAL_GROUP_ORDER.map((status) => ({ status, label: ACTION_STATUS_CLIENT_LABEL[status], items: sorted.filter((a) => a.status === status) })).filter((g) => g.items.length);
+  // Previstas primeiro, da execução mais próxima para a mais distante; elas saem do grupo do status.
+  const planned = sorted.filter((a) => isPlannedAction(a, today)).sort((a, b) => a.executedAt!.localeCompare(b.executedAt!));
+  const rest = sorted.filter((a) => !isPlannedAction(a, today));
+  const groups: PortalActionGroup[] = [
+    { status: "planned" as const, label: "Previstas", items: planned },
+    ...PORTAL_GROUP_ORDER.map((status) => ({ status, label: ACTION_STATUS_CLIENT_LABEL[status], items: rest.filter((a) => a.status === status) })),
+  ].filter((g) => g.items.length);
   return { summary: summarizeActions(visible, today), groups, updatedAt, today };
 }
