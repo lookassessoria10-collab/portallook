@@ -6,9 +6,8 @@ import { formatDate } from "@/lib/dates/period";
 import { formatInteger } from "@/lib/format/number";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui/badge";
-import { ACTION_KIND_LABEL, ACTION_STATUS_CLIENT_LABEL, ACTION_STATUS_TONE } from "@/features/actions/schema";
-import type { Tone } from "@/components/ui/badge";
-import type { PortalActionBadge, PortalActionGroupKey, PortalActionItem, PortalActionsVM } from "@/features/actions/view-model";
+import { ACTION_KIND_LABEL, ACTION_STATUS_LABEL, ACTION_STATUS_TONE } from "@/features/actions/schema";
+import type { PortalActionGroupKey, PortalActionItem, PortalActionsVM } from "@/features/actions/view-model";
 
 /**
  * Área "Ações" do portal: o que a Look está fazendo, o que já foi feito e as próximas ideias.
@@ -140,10 +139,6 @@ const CHIP_LABEL: Record<PortalActionGroupKey, string> = {
   done: "Concluídas",
 };
 
-/** Etiqueta do card: o status do cliente, mais "A apresentar" para a sugestão com apresentação marcada. */
-const badgeLabel = (b: PortalActionBadge) => (b === "upcoming" ? "A apresentar" : ACTION_STATUS_CLIENT_LABEL[b]);
-const badgeTone = (b: PortalActionBadge): Tone => (b === "upcoming" ? "muted" : ACTION_STATUS_TONE[b]);
-
 function Kpi({ label, value, icon, hint, highlight, className }: { label: string; value: number; icon: ReactNode; hint?: string; highlight?: boolean; className?: string }) {
   return (
     <article className={cn("card flex min-w-0 flex-col gap-2 p-4 sm:p-5", highlight && "border-[rgb(0_174_239/0.3)] bg-[linear-gradient(135deg,rgb(0_174_239/0.12),transparent_70%)]", className)}>
@@ -180,7 +175,7 @@ function ActionCard({ action: a, today }: { action: PortalActionItem; today: str
   return (
     <li className="card flex min-w-0 flex-col p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-1.5">
-        <Badge tone={badgeTone(a.badge)}>{badgeLabel(a.badge)}</Badge>
+        <Badge tone={ACTION_STATUS_TONE[a.status]}>{ACTION_STATUS_LABEL[a.status]}</Badge>
         {a.category ? <Badge tone="muted">{a.category}</Badge> : null}
         {a.kind ? <span className="ml-auto text-[11px] font-bold uppercase tracking-[0.12em] text-text-3">{ACTION_KIND_LABEL[a.kind]}</span> : null}
       </div>
@@ -189,7 +184,7 @@ function ActionCard({ action: a, today }: { action: PortalActionItem; today: str
         <dl className="mt-auto flex flex-wrap gap-x-5 gap-y-1 pt-3 text-[12.5px]">
           {a.suggestedAt ? (
             <div className="flex gap-1">
-              <dt className="text-text-3">{a.suggestedAt > today ? "Apresentação prevista para" : "Sugerida em"}</dt>
+              <dt className="text-text-3">{a.status === "planned" || a.suggestedAt > today ? "Apresentação prevista para" : "Sugerida em"}</dt>
               <dd className="tabular font-semibold text-text-2">{formatDate(a.suggestedAt)}</dd>
             </div>
           ) : null}

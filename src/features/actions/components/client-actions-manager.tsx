@@ -14,8 +14,8 @@ import { ActionButton } from "@/components/ui/confirm-action";
 import { Dialog } from "@/components/ui/dialog";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field";
 import { deleteActionAction, importActionsSheetAction, saveActionAction, setActionsEnabledAction, setActionVisibleAction } from "@/features/actions/actions";
-import { ACTION_KIND_LABEL, ACTION_STATUS_LABEL, ACTION_STATUS_TONE, ACTION_STATUSES, type ActionKind, type ActionStatus, type ClientAction } from "@/features/actions/schema";
-import { sortActions, summarizeActions } from "@/features/actions/view-model";
+import { ACTION_KIND_LABEL, ACTION_STAGE_LABEL, ACTION_STATUS_LABEL, ACTION_STATUS_STAGE, ACTION_STATUS_TONE, ACTION_STATUSES, type ActionKind, type ActionStatus, type ClientAction } from "@/features/actions/schema";
+import { countStages, sortActions, summarizeActions } from "@/features/actions/view-model";
 
 export interface ClientActionsManagerProps {
   clientId: string;
@@ -38,6 +38,8 @@ export function ClientActionsManager(props: ClientActionsManagerProps) {
   const [editing, setEditing] = useState<ClientAction | "new" | null>(null);
   const [importing, setImporting] = useState(false);
   const summary = useMemo(() => summarizeActions(items), [items]);
+  // Os mesmos números que o cliente vê no portal (só as ações visíveis).
+  const stages = useMemo(() => countStages(items.filter((a) => a.visible)), [items]);
   const categories = useMemo(() => summary.categories.map((c) => c.label), [summary]);
   const hidden = items.filter((a) => !a.visible).length;
 
@@ -112,12 +114,13 @@ export function ClientActionsManager(props: ClientActionsManagerProps) {
         </div>
       </section>
 
-      <section aria-label="Indicadores das ações" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Total de ações" value={summary.total} />
-        <Stat label="Em andamento" value={summary.byStatus.in_progress} tone="text-primary" />
-        <Stat label="Executadas" value={summary.executed} hint="com data de execução" />
-        <Stat label="Concluídas" value={summary.byStatus.done} tone="text-positive" />
-        <Stat label="Sem status" value={summary.byStatus.suggested} tone="text-text-2" />
+      <section aria-label="Como o cliente vê no portal" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Stat label="No portal" value={stages.total} hint={hidden ? `+${hidden} só no painel` : "ações visíveis"} />
+        <Stat label={ACTION_STAGE_LABEL.planned} value={stages.planned} hint="A apresentar" />
+        <Stat label={ACTION_STAGE_LABEL.suggested} value={stages.awaiting} tone="text-text-2" />
+        <Stat label={ACTION_STAGE_LABEL.in_progress} value={stages.active} tone="text-primary" hint="Aprovada, em andamento ou aguardando retorno" />
+        <Stat label={ACTION_STAGE_LABEL.rejected} value={stages.rejected} tone="text-negative" />
+        <Stat label={ACTION_STAGE_LABEL.done} value={stages.done} tone="text-positive" />
       </section>
 
       <section className="card" aria-label="Lista de ações">
@@ -125,7 +128,7 @@ export function ClientActionsManager(props: ClientActionsManagerProps) {
           <div role="group" aria-label="Filtrar por status" className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
             <Chip active={filter === "all"} onClick={() => setFilter("all")} label="Todas" count={summary.total} />
             {ACTION_STATUSES.filter((s) => summary.byStatus[s] > 0).map((s) => (
-              <Chip key={s} active={filter === s} onClick={() => setFilter(s)} label={FILTER_LABEL[s]} count={summary.byStatus[s]} />
+              <Chip key={s} active={filter === s} onClick={() => setFilter(s)} label={ACTION_STATUS_LABEL[s]} count={summary.byStatus[s]} />
             ))}
           </div>
           <label className="relative block lg:w-72">
@@ -150,15 +153,6 @@ export function ClientActionsManager(props: ClientActionsManagerProps) {
     </div>
   );
 }
-
-const FILTER_LABEL: Record<ActionStatus, string> = {
-  in_progress: "Em andamento",
-  pending: "Pendências",
-  approved: "Aprovadas",
-  done: "Concluídas",
-  suggested: "Sem status",
-  rejected: "Não aprovadas",
-};
 
 function Stat({ label, value, hint, tone }: { label: string; value: number; hint?: string; tone?: string }) {
   return (
@@ -190,6 +184,9 @@ function ActionRow({ clientId, action: a, onEdit }: { clientId: string; action: 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge tone={ACTION_STATUS_TONE[a.status]}>{ACTION_STATUS_LABEL[a.status]}</Badge>
+          {ACTION_STAGE_LABEL[ACTION_STATUS_STAGE[a.status]] !== ACTION_STATUS_LABEL[a.status] ? (
+            <span className="text-[11px] text-text-3">no portal: {ACTION_STAGE_LABEL[ACTION_STATUS_STAGE[a.status]]}</span>
+          ) : null}
           {a.category ? <Badge tone="muted">{a.category}</Badge> : null}
           {a.kind ? <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-text-3">{ACTION_KIND_LABEL[a.kind]}</span> : null}
           {!a.visible ? (
@@ -257,14 +254,23 @@ function ActionRow({ clientId, action: a, onEdit }: { clientId: string; action: 
   );
 }
 
-const STATUS_OPTIONS: ActionStatus[] = ["suggested", "approved", "in_progress", "pending", "done", "rejected"];
+/** O que cada status significa e onde a ação aparece no portal. */
+const STATUS_HINT: Record<ActionStatus, string> = {
+  planned: "Ainda vamos apresentar. No portal: Previstas.",
+  suggested: "Já apresentada, sem resposta do cliente. No portal: Aguardando aprovação.",
+  approved: "O cliente aprovou, ainda não começou. No portal: Em andamento.",
+  in_progress: "Em execução. No portal: Em andamento.",
+  pending: "Em andamento, parada esperando algo do cliente. No portal: Em andamento.",
+  done: "Entregue. No portal: Concluídas.",
+  rejected: "O cliente recusou. No portal: Não aprovadas.",
+};
 
 function ActionDialog({ clientId, action, categories, onClose }: { clientId: string; action: ClientAction | null; categories: string[]; onClose: () => void }) {
   const [draft, setDraft] = useState({
     title: action?.title ?? "",
     category: action?.category ?? "",
     kind: (action?.kind ?? "") as ActionKind | "",
-    status: action?.status ?? ("suggested" as ActionStatus),
+    status: action?.status ?? ("planned" as ActionStatus),
     suggestedAt: action?.suggestedAt ?? "",
     executedAt: action?.executedAt ?? "",
     lastUpdateAt: action?.lastUpdateAt ?? "",
@@ -328,16 +334,16 @@ function ActionDialog({ clientId, action, categories, onClose }: { clientId: str
             <option value="continuous">Contínua</option>
           </Select>
         </Field>
-        <Field label="Status" htmlFor="action-status">
+        <Field label="Status" htmlFor="action-status" hint={STATUS_HINT[draft.status]}>
           <Select id="action-status" value={draft.status} onChange={(e) => set("status", e.target.value as ActionStatus)}>
-            {STATUS_OPTIONS.map((s) => (
+            {ACTION_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {ACTION_STATUS_LABEL[s]}
               </option>
             ))}
           </Select>
         </Field>
-        <Field label="Quando foi sugerida" htmlFor="action-suggested" optional error={errors.suggestedAt}>
+        <Field label={draft.status === "planned" ? "Apresentação prevista para" : "Quando foi sugerida"} htmlFor="action-suggested" optional error={errors.suggestedAt}>
           <Input id="action-suggested" type="date" value={draft.suggestedAt} onChange={(e) => set("suggestedAt", e.target.value)} />
         </Field>
         <Field label="Quando foi executada" htmlFor="action-executed" optional error={errors.executedAt}>

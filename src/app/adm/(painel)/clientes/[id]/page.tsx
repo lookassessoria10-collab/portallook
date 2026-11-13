@@ -13,7 +13,7 @@ import { getClientOverview, today } from "@/features/clients/service";
 import { listRecentEvents } from "@/features/events/service";
 import { EVENT_LABEL } from "@/features/events/schema";
 import { getClientActions } from "@/features/actions/service";
-import { summarizeActions } from "@/features/actions/view-model";
+import { countStages } from "@/features/actions/view-model";
 
 export async function generateMetadata(props: PageProps<"/adm/clientes/[id]">): Promise<Metadata> {
   const { id } = await props.params;
@@ -29,7 +29,7 @@ export default async function ClientOverviewPage(props: PageProps<"/adm/clientes
   const tz = env().APP_TIMEZONE;
   const [link, events, actions] = await Promise.all([getPortalLink(o.client), listRecentEvents({ clientId: id, limit: 12, months: 3 }), getClientActions(o.client)]);
   const date = today();
-  const actionsSummary = summarizeActions(actions.items);
+  const actionsSummary = countStages(actions.items);
 
   return (
     <div className="grid gap-4 xl:grid-cols-12">
@@ -56,13 +56,14 @@ export default async function ClientOverviewPage(props: PageProps<"/adm/clientes
             </span>
           </div>
           {actionsSummary.total ? (
-            <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-6">
               {[
                 ["Total", actionsSummary.total],
-                ["Em andamento", actionsSummary.byStatus.in_progress],
-                ["Executadas", actionsSummary.executed],
-                ["Concluídas", actionsSummary.byStatus.done],
-                ["Sem status", actionsSummary.byStatus.suggested],
+                ["Previstas", actionsSummary.planned],
+                ["Aguardando aprovação", actionsSummary.awaiting],
+                ["Em andamento", actionsSummary.active],
+                ["Não aprovadas", actionsSummary.rejected],
+                ["Concluídas", actionsSummary.done],
               ].map(([label, value]) => (
                 <div key={label}>
                   <dt className="text-[13px] text-text-3">{label}</dt>

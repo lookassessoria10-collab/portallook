@@ -1,4 +1,4 @@
-import { ACTION_STATUSES, type ActionKind, type ActionStatus, type ClientAction } from "./schema";
+import { ACTION_STAGES, ACTION_STAGE_LABEL, ACTION_STATUSES, ACTION_STATUS_STAGE, type ActionKind, type ActionStage, type ActionStatus, type ClientAction } from "./schema";
 
 /** Indicadores do painel de ações (os mesmos da aba "Dashboad" da planilha). */
 export interface ActionsSummary {
@@ -49,12 +49,8 @@ export function sortActions<T extends Pick<ClientAction, "executedAt" | "suggest
     .map((x) => x.item);
 }
 
-/**
- * Etapa da ação para o cliente — o fluxo do portal:
- * Prevista (a apresentar) → Aguardando aprovação → Em andamento (aprovada, em execução ou aguardando retorno)
- * → Concluída, ou Não aprovada. Cada ação está em uma única etapa.
- */
-export type PortalActionGroupKey = "planned" | "suggested" | "in_progress" | "rejected" | "done";
+/** Seção do portal: a etapa que o status escolhido no painel indica (ver `ACTION_STATUS_STAGE`). */
+export type PortalActionGroupKey = ActionStage;
 
 /** O que o portal mostra de cada ação — nunca as observações internas. */
 export interface PortalActionItem {
@@ -63,10 +59,6 @@ export interface PortalActionItem {
   category: string;
   kind: ActionKind | null;
   status: ActionStatus;
-  /** Grupo do portal (a etapa). */
-  stage: PortalActionGroupKey;
-  /** Etiqueta do card: o status, corrigido pelas datas (ver `portalBadge`). */
-  badge: PortalActionBadge;
   suggestedAt: string | null;
   executedAt: string | null;
   note: string;
@@ -83,7 +75,7 @@ export interface PortalActionsCounts {
   total: number;
   planned: number;
   awaiting: number;
-  /** Aprovadas a executar, em execução e aguardando retorno. */
+  /** Aprovadas, em andamento e aguardando retorno. */
   active: number;
   done: number;
   rejected: number;
@@ -99,80 +91,26 @@ export interface PortalActionsVM {
   today: string;
 }
 
-/**
- * Ordem das seções no portal: o que vem por aí, o que espera decisão do cliente (em destaque),
- * o que está acontecendo e, por último, o que já se encerrou.
- */
-const PORTAL_GROUP_ORDER: PortalActionGroupKey[] = ["planned", "suggested", "in_progress", "rejected", "done"];
-
-export const PORTAL_GROUP_LABEL: Record<PortalActionGroupKey, string> = {
-  planned: "Previstas",
-  suggested: "Aguardando aprovação",
-  in_progress: "Em andamento",
-  rejected: "Não aprovadas",
-  done: "Concluídas",
-};
-
-type Staged = Pick<ClientAction, "status" | "suggestedAt" | "executedAt">;
-
-/** Sugestão ainda não apresentada ao cliente: sem status e com data de sugestão depois de hoje. */
-export const isUpcomingSuggestion = (a: Staged, today: string) => a.status === "suggested" && Boolean(a.suggestedAt && a.suggestedAt > today);
-
-/**
- * Etapa da ação no portal.
- * - Prevista é só a sugestão ainda a apresentar; a já apresentada aguarda aprovação, mesmo com execução marcada.
- * - A planilha marca como "Aprovado" ações que já foram executadas: aprovada (ou sugestão) com execução
- *   até hoje é concluída; aprovada sem execução, ou com execução futura, já está em andamento.
- * - Pendência é uma ação em andamento que espera um retorno.
- */
-export function portalStage(a: Staged, today: string): PortalActionGroupKey {
-  if (a.status === "done" || a.status === "rejected") return a.status;
-  if (isUpcomingSuggestion(a, today)) return "planned";
-  if ((a.status === "approved" || a.status === "suggested") && a.executedAt && a.executedAt <= today) return "done";
-  if (a.status === "suggested") return "suggested";
-  return "in_progress";
+/** Contagem por etapa do portal — a mesma no painel da Look e no portal do cliente. */
+export function countStages(items: readonly Pick<ClientAction, "status">[]): PortalActionsCounts {
+  const n = (stage: ActionStage) => items.filter((a) => ACTION_STATUS_STAGE[a.status] === stage).length;
+  return { total: items.length, planned: n("planned"), awaiting: n("suggested"), active: n("in_progress"), done: n("done"), rejected: n("rejected") };
 }
 
-/** Etiqueta do card: "upcoming" = sugestão a apresentar; aprovada já executada vira "done". */
-export type PortalActionBadge = ActionStatus | "upcoming";
-
-export function portalBadge(a: Staged, today: string): PortalActionBadge {
-  if (isUpcomingSuggestion(a, today)) return "upcoming";
-  return portalStage(a, today) === "done" ? "done" : a.status;
-}
+/** Previstas: da apresentação mais próxima para a mais distante (sem data no fim). */
+const byNextDate = (a: PortalActionItem, b: PortalActionItem) => (a.suggestedAt && b.suggestedAt ? a.suggestedAt.localeCompare(b.suggestedAt) : a.suggestedAt ? -1 : b.suggestedAt ? 1 : 0);
 
 /** Ações visíveis do cliente → portal. null quando não há nada para mostrar. */
 export function buildPortalActions(items: readonly ClientAction[], updatedAt: string | null, today: string): PortalActionsVM | null {
   const visible = items.filter((a) => a.visible);
   if (!visible.length) return null;
   const sorted = sortActions(visible).map(
-    (a): PortalActionItem => ({
-      id: a.id,
-      title: a.title,
-      category: a.category,
-      kind: a.kind,
-      status: a.status,
-      stage: portalStage(a, today),
-      badge: portalBadge(a, today),
-      suggestedAt: a.suggestedAt,
-      executedAt: a.executedAt,
-      note: a.clientNote,
-    }),
+    (a): PortalActionItem => ({ id: a.id, title: a.title, category: a.category, kind: a.kind, status: a.status, suggestedAt: a.suggestedAt, executedAt: a.executedAt, note: a.clientNote }),
   );
-  const groups = PORTAL_GROUP_ORDER.map((status): PortalActionGroup => {
-    const list = sorted.filter((a) => a.stage === status);
-    // Previstas: da apresentação mais próxima para a mais distante.
-    if (status === "planned") list.sort((a, b) => a.suggestedAt!.localeCompare(b.suggestedAt!));
-    return { status, label: PORTAL_GROUP_LABEL[status], items: list };
-  });
-  const n = (key: PortalActionGroupKey) => groups.find((g) => g.status === key)!.items.length;
-  const counts: PortalActionsCounts = {
-    total: sorted.length,
-    planned: n("planned"),
-    awaiting: n("suggested"),
-    active: n("in_progress"),
-    done: n("done"),
-    rejected: n("rejected"),
-  };
-  return { summary: summarizeActions(visible, today), counts, groups: groups.filter((g) => g.items.length), updatedAt, today };
+  const groups = ACTION_STAGES.map((stage): PortalActionGroup => {
+    const list = sorted.filter((a) => ACTION_STATUS_STAGE[a.status] === stage);
+    if (stage === "planned") list.sort(byNextDate);
+    return { status: stage, label: ACTION_STAGE_LABEL[stage], items: list };
+  }).filter((g) => g.items.length);
+  return { summary: summarizeActions(visible, today), counts: countStages(visible), groups, updatedAt, today };
 }

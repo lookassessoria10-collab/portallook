@@ -2,10 +2,11 @@ import { z } from "zod";
 import { IsoDateSchema, TimestampSchema } from "@/features/reports/schema";
 
 /**
- * Leitura de status da planilha de ações ("Leitura de status" da aba Base Dashboard):
- * Sem status · Aprovada · Em andamento · Pendência · Concluída · Não aprovada.
+ * Status da ação — o mesmo no painel e no portal, na ordem do fluxo:
+ * A apresentar → Aguardando aprovação → Aprovada → Em andamento / Aguardando retorno → Concluída, ou Não aprovada.
+ * O status escolhido no painel decide sozinho em que seção do portal a ação aparece (ver `ACTION_STATUS_STAGE`).
  */
-export const ACTION_STATUSES = ["in_progress", "pending", "approved", "done", "suggested", "rejected"] as const;
+export const ACTION_STATUSES = ["planned", "suggested", "approved", "in_progress", "pending", "done", "rejected"] as const;
 export const ActionStatusSchema = z.enum(ACTION_STATUSES);
 export type ActionStatus = z.infer<typeof ActionStatusSchema>;
 
@@ -49,51 +50,83 @@ export const ClientActionsSchema = z.object({
   /** Aba da planilha de onde as ações vieram (null = cadastradas só no painel). */
   source: z.object({ sheet: z.string(), extractedAt: z.string() }).nullable().default(null),
   items: z.array(ClientActionSchema).max(MAX_ACTIONS).default([]),
+  /**
+   * 1 = status como vieram da planilha (aprovadas já executadas, sugestões ainda a apresentar);
+   * 2 = status revisados, valem como estão. Ver `upgradeActionStatus`.
+   */
+  statusModel: z.number().int().default(1),
   updatedAt: TimestampSchema,
   version: z.number().int().default(1),
 });
 export type ClientActions = z.infer<typeof ClientActionsSchema>;
 
-/** Rótulos do painel da Look (os mesmos da planilha). */
+/** Rótulos do status — os mesmos no painel e no portal. */
 export const ACTION_STATUS_LABEL: Record<ActionStatus, string> = {
-  in_progress: "Em andamento",
-  pending: "Pendência",
+  planned: "A apresentar",
+  suggested: "Aguardando aprovação",
   approved: "Aprovada",
+  in_progress: "Em andamento",
+  // Ação já aprovada e em andamento, parada esperando algo do cliente (material, dado, ok de uma peça).
+  pending: "Aguardando retorno",
   done: "Concluída",
-  suggested: "Sem status",
   rejected: "Não aprovada",
+};
+
+export const ACTION_STATUS_TONE: Record<ActionStatus, "primary" | "attention" | "info" | "positive" | "neutral" | "negative" | "muted"> = {
+  planned: "muted",
+  suggested: "neutral",
+  approved: "info",
+  in_progress: "primary",
+  pending: "attention",
+  done: "positive",
+  rejected: "negative",
+};
+
+/** Seções do portal (as etapas que o cliente vê), na ordem da página. */
+export const ACTION_STAGES = ["planned", "suggested", "in_progress", "rejected", "done"] as const;
+export type ActionStage = (typeof ACTION_STAGES)[number];
+
+/** Em que seção do portal cada status aparece: aprovada e aguardando retorno ficam em "Em andamento". */
+export const ACTION_STATUS_STAGE: Record<ActionStatus, ActionStage> = {
+  planned: "planned",
+  suggested: "suggested",
+  approved: "in_progress",
+  in_progress: "in_progress",
+  pending: "in_progress",
+  done: "done",
+  rejected: "rejected",
+};
+
+export const ACTION_STAGE_LABEL: Record<ActionStage, string> = {
+  planned: "Previstas",
+  suggested: "Aguardando aprovação",
+  in_progress: "Em andamento",
+  rejected: "Não aprovadas",
+  done: "Concluídas",
 };
 
 /**
- * Rótulos do portal. Toda ação é sugerida pela Look: para o cliente, a ação sem status
- * é uma sugestão já apresentada que espera a decisão dele.
+ * Status da planilha → status revisado. A planilha marca como "Aprovado" ações já executadas e não
+ * separa a sugestão ainda a apresentar; vale uma vez, para as ações que ainda não foram revisadas no painel:
+ * - aprovada (ou sem status) com execução até hoje: concluída — ou em andamento, se for contínua;
+ * - sem status com data de sugestão depois de hoje: a apresentar.
  */
-export const ACTION_STATUS_CLIENT_LABEL: Record<ActionStatus, string> = {
-  in_progress: "Em andamento",
-  // Pendência = ação já em andamento que espera um retorno (material, dado, ok de uma peça) — não é a aprovação da ideia.
-  pending: "Aguardando retorno",
-  approved: "Aprovada",
-  done: "Concluída",
-  suggested: "Aguardando aprovação",
-  rejected: "Não aprovada",
-};
-
-export const ACTION_STATUS_TONE: Record<ActionStatus, "primary" | "attention" | "info" | "positive" | "neutral" | "negative"> = {
-  in_progress: "primary",
-  pending: "attention",
-  approved: "info",
-  done: "positive",
-  suggested: "neutral",
-  rejected: "negative",
-};
+export function upgradeActionStatus<T extends Pick<ClientAction, "status" | "kind" | "suggestedAt" | "executedAt">>(a: T, today: string): T {
+  if ((a.status === "approved" || a.status === "suggested") && a.executedAt && a.executedAt <= today) return { ...a, status: a.kind === "continuous" ? "in_progress" : "done" };
+  if (a.status === "suggested" && a.suggestedAt && a.suggestedAt > today) return { ...a, status: "planned" };
+  return a;
+}
 
 export const ACTION_KIND_LABEL: Record<ActionKind, string> = { one_off: "Pontual", continuous: "Contínua" };
 
 /** Status em texto livre → status do portal, com as mesmas regras (e a mesma ordem) da planilha. */
 export function actionStatusFromText(value: string): ActionStatus {
   const t = value.trim().toLowerCase();
-  if (!t) return "suggested";
+  if (!t || /sem status/.test(t)) return "suggested";
   if (/final|conclu/.test(t)) return "done";
+  if (/a apresentar|previst/.test(t)) return "planned";
+  if (/aguardando aprova/.test(t)) return "suggested";
+  if (/aguardando retorno/.test(t)) return "pending";
   if (/não aprov|nao aprov|arquiv/.test(t)) return "rejected";
   if (/andamento|em produção|em producao|agendada|ativo/.test(t)) return "in_progress";
   if (/^aprova/.test(t)) return "approved";

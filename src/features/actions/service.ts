@@ -8,7 +8,7 @@ import { logEvent } from "@/features/events/service";
 import { listClients, requireClient } from "@/features/clients/service";
 import type { Client } from "@/features/clients/schema";
 import { getRepositories } from "@/server/repositories";
-import { ActionInputSchema, ClientActionSchema, MAX_ACTIONS, type ActionInput, type ClientAction, type ClientActions } from "./schema";
+import { ActionInputSchema, ClientActionSchema, MAX_ACTIONS, upgradeActionStatus, type ActionInput, type ClientAction, type ClientActions } from "./schema";
 import { ACTIONS_SNAPSHOT, actionFromSheetRow, findActionsSheet, getActionsSheet } from "./sheet";
 import { buildPortalActions, type PortalActionsVM } from "./view-model";
 
@@ -31,6 +31,19 @@ export interface ResolvedActions {
   updatedAt: string | null;
 }
 
+const today = () => todayISO(env().APP_TIMEZONE);
+
+/**
+ * Documento com os status revisados (`statusModel` 2): o que o painel mostra é o que o portal mostra.
+ * Ações da planilha ou gravadas antes da revisão passam por `upgradeActionStatus` uma vez; a próxima
+ * gravação no painel guarda o resultado, e a partir daí o status escolhido vale como está.
+ */
+function upgradeDocument(doc: ClientActions): ClientActions {
+  if (doc.statusModel >= 2) return doc;
+  const day = today();
+  return { ...doc, statusModel: 2, items: doc.items.map((a) => upgradeActionStatus(a, day)) };
+}
+
 /** Ações do cliente na planilha (null = nenhuma aba corresponde). */
 function documentFromSheet(client: Client): ClientActions | null {
   const name = findActionsSheet(client);
@@ -41,17 +54,20 @@ function documentFromSheet(client: Client): ClientActions | null {
     enabled: true,
     source: { sheet: sheet.name, extractedAt: ACTIONS_SNAPSHOT.extractedAt },
     items: sheet.actions.map(actionFromSheetRow),
+    statusModel: 1,
     updatedAt: new Date().toISOString(),
     version: 0,
   };
 }
 
 export const getClientActions = cache(async (client: Client): Promise<ResolvedActions> => {
-  const stored = await getRepositories().actions.get(client.id);
+  const raw = await getRepositories().actions.get(client.id);
+  const stored = raw ? upgradeDocument(raw) : null;
   if (stored) {
     return { clientId: client.id, enabled: stored.enabled, items: stored.items, origin: "stored", sheet: stored.source?.sheet ?? null, extractedAt: stored.source?.extractedAt ?? null, updatedAt: stored.updatedAt };
   }
-  const fromSheet = documentFromSheet(client);
+  const sheetDoc = documentFromSheet(client);
+  const fromSheet = sheetDoc ? upgradeDocument(sheetDoc) : null;
   if (fromSheet) return { clientId: client.id, enabled: true, items: fromSheet.items, origin: "sheet", sheet: fromSheet.source?.sheet ?? null, extractedAt: ACTIONS_SNAPSHOT.extractedAt, updatedAt: null };
   return { clientId: client.id, enabled: true, items: [], origin: "none", sheet: null, extractedAt: null, updatedAt: null };
 });
@@ -60,7 +76,7 @@ export const getClientActions = cache(async (client: Client): Promise<ResolvedAc
 export async function loadPortalActions(client: Client): Promise<PortalActionsVM | null> {
   const actions = await getClientActions(client);
   if (!actions.enabled) return null;
-  return buildPortalActions(actions.items, actions.updatedAt, todayISO(env().APP_TIMEZONE));
+  return buildPortalActions(actions.items, actions.updatedAt, today());
 }
 
 /**
@@ -70,7 +86,7 @@ export async function loadPortalActions(client: Client): Promise<PortalActionsVM
 async function mutateActions(clientId: string, actor: string | null, summary: string, mutate: (doc: ClientActions) => ClientActions): Promise<ClientActions> {
   const client = await requireClient(clientId);
   const next = await getRepositories().actions.update(clientId, (current) =>
-    mutate(current ?? documentFromSheet(client) ?? { clientId, enabled: true, source: null, items: [], updatedAt: new Date().toISOString(), version: 0 }),
+    mutate(upgradeDocument(current ?? documentFromSheet(client) ?? { clientId, enabled: true, source: null, items: [], statusModel: 2, updatedAt: new Date().toISOString(), version: 0 })),
   );
   await logEvent("actions.updated", { clientId, actor, summary });
   return next;
@@ -116,7 +132,7 @@ export async function importActionsFromSheet(clientId: string, sheetName: string
   const doc = await mutateActions(clientId, actor, `Ações importadas da aba "${sheet.name}" da planilha.`, (current) => ({
     ...current,
     source: { sheet: sheet.name, extractedAt: ACTIONS_SNAPSHOT.extractedAt },
-    items: sheet.actions.map(actionFromSheetRow),
+    items: sheet.actions.map((row) => upgradeActionStatus(actionFromSheetRow(row), today())),
   }));
   return doc.items.length;
 }

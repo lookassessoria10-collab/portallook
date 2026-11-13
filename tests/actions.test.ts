@@ -5,7 +5,7 @@ import type { MemoryStorageProvider } from "./helpers/memory-storage";
 import { actionId, extractActions } from "../scripts/lib/extract-actions.mjs";
 import { createClient } from "@/features/clients/service";
 import type { ClientInput } from "@/features/clients/input";
-import { actionKindFromText, actionStatusFromText, splitActionTitle } from "@/features/actions/schema";
+import { actionKindFromText, actionStatusFromText, splitActionTitle, upgradeActionStatus } from "@/features/actions/schema";
 import { ACTIONS_SNAPSHOT, actionFromSheetRow, findActionsSheet } from "@/features/actions/sheet";
 import { buildPortalActions, summarizeActions } from "@/features/actions/view-model";
 import { ClientActionSchema } from "@/features/actions/schema";
@@ -29,41 +29,47 @@ const input = (name: string, slug: string, shortName = name): ClientInput => ({
 const HEADER = ["Ação", "Tipo de ação", "Quando foi sugerido", "Quando foi executado", "Status", "Observações", "Última atualização", "Andamento / Pendências"];
 
 describe("portal: etapas das ações", () => {
-  const at = (id: string, status: string, suggestedAt: string | null, executedAt: string | null) =>
-    ClientActionSchema.parse({ id: `ac_${id.padEnd(12, "0")}`, title: id, status, suggestedAt, executedAt });
+  const at = (id: string, status: string, suggestedAt: string | null, executedAt: string | null, kind: string | null = null) =>
+    ClientActionSchema.parse({ id: `ac_${id.padEnd(12, "0")}`, title: id, status, kind, suggestedAt, executedAt });
 
-  it("Previstas só tem o que falta apresentar; a já apresentada aguarda aprovação; Concluídas fica por último; os cartões batem com as seções", () => {
+  it("a seção do portal segue só o status do painel; Concluídas fica por último; os cartões batem com as seções", () => {
     const vm = buildPortalActions(
       [
-        at("dezembro", "suggested", "2026-12-09", "2026-12-15"),
-        at("novembro", "suggested", "2026-11-20", null),
-        // Já apresentada, com execução em 2027: não é prevista, espera a aprovação.
+        at("dezembro", "planned", "2026-12-09", "2026-12-15"),
+        at("novembro", "planned", "2026-11-20", null),
+        // Já apresentada, com execução em 2027: o status diz que espera aprovação, e é lá que ela fica.
         at("apresentada", "suggested", "2026-10-01", "2027-01-14"),
         at("aguardando", "suggested", "2026-10-01", null),
-        at("semdata", "suggested", null, null),
-        // Aprovada sem execução, aprovada com execução marcada, em execução e pendência: tudo em andamento.
         at("aexecutar", "approved", "2026-10-01", null),
-        at("agendada", "approved", "2026-10-01", "2026-12-01"),
         at("rodando", "in_progress", "2026-09-10", "2026-09-10"),
         at("blackfriday", "pending", "2026-09-01", null),
-        // Aprovada já executada é concluída para o cliente.
-        at("antiga", "approved", "2025-04-05", "2025-04-05"),
         at("feita", "done", "2026-07-01", "2026-07-03"),
         at("recusada", "rejected", "2026-08-28", null),
       ],
       null,
       "2026-11-13",
     )!;
-    expect(vm.groups.map((g) => [g.status, g.items.map((i) => [i.title, i.badge])])).toEqual([
-      ["planned", [["novembro", "upcoming"], ["dezembro", "upcoming"]]],
-      ["suggested", [["apresentada", "suggested"], ["aguardando", "suggested"], ["semdata", "suggested"]]],
-      ["in_progress", [["agendada", "approved"], ["aexecutar", "approved"], ["rodando", "in_progress"], ["blackfriday", "pending"]]],
+    expect(vm.groups.map((g) => [g.status, g.items.map((i) => [i.title, i.status])])).toEqual([
+      ["planned", [["novembro", "planned"], ["dezembro", "planned"]]],
+      ["suggested", [["apresentada", "suggested"], ["aguardando", "suggested"]]],
+      ["in_progress", [["aexecutar", "approved"], ["rodando", "in_progress"], ["blackfriday", "pending"]]],
       ["rejected", [["recusada", "rejected"]]],
-      ["done", [["feita", "done"], ["antiga", "done"]]],
+      ["done", [["feita", "done"]]],
     ]);
     const { total, planned, awaiting, active, done, rejected } = vm.counts;
-    expect([total, planned, awaiting, active, done, rejected]).toEqual([12, 2, 3, 4, 2, 1]);
+    expect([total, planned, awaiting, active, done, rejected]).toEqual([9, 2, 2, 3, 1, 1]);
     expect(vm.groups.map((g) => g.items.length)).toEqual([planned, awaiting, active, rejected, done]);
+  });
+
+  it("status da planilha são revisados uma vez: aprovada executada vira concluída (contínua, em andamento); sugestão futura, a apresentar", () => {
+    const today = "2026-11-13";
+    const up = (a: ReturnType<typeof at>) => upgradeActionStatus(a, today).status;
+    expect(up(at("antiga", "approved", "2025-04-05", "2025-04-05", "one_off"))).toBe("done");
+    expect(up(at("grupo", "approved", "2025-05-14", "2025-05-14", "continuous"))).toBe("in_progress");
+    expect(up(at("agendada", "approved", "2026-10-01", "2026-12-01"))).toBe("approved");
+    expect(up(at("futura", "suggested", "2026-12-09", "2026-12-15"))).toBe("planned");
+    expect(up(at("apresentada", "suggested", "2026-10-01", "2027-01-14"))).toBe("suggested");
+    expect(up(at("pendencia", "pending", "2026-09-01", null))).toBe("pending");
   });
 });
 
@@ -96,6 +102,7 @@ describe("planilha de ações: extração", () => {
   });
 
   it("lê status, tipo e frente como a planilha", () => {
+    expect(["A apresentar", "Aguardando aprovação", "Aguardando retorno", "Sem status"].map(actionStatusFromText)).toEqual(["planned", "suggested", "pending", "suggested"]);
     expect(["", "Aprovado", "Em andamento", "Andamento", "Finalizado", "Não aprovado", "Aguardando cliente", "Concluída"].map(actionStatusFromText)).toEqual([
       "suggested",
       "approved",
@@ -166,10 +173,11 @@ describe("módulo de ações", () => {
     expect(actions.items).toHaveLength(12);
     const portal = await loadPortalActions(client);
     expect(portal?.summary.total).toBe(12);
-    // As aprovadas da planilha já têm data de execução: para o cliente, estão concluídas.
+    // As aprovadas da planilha já têm data de execução: o painel e o portal mostram como concluídas.
     expect(portal?.groups.map((g) => g.status)).toEqual(["suggested", "in_progress", "done"]);
+    expect(actions.items.some((a) => a.status === "approved" && a.executedAt)).toBe(false);
     const ritual = portal!.groups.flatMap((g) => g.items).find((a) => a.title.startsWith("Ritual Serenity"))!;
-    expect(ritual).toMatchObject({ category: "Eventos e ativações", status: "approved", stage: "done", badge: "done", suggestedAt: "2026-08-26", executedAt: "2026-09-03", note: "" });
+    expect(ritual).toMatchObject({ category: "Eventos e ativações", status: "done", suggestedAt: "2026-08-26", executedAt: "2026-09-03", note: "" });
     expect(Object.keys(ritual)).not.toContain("notes");
     expect(JSON.stringify(portal)).not.toContain("Dia do Sexo");
     expect(await keys()).toEqual(before);
@@ -189,6 +197,13 @@ describe("módulo de ações", () => {
 
     await saveAction(client.id, { ...created, status: "done", executedAt: "2026-11-05" }, "adm@look");
     expect((await getClientActions(client)).items.find((a) => a.id === created.id)).toMatchObject({ status: "done", executedAt: "2026-11-05" });
+
+    // Gravado pelo painel, o status escolhido vale como está — mesmo "Aguardando aprovação" com data futura.
+    const stored = JSON.parse((await storage.get(`clients/${client.id}/actions.json`))!.body.toString());
+    expect(stored.statusModel).toBe(2);
+    await saveAction(client.id, { ...created, status: "suggested", suggestedAt: "2099-01-01", executedAt: "" }, "adm@look");
+    expect((await getClientActions(client)).items.find((a) => a.id === created.id)?.status).toBe("suggested");
+    await saveAction(client.id, { ...created, status: "done", executedAt: "2026-11-05" }, "adm@look");
 
     const olx = actions.items[0];
     await setActionVisible(client.id, olx.id, false, "adm@look");

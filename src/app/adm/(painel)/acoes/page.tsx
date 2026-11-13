@@ -9,19 +9,20 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/features/admin/components/admin-shell";
 import { listActionsOverview } from "@/features/actions/service";
 import { ACTION_KIND_LABEL, ACTION_STATUS_LABEL, ACTION_STATUS_TONE, type ActionStatus } from "@/features/actions/schema";
-import { sortActions, summarizeActions } from "@/features/actions/view-model";
+import { countStages, sortActions } from "@/features/actions/view-model";
 
 export const metadata: Metadata = { title: "Ações" };
 
-/** Filtros da lista: "Em foco" segue a planilha (em andamento, com pendência ou sem status). */
+/** Filtros da lista: "Em foco" é o que pede ação da Look ou do cliente; os demais, um status cada. */
 const FILTERS: Array<{ key: string; label: string; statuses: ActionStatus[] | null }> = [
-  { key: "foco", label: "Em foco", statuses: ["in_progress", "pending", "suggested"] },
-  { key: "andamento", label: "Em andamento", statuses: ["in_progress"] },
-  { key: "pendencia", label: "Pendência", statuses: ["pending"] },
-  { key: "sem-status", label: "Sem status", statuses: ["suggested"] },
+  { key: "foco", label: "Em foco", statuses: ["suggested", "approved", "in_progress", "pending"] },
+  { key: "a-apresentar", label: ACTION_STATUS_LABEL.planned, statuses: ["planned"] },
+  { key: "aguardando-aprovacao", label: ACTION_STATUS_LABEL.suggested, statuses: ["suggested"] },
   { key: "aprovada", label: "Aprovadas", statuses: ["approved"] },
-  { key: "concluida", label: "Concluídas", statuses: ["done"] },
+  { key: "andamento", label: ACTION_STATUS_LABEL.in_progress, statuses: ["in_progress"] },
+  { key: "aguardando-retorno", label: ACTION_STATUS_LABEL.pending, statuses: ["pending"] },
   { key: "nao-aprovada", label: "Não aprovadas", statuses: ["rejected"] },
+  { key: "concluida", label: "Concluídas", statuses: ["done"] },
   { key: "todas", label: "Todas", statuses: null },
 ];
 
@@ -30,8 +31,8 @@ export default async function ActionsOverviewPage(props: PageProps<"/adm/acoes">
   const filter = FILTERS.find((f) => f.key === search.status) ?? FILTERS[0];
   const { rows, unmatchedSheets } = await listActionsOverview();
   const all = rows.flatMap((r) => r.actions.items);
-  const total = summarizeActions(all);
-  const perClient = rows.map((r) => ({ ...r, summary: summarizeActions(r.actions.items) })).filter((r) => r.summary.total > 0 || r.actions.origin === "stored");
+  const total = countStages(all);
+  const perClient = rows.map((r) => ({ ...r, summary: countStages(r.actions.items) })).filter((r) => r.summary.total > 0 || r.actions.origin === "stored");
   const withoutActions = rows.filter((r) => r.actions.items.length === 0 && r.actions.origin !== "stored");
   const focus = sortActions(rows.flatMap((r) => r.actions.items.map((a) => ({ client: r.client, action: a, executedAt: a.executedAt, suggestedAt: a.suggestedAt })))).filter(
     ({ action }) => !filter.statuses || filter.statuses.includes(action.status),
@@ -39,15 +40,16 @@ export default async function ActionsOverviewPage(props: PageProps<"/adm/acoes">
 
   return (
     <>
-      <PageHeader title="Ações" description="Painel de ações de todos os clientes, com os mesmos indicadores da planilha de ações da Look." />
+      <PageHeader title="Ações" description="Ações de todos os clientes, nas mesmas etapas que o cliente vê no portal." />
 
-      <section aria-label="Indicadores" className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <section aria-label="Indicadores" className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {[
           ["Total de ações", total.total, ""],
-          ["Em andamento", total.byStatus.in_progress, "text-primary"],
-          ["Executadas", total.executed, ""],
-          ["Concluídas", total.byStatus.done, "text-positive"],
-          ["Sem status", total.byStatus.suggested, "text-text-2"],
+          ["Previstas", total.planned, ""],
+          ["Aguardando aprovação", total.awaiting, "text-text-2"],
+          ["Em andamento", total.active, "text-primary"],
+          ["Não aprovadas", total.rejected, "text-negative"],
+          ["Concluídas", total.done, "text-positive"],
         ].map(([label, value, tone]) => (
           <div key={label} className="card px-4 py-3.5">
             <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-text-3">{label}</p>
@@ -68,10 +70,11 @@ export default async function ActionsOverviewPage(props: PageProps<"/adm/acoes">
                       <th scope="col">Cliente</th>
                       <th scope="col">Origem</th>
                       <th scope="col" className="text-right">Total</th>
+                      <th scope="col" className="text-right">Previstas</th>
+                      <th scope="col" className="text-right">Aguardando</th>
                       <th scope="col" className="text-right">Andamento</th>
-                      <th scope="col" className="text-right">Executadas</th>
+                      <th scope="col" className="text-right">Não aprov.</th>
                       <th scope="col" className="text-right">Concluídas</th>
-                      <th scope="col" className="text-right">Sem status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -85,10 +88,11 @@ export default async function ActionsOverviewPage(props: PageProps<"/adm/acoes">
                         </th>
                         <td className="whitespace-nowrap text-text-3">{actions.origin === "sheet" ? `Planilha · ${actions.sheet}` : "Painel"}</td>
                         <td className="tabular text-right font-bold text-text">{summary.total}</td>
-                        <td className="tabular text-right">{summary.byStatus.in_progress}</td>
-                        <td className="tabular text-right">{summary.executed}</td>
-                        <td className="tabular text-right">{summary.byStatus.done}</td>
-                        <td className="tabular text-right">{summary.byStatus.suggested}</td>
+                        <td className="tabular text-right">{summary.planned}</td>
+                        <td className="tabular text-right">{summary.awaiting}</td>
+                        <td className="tabular text-right">{summary.active}</td>
+                        <td className="tabular text-right">{summary.rejected}</td>
+                        <td className="tabular text-right">{summary.done}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -171,7 +175,7 @@ export default async function ActionsOverviewPage(props: PageProps<"/adm/acoes">
                       {a.notes ? <p className="mt-0.5 text-[13px] text-text-3">{a.notes}</p> : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <span className="tabular text-xs text-text-3">{a.suggestedAt ? `Sugerida em ${formatDate(a.suggestedAt)}` : "Sem data"}</span>
+                      <span className="tabular text-xs text-text-3">{a.suggestedAt ? `${a.status === "planned" ? "Apresentação em" : "Sugerida em"} ${formatDate(a.suggestedAt)}` : "Sem data"}</span>
                       <Badge tone={ACTION_STATUS_TONE[a.status]}>{ACTION_STATUS_LABEL[a.status]}</Badge>
                       <Link href={`/adm/clientes/${client.id}/acoes`} className="text-text-3 hover:text-text" aria-label={`Abrir ações de ${client.name}`}>
                         <ArrowRight className="size-4" aria-hidden />
