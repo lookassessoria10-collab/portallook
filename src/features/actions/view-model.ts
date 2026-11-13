@@ -51,10 +51,10 @@ export function sortActions<T extends Pick<ClientAction, "executedAt" | "suggest
 
 /**
  * Etapa da ação para o cliente — o fluxo do portal:
- * Prevista (a apresentar ou com execução marcada) → Aguardando aprovação → Aprovada (a executar)
- * → Em andamento / Pendente → Concluída, ou Não aprovada.
+ * Prevista (a apresentar) → Aguardando aprovação → Em andamento (aprovada, em execução ou aguardando retorno)
+ * → Concluída, ou Não aprovada. Cada ação está em uma única etapa.
  */
-export type PortalActionGroupKey = ActionStatus | "planned";
+export type PortalActionGroupKey = "planned" | "suggested" | "in_progress" | "rejected" | "done";
 
 /** O que o portal mostra de cada ação — nunca as observações internas. */
 export interface PortalActionItem {
@@ -78,12 +78,12 @@ export interface PortalActionGroup {
   items: PortalActionItem[];
 }
 
-/** Contagem por etapa: os cartões do resumo somam sempre o total. */
+/** Contagem por etapa: os cartões do resumo somam o total e batem com as seções. */
 export interface PortalActionsCounts {
   total: number;
   planned: number;
   awaiting: number;
-  /** Aprovadas a executar, em andamento e pendentes. */
+  /** Aprovadas a executar, em execução e aguardando retorno. */
   active: number;
   done: number;
   rejected: number;
@@ -100,19 +100,17 @@ export interface PortalActionsVM {
 }
 
 /**
- * Ordem das seções no portal: o que vai acontecer (previstas), o que está acontecendo,
- * o que já foi feito e o que espera decisão do cliente.
+ * Ordem das seções no portal: o que vem por aí, o que espera decisão do cliente (em destaque),
+ * o que está acontecendo e, por último, o que já se encerrou.
  */
-const PORTAL_GROUP_ORDER: PortalActionGroupKey[] = ["planned", "in_progress", "pending", "approved", "done", "suggested", "rejected"];
+const PORTAL_GROUP_ORDER: PortalActionGroupKey[] = ["planned", "suggested", "in_progress", "rejected", "done"];
 
 export const PORTAL_GROUP_LABEL: Record<PortalActionGroupKey, string> = {
   planned: "Previstas",
-  in_progress: "Em andamento",
-  pending: "Pendentes",
-  approved: "Aprovadas, a executar",
-  done: "Concluídas",
   suggested: "Aguardando aprovação",
+  in_progress: "Em andamento",
   rejected: "Não aprovadas",
+  done: "Concluídas",
 };
 
 type Staged = Pick<ClientAction, "status" | "suggestedAt" | "executedAt">;
@@ -120,18 +118,19 @@ type Staged = Pick<ClientAction, "status" | "suggestedAt" | "executedAt">;
 /** Sugestão ainda não apresentada ao cliente: sem status e com data de sugestão depois de hoje. */
 export const isUpcomingSuggestion = (a: Staged, today: string) => a.status === "suggested" && Boolean(a.suggestedAt && a.suggestedAt > today);
 
-/** Ação prevista: sugestão ainda a apresentar, ou execução marcada para depois de hoje (concluídas e não aprovadas nunca são previstas). */
-export const isPlannedAction = (a: Staged, today: string) =>
-  a.status !== "done" && a.status !== "rejected" && (isUpcomingSuggestion(a, today) || Boolean(a.executedAt && a.executedAt > today));
-
 /**
- * Etapa da ação no portal. A planilha marca como "Aprovado" ações que já foram executadas:
- * para o cliente, aprovada com execução até hoje é concluída (o mesmo vale para uma sugestão já executada).
+ * Etapa da ação no portal.
+ * - Prevista é só a sugestão ainda a apresentar; a já apresentada aguarda aprovação, mesmo com execução marcada.
+ * - A planilha marca como "Aprovado" ações que já foram executadas: aprovada (ou sugestão) com execução
+ *   até hoje é concluída; aprovada sem execução, ou com execução futura, já está em andamento.
+ * - Pendência é uma ação em andamento que espera um retorno.
  */
 export function portalStage(a: Staged, today: string): PortalActionGroupKey {
-  if (isPlannedAction(a, today)) return "planned";
+  if (a.status === "done" || a.status === "rejected") return a.status;
+  if (isUpcomingSuggestion(a, today)) return "planned";
   if ((a.status === "approved" || a.status === "suggested") && a.executedAt && a.executedAt <= today) return "done";
-  return a.status;
+  if (a.status === "suggested") return "suggested";
+  return "in_progress";
 }
 
 /** Etiqueta do card: "upcoming" = sugestão a apresentar; aprovada já executada vira "done". */
@@ -141,9 +140,6 @@ export function portalBadge(a: Staged, today: string): PortalActionBadge {
   if (isUpcomingSuggestion(a, today)) return "upcoming";
   return portalStage(a, today) === "done" ? "done" : a.status;
 }
-
-/** Data que põe a ação em Previstas: a apresentação, senão a execução. */
-const plannedDate = (a: Staged, today: string) => (isUpcomingSuggestion(a, today) ? a.suggestedAt! : a.executedAt!);
 
 /** Ações visíveis do cliente → portal. null quando não há nada para mostrar. */
 export function buildPortalActions(items: readonly ClientAction[], updatedAt: string | null, today: string): PortalActionsVM | null {
@@ -165,18 +161,18 @@ export function buildPortalActions(items: readonly ClientAction[], updatedAt: st
   );
   const groups = PORTAL_GROUP_ORDER.map((status): PortalActionGroup => {
     const list = sorted.filter((a) => a.stage === status);
-    // Previstas: da data mais próxima para a mais distante.
-    if (status === "planned") list.sort((a, b) => plannedDate(a, today).localeCompare(plannedDate(b, today)));
+    // Previstas: da apresentação mais próxima para a mais distante.
+    if (status === "planned") list.sort((a, b) => a.suggestedAt!.localeCompare(b.suggestedAt!));
     return { status, label: PORTAL_GROUP_LABEL[status], items: list };
-  }).filter((g) => g.items.length);
-  const n = (key: PortalActionGroupKey) => sorted.filter((a) => a.stage === key).length;
+  });
+  const n = (key: PortalActionGroupKey) => groups.find((g) => g.status === key)!.items.length;
   const counts: PortalActionsCounts = {
     total: sorted.length,
     planned: n("planned"),
     awaiting: n("suggested"),
-    active: n("approved") + n("in_progress") + n("pending"),
+    active: n("in_progress"),
     done: n("done"),
     rejected: n("rejected"),
   };
-  return { summary: summarizeActions(visible, today), counts, groups, updatedAt, today };
+  return { summary: summarizeActions(visible, today), counts, groups: groups.filter((g) => g.items.length), updatedAt, today };
 }

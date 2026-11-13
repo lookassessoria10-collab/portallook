@@ -24,14 +24,14 @@ export function ActionsBoard({ vm }: { vm: PortalActionsVM }) {
 
   return (
     <div className="space-y-8 sm:space-y-10">
-      {/* Cada ação está em uma única etapa: os cinco cartões somam o total. */}
+      {/* Cada ação está em uma única etapa: os cinco cartões somam o total e batem com as seções. */}
       <section aria-label="Resumo das ações" className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
         <Kpi label="Ações no plano" value={counts.total} icon={<ListChecks />} highlight hint="Todas as etapas" />
-        <Kpi label="Previstas" value={counts.planned} icon={<CalendarClock />} hint="A apresentar ou a executar" />
+        <Kpi label="Previstas" value={counts.planned} icon={<CalendarClock />} hint="Ainda a apresentar" />
         <Kpi label="Aguardando aprovação" value={counts.awaiting} icon={<Hourglass />} hint="Já apresentadas a você" />
         <Kpi label="Em andamento" value={counts.active} icon={<LoaderCircle />} hint="Aprovadas e em execução" />
-        <Kpi label="Concluídas" value={counts.done} icon={<CircleCheck />} hint="Já realizadas" />
         <Kpi label="Não aprovadas" value={counts.rejected} icon={<CircleX />} hint="Fora do plano" />
+        <Kpi label="Concluídas" value={counts.done} icon={<CircleCheck />} hint="Já realizadas" />
       </section>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -123,25 +123,21 @@ export function ActionsBoard({ vm }: { vm: PortalActionsVM }) {
 }
 
 const GROUP_TITLE: Record<PortalActionGroupKey, [string, string]> = {
-  planned: ["Prevista", "Previstas"],
-  in_progress: ["Em andamento", "Em andamento"],
-  pending: ["Pendente", "Pendentes"],
-  done: ["Concluída", "Concluídas"],
-  approved: ["Aprovada, a executar", "Aprovadas, a executar"],
+  planned: ["Prevista · a apresentar", "Previstas · a apresentar"],
   suggested: ["Aguardando aprovação", "Aguardando aprovação"],
+  in_progress: ["Em andamento", "Em andamento"],
   rejected: ["Não aprovada", "Não aprovadas"],
+  done: ["Concluída", "Concluídas"],
 };
 
 const plural = (status: PortalActionGroupKey, n: number) => GROUP_TITLE[status][n === 1 ? 0 : 1];
 
 const CHIP_LABEL: Record<PortalActionGroupKey, string> = {
   planned: "Previstas",
-  in_progress: "Em andamento",
-  pending: "Pendentes",
-  done: "Concluídas",
-  approved: "Aprovadas",
   suggested: "Aguardando aprovação",
+  in_progress: "Em andamento",
   rejected: "Não aprovadas",
+  done: "Concluídas",
 };
 
 /** Etiqueta do card: o status do cliente, mais "A apresentar" para a sugestão com apresentação marcada. */

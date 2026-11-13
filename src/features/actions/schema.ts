@@ -70,7 +70,8 @@ export const ACTION_STATUS_LABEL: Record<ActionStatus, string> = {
  */
 export const ACTION_STATUS_CLIENT_LABEL: Record<ActionStatus, string> = {
   in_progress: "Em andamento",
-  pending: "Pendente",
+  // Pendência = ação já em andamento que espera um retorno (material, dado, ok de uma peça) — não é a aprovação da ideia.
+  pending: "Aguardando retorno",
   approved: "Aprovada",
   done: "Concluída",
   suggested: "Aguardando aprovação",
