@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(props: PageProps<"/c/[slug]/[token]">): Promise<Metadata> {
   const { slug, token } = await props.params;
   const client = await getPortalClient(slug, token);
-  return { title: client ? `${client.shortName} · Relatórios` : "Link indisponível", robots: { index: false, follow: false } };
+  return { title: client ? `${client.shortName} · Central do Cliente` : "Link indisponível", robots: { index: false, follow: false } };
 }
 
 function one(value: string | string[] | undefined): string | null {

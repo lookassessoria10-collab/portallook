@@ -39,7 +39,10 @@ import { OriginalDocuments, type PortalLinks } from "./portal-sections";
 import { MissingPeriod, PeriodNotices } from "./period-notices";
 import { PERIOD_NOTE_STATUS_LABEL } from "@/features/period-notes/schema";
 
-/** Linha de apoio da faixa do topo: "Terapias e bem-estar · Dashboard comercial 2026". */
+/** Nome do portal na faixa do topo — igual para todo cliente e toda área (a área aberta aparece no seletor). */
+const PORTAL_TITLE = "Central do Cliente";
+
+/** Área aberta, no rodapé: "Serenity Terapias · Dashboard comercial · Set/2026". */
 const AREA_TITLE: Record<PortalArea, string> = {
   commercial: "Dashboard comercial",
   traffic: "Tráfego pago",
@@ -118,8 +121,6 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
                   ? formatPeriodRange(shown[0].period, shown[shown.length - 1].period)
                   : formatPeriod(shown[0].period)
                 : (missing?.label ?? null);
-  const year = timelessPlan ? null : larplanOriginal ? 2026 : (commercial?.year ?? (shown.length ? +shown[shown.length - 1].period.start.slice(0, 4) : missing ? +missing.key.slice(0, 4) : null));
-  const subtitle = [client.segment, `${AREA_TITLE[area]}${year ? ` ${year}` : ""}`].filter(Boolean).join(" · ");
   const notices = <PeriodNotices notices={model.notices} className={commercial || larplanOriginal ? "pt-6 sm:pt-8" : undefined} />;
   // No comercial, quem fica fixo no topo ao rolar são as abas do painel.
   const stickyBar = !commercial && !larplanOriginal;
@@ -136,7 +137,7 @@ export function PortalView({ model, basePath, links, logoUrl, banner, section, e
             {logoUrl ? <ClientAvatar name={client.name} logoUrl={logoUrl} size={42} className="ring-2 ring-white/15" /> : null}
             <div className="min-w-0">
               <h1 className="truncate text-[17px] font-bold uppercase leading-none tracking-[0.28em] text-white sm:text-lg">{client.shortName}</h1>
-              <p className="mt-1.5 truncate text-[9.5px] font-medium uppercase tracking-[0.22em] text-white/60 sm:text-[10px]">{subtitle}</p>
+              <p className="mt-1.5 truncate text-[9.5px] font-medium uppercase tracking-[0.22em] text-white/60 sm:text-[10px]">{PORTAL_TITLE}</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">

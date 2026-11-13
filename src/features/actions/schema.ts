@@ -64,13 +64,16 @@ export const ACTION_STATUS_LABEL: Record<ActionStatus, string> = {
   rejected: "Não aprovada",
 };
 
-/** Rótulos do portal: para o cliente, uma ação sem status é uma sugestão da Look. */
+/**
+ * Rótulos do portal. Toda ação é sugerida pela Look: para o cliente, a ação sem status
+ * é uma sugestão já apresentada que espera a decisão dele.
+ */
 export const ACTION_STATUS_CLIENT_LABEL: Record<ActionStatus, string> = {
   in_progress: "Em andamento",
   pending: "Pendente",
   approved: "Aprovada",
   done: "Concluída",
-  suggested: "Sugerida",
+  suggested: "Aguardando aprovação",
   rejected: "Não aprovada",
 };
 

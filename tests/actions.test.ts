@@ -48,10 +48,38 @@ describe("portal: ações previstas", () => {
       ["planned", ["janeiro", "marco"]],
       ["in_progress", ["hoje"]],
       ["pending", ["pendente"]],
-      ["done", ["concluida"]],
-      ["approved", ["feita"]],
+      // Aprovada já executada é concluída para o cliente.
+      ["done", ["concluida", "feita"]],
     ]);
     expect(vm.summary.executed).toBe(2);
+  });
+
+  it("sugestão com apresentação marcada é prevista; aprovada sem execução fica a executar; os cartões somam o total", () => {
+    const at = (id: string, status: string, suggestedAt: string | null, executedAt: string | null) =>
+      ClientActionSchema.parse({ id: `ac_${id.padEnd(12, "0")}`, title: id, status, suggestedAt, executedAt });
+    const vm = buildPortalActions(
+      [
+        at("apresentar", "suggested", "2026-12-09", "2026-12-15"),
+        at("aguardando", "suggested", "2026-10-01", null),
+        at("semdata", "suggested", null, null),
+        at("aexecutar", "approved", "2026-10-01", null),
+        at("agendada", "approved", "2026-10-01", "2026-12-01"),
+        at("antiga", "approved", "2025-04-05", "2025-04-05"),
+        at("recusada", "rejected", "2026-08-28", null),
+      ],
+      null,
+      "2026-11-13",
+    )!;
+    expect(vm.groups.map((g) => [g.status, g.items.map((i) => [i.title, i.badge])])).toEqual([
+      ["planned", [["agendada", "approved"], ["apresentar", "upcoming"]]],
+      ["approved", [["aexecutar", "approved"]]],
+      ["done", [["antiga", "done"]]],
+      ["suggested", [["aguardando", "suggested"], ["semdata", "suggested"]]],
+      ["rejected", [["recusada", "rejected"]]],
+    ]);
+    const { total, planned, awaiting, active, done, rejected } = vm.counts;
+    expect([total, planned, awaiting, active, done, rejected]).toEqual([7, 2, 2, 1, 1, 1]);
+    expect(planned + awaiting + active + done + rejected).toBe(total);
   });
 });
 
@@ -154,9 +182,10 @@ describe("módulo de ações", () => {
     expect(actions.items).toHaveLength(12);
     const portal = await loadPortalActions(client);
     expect(portal?.summary.total).toBe(12);
-    expect(portal?.groups.map((g) => g.status)).toEqual(["in_progress", "done", "approved", "suggested"]);
+    // As aprovadas da planilha já têm data de execução: para o cliente, estão concluídas.
+    expect(portal?.groups.map((g) => g.status)).toEqual(["in_progress", "done", "suggested"]);
     const ritual = portal!.groups.flatMap((g) => g.items).find((a) => a.title.startsWith("Ritual Serenity"))!;
-    expect(ritual).toMatchObject({ category: "Eventos e ativações", status: "approved", suggestedAt: "2026-08-26", executedAt: "2026-09-03", note: "" });
+    expect(ritual).toMatchObject({ category: "Eventos e ativações", status: "approved", stage: "done", badge: "done", suggestedAt: "2026-08-26", executedAt: "2026-09-03", note: "" });
     expect(Object.keys(ritual)).not.toContain("notes");
     expect(JSON.stringify(portal)).not.toContain("Dia do Sexo");
     expect(await keys()).toEqual(before);

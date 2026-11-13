@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CalendarClock, CircleCheck, Lightbulb, ListChecks, LoaderCircle, Rocket } from "lucide-react";
+import { CalendarClock, CircleCheck, CircleX, Hourglass, ListChecks, LoaderCircle } from "lucide-react";
 import { formatDate } from "@/lib/dates/period";
 import { formatInteger } from "@/lib/format/number";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui/badge";
 import { ACTION_KIND_LABEL, ACTION_STATUS_CLIENT_LABEL, ACTION_STATUS_TONE } from "@/features/actions/schema";
-import type { PortalActionGroupKey, PortalActionItem, PortalActionsVM } from "@/features/actions/view-model";
+import type { Tone } from "@/components/ui/badge";
+import type { PortalActionBadge, PortalActionGroupKey, PortalActionItem, PortalActionsVM } from "@/features/actions/view-model";
 
 /**
  * Área "Ações" do portal: o que a Look está fazendo, o que já foi feito e as próximas ideias.
@@ -17,20 +18,20 @@ export function ActionsBoard({ vm }: { vm: PortalActionsVM }) {
   const [filter, setFilter] = useState<PortalActionGroupKey | "all">("all");
   const { summary } = vm;
   const groups = filter === "all" ? vm.groups : vm.groups.filter((g) => g.status === filter);
+  const { counts } = vm;
   const kinds = summary.oneOff + summary.continuous;
-  // Os cartões contam como as listas: a ação prevista sai das sugestões e entra em Previstas.
-  const groupCount = (key: PortalActionGroupKey) => vm.groups.find((g) => g.status === key)?.items.length ?? 0;
   const topCategory = summary.categories[0]?.count ?? 0;
 
   return (
     <div className="space-y-8 sm:space-y-10">
+      {/* Cada ação está em uma única etapa: os cinco cartões somam o total. */}
       <section aria-label="Resumo das ações" className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
-        <Kpi label="Ações no plano" value={summary.total} icon={<ListChecks />} highlight />
-        <Kpi label="Previstas" value={groupCount("planned")} icon={<CalendarClock />} hint="Com execução marcada" />
-        <Kpi label="Em andamento" value={groupCount("in_progress") + groupCount("pending")} icon={<LoaderCircle />} />
-        <Kpi label="Executadas" value={summary.executed} icon={<Rocket />} hint="Já realizadas" />
-        <Kpi label="Concluídas" value={summary.byStatus.done} icon={<CircleCheck />} />
-        <Kpi label="Sugeridas" value={groupCount("suggested")} icon={<Lightbulb />} hint="Ideias aguardando decisão" />
+        <Kpi label="Ações no plano" value={counts.total} icon={<ListChecks />} highlight hint="Todas as etapas" />
+        <Kpi label="Previstas" value={counts.planned} icon={<CalendarClock />} hint="A apresentar ou a executar" />
+        <Kpi label="Aguardando aprovação" value={counts.awaiting} icon={<Hourglass />} hint="Já apresentadas a você" />
+        <Kpi label="Em andamento" value={counts.active} icon={<LoaderCircle />} hint="Aprovadas e em execução" />
+        <Kpi label="Concluídas" value={counts.done} icon={<CircleCheck />} hint="Já realizadas" />
+        <Kpi label="Não aprovadas" value={counts.rejected} icon={<CircleX />} hint="Fora do plano" />
       </section>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -43,7 +44,7 @@ export function ActionsBoard({ vm }: { vm: PortalActionsVM }) {
               <p className="mt-0.5 text-[13px] leading-snug text-text-3">Iniciativas sugeridas e executadas pela equipe para fortalecer a sua marca.</p>
             </div>
             <div role="group" aria-label="Filtrar por situação" className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-              <FilterChip active={filter === "all"} onClick={() => setFilter("all")} label="Todas" count={summary.total} />
+              <FilterChip active={filter === "all"} onClick={() => setFilter("all")} label="Todas" count={counts.total} />
               {vm.groups.map((g) => (
                 <FilterChip key={g.status} active={filter === g.status} onClick={() => setFilter(g.status)} label={CHIP_LABEL[g.status]} count={g.items.length} />
               ))}
@@ -126,8 +127,8 @@ const GROUP_TITLE: Record<PortalActionGroupKey, [string, string]> = {
   in_progress: ["Em andamento", "Em andamento"],
   pending: ["Pendente", "Pendentes"],
   done: ["Concluída", "Concluídas"],
-  approved: ["Aprovada", "Aprovadas"],
-  suggested: ["Sugestão da Look", "Sugestões da Look"],
+  approved: ["Aprovada, a executar", "Aprovadas, a executar"],
+  suggested: ["Aguardando aprovação", "Aguardando aprovação"],
   rejected: ["Não aprovada", "Não aprovadas"],
 };
 
@@ -139,9 +140,13 @@ const CHIP_LABEL: Record<PortalActionGroupKey, string> = {
   pending: "Pendentes",
   done: "Concluídas",
   approved: "Aprovadas",
-  suggested: "Sugeridas",
+  suggested: "Aguardando aprovação",
   rejected: "Não aprovadas",
 };
+
+/** Etiqueta do card: o status do cliente, mais "A apresentar" para a sugestão com apresentação marcada. */
+const badgeLabel = (b: PortalActionBadge) => (b === "upcoming" ? "A apresentar" : ACTION_STATUS_CLIENT_LABEL[b]);
+const badgeTone = (b: PortalActionBadge): Tone => (b === "upcoming" ? "muted" : ACTION_STATUS_TONE[b]);
 
 function Kpi({ label, value, icon, hint, highlight, className }: { label: string; value: number; icon: ReactNode; hint?: string; highlight?: boolean; className?: string }) {
   return (
@@ -179,7 +184,7 @@ function ActionCard({ action: a, today }: { action: PortalActionItem; today: str
   return (
     <li className="card flex min-w-0 flex-col p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-1.5">
-        <Badge tone={ACTION_STATUS_TONE[a.status]}>{ACTION_STATUS_CLIENT_LABEL[a.status]}</Badge>
+        <Badge tone={badgeTone(a.badge)}>{badgeLabel(a.badge)}</Badge>
         {a.category ? <Badge tone="muted">{a.category}</Badge> : null}
         {a.kind ? <span className="ml-auto text-[11px] font-bold uppercase tracking-[0.12em] text-text-3">{ACTION_KIND_LABEL[a.kind]}</span> : null}
       </div>
@@ -188,7 +193,7 @@ function ActionCard({ action: a, today }: { action: PortalActionItem; today: str
         <dl className="mt-auto flex flex-wrap gap-x-5 gap-y-1 pt-3 text-[12.5px]">
           {a.suggestedAt ? (
             <div className="flex gap-1">
-              <dt className="text-text-3">Sugerida em</dt>
+              <dt className="text-text-3">{a.suggestedAt > today ? "Apresentação prevista para" : "Sugerida em"}</dt>
               <dd className="tabular font-semibold text-text-2">{formatDate(a.suggestedAt)}</dd>
             </div>
           ) : null}
