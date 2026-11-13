@@ -97,15 +97,16 @@ export function countStages(items: readonly Pick<ClientAction, "status">[]): Por
   return { total: items.length, planned: n("planned"), awaiting: n("suggested"), active: n("in_progress"), done: n("done"), rejected: n("rejected") };
 }
 
-/** Previstas: da apresentação mais próxima para a mais distante (sem data no fim). */
-const byNextDate = (a: PortalActionItem, b: PortalActionItem) => (a.suggestedAt && b.suggestedAt ? a.suggestedAt.localeCompare(b.suggestedAt) : a.suggestedAt ? -1 : b.suggestedAt ? 1 : 0);
+/** Previstas: da execução mais próxima para a mais distante (sem data no fim). */
+const byNextDate = (a: PortalActionItem, b: PortalActionItem) => (a.executedAt && b.executedAt ? a.executedAt.localeCompare(b.executedAt) : a.executedAt ? -1 : b.executedAt ? 1 : 0);
 
 /** Ações visíveis do cliente → portal. null quando não há nada para mostrar. */
 export function buildPortalActions(items: readonly ClientAction[], updatedAt: string | null, today: string): PortalActionsVM | null {
   const visible = items.filter((a) => a.visible);
   if (!visible.length) return null;
+  // Prevista não leva data de apresentação ao portal: só a execução prevista, que o card mostra como mês e ano.
   const sorted = sortActions(visible).map(
-    (a): PortalActionItem => ({ id: a.id, title: a.title, category: a.category, kind: a.kind, status: a.status, suggestedAt: a.suggestedAt, executedAt: a.executedAt, note: a.clientNote }),
+    (a): PortalActionItem => ({ id: a.id, title: a.title, category: a.category, kind: a.kind, status: a.status, suggestedAt: a.status === "planned" ? null : a.suggestedAt, executedAt: a.executedAt, note: a.clientNote }),
   );
   const groups = ACTION_STAGES.map((stage): PortalActionGroup => {
     const list = sorted.filter((a) => ACTION_STATUS_STAGE[a.status] === stage);

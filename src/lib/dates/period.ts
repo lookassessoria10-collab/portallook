@@ -159,6 +159,14 @@ export function formatDate(iso: string | null | undefined): string {
   return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
 }
 
+/** "dezembro de 2026" — só o mês e o ano de uma data AAAA-MM-DD ("—" sem data). */
+export function formatMonthYear(iso: string | null | undefined): string {
+  const date = iso?.slice(0, 10);
+  if (!date || !isISODate(date)) return "—";
+  const [y, m] = parts(date);
+  return `${MONTHS_PT[m - 1]} de ${y}`;
+}
+
 /** "Setembro de 2026", "21 a 27 de setembro de 2026", "01/09/2026 a 15/09/2026". */
 export function formatPeriod(p: Period, style: "long" | "short" | "compact" = "long"): string {
   const [sy, sm, sd] = parts(p.start);

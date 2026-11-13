@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, FileSpreadsheet, ListChecks } from "lucide-react";
-import { formatDate } from "@/lib/dates/period";
+import { formatDate, formatMonthYear } from "@/lib/dates/period";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -175,7 +175,7 @@ export default async function ActionsOverviewPage(props: PageProps<"/adm/acoes">
                       {a.notes ? <p className="mt-0.5 text-[13px] text-text-3">{a.notes}</p> : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <span className="tabular text-xs text-text-3">{a.suggestedAt ? `${a.status === "planned" ? "Apresentação em" : "Sugerida em"} ${formatDate(a.suggestedAt)}` : "Sem data"}</span>
+                      <span className="tabular text-xs text-text-3">{a.status === "planned" ? (a.executedAt ? `Execução prevista: ${formatMonthYear(a.executedAt)}` : "Sem mês de execução") : a.suggestedAt ? `Sugerida em ${formatDate(a.suggestedAt)}` : "Sem data"}</span>
                       <Badge tone={ACTION_STATUS_TONE[a.status]}>{ACTION_STATUS_LABEL[a.status]}</Badge>
                       <Link href={`/adm/clientes/${client.id}/acoes`} className="text-text-3 hover:text-text" aria-label={`Abrir ações de ${client.name}`}>
                         <ArrowRight className="size-4" aria-hidden />

@@ -9,6 +9,7 @@ import { actionKindFromText, actionStatusFromText, splitActionTitle, upgradeActi
 import { ACTIONS_SNAPSHOT, actionFromSheetRow, findActionsSheet } from "@/features/actions/sheet";
 import { buildPortalActions, summarizeActions } from "@/features/actions/view-model";
 import { ClientActionSchema } from "@/features/actions/schema";
+import { formatMonthYear } from "@/lib/dates/period";
 import { deleteAction, getClientActions, importActionsFromSheet, listActionsOverview, loadPortalActions, saveAction, setActionsEnabled, setActionVisible } from "@/features/actions/service";
 import { loadPortalModel } from "@/features/portal/model";
 
@@ -50,7 +51,8 @@ describe("portal: etapas das ações", () => {
       "2026-11-13",
     )!;
     expect(vm.groups.map((g) => [g.status, g.items.map((i) => [i.title, i.status])])).toEqual([
-      ["planned", [["novembro", "planned"], ["dezembro", "planned"]]],
+      // Previstas: da execução mais próxima para a mais distante; sem mês de execução no fim.
+      ["planned", [["dezembro", "planned"], ["novembro", "planned"]]],
       ["suggested", [["apresentada", "suggested"], ["aguardando", "suggested"]]],
       ["in_progress", [["aexecutar", "approved"], ["rodando", "in_progress"], ["blackfriday", "pending"]]],
       ["rejected", [["recusada", "rejected"]]],
@@ -59,6 +61,10 @@ describe("portal: etapas das ações", () => {
     const { total, planned, awaiting, active, done, rejected } = vm.counts;
     expect([total, planned, awaiting, active, done, rejected]).toEqual([9, 2, 2, 3, 1, 1]);
     expect(vm.groups.map((g) => g.items.length)).toEqual([planned, awaiting, active, rejected, done]);
+    // A prevista não leva a data de apresentação ao portal — só a execução prevista (mostrada como mês e ano).
+    expect(vm.groups[0].items[0]).toMatchObject({ suggestedAt: null, executedAt: "2026-12-15" });
+    expect(formatMonthYear("2026-12-15")).toBe("dezembro de 2026");
+    expect(formatMonthYear(null)).toBe("—");
   });
 
   it("status da planilha são revisados uma vez: aprovada executada vira concluída (contínua, em andamento); sugestão futura, a apresentar", () => {

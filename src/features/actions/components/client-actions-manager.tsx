@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, FileSpreadsheet, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDate } from "@/lib/dates/period";
+import { formatDate, formatMonthYear } from "@/lib/dates/period";
 import { normalizeText } from "@/lib/ids";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui/badge";
@@ -189,6 +189,7 @@ function ActionRow({ clientId, action: a, onEdit }: { clientId: string; action: 
           ) : null}
           {a.category ? <Badge tone="muted">{a.category}</Badge> : null}
           {a.kind ? <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-text-3">{ACTION_KIND_LABEL[a.kind]}</span> : null}
+          {a.status === "planned" && !a.executedAt ? <Badge tone="attention">Sem mês de execução</Badge> : null}
           {!a.visible ? (
             <Badge tone="attention" icon={<EyeOff />}>
               Só no painel
@@ -218,8 +219,8 @@ function ActionRow({ clientId, action: a, onEdit }: { clientId: string; action: 
           <dd className="tabular font-semibold text-text-2">{formatDate(a.suggestedAt)}</dd>
         </div>
         <div>
-          <dt className="text-[11px] text-text-3">Executada</dt>
-          <dd className="tabular font-semibold text-text-2">{formatDate(a.executedAt)}</dd>
+          <dt className="text-[11px] text-text-3">{a.status === "planned" ? "Execução prevista" : "Executada"}</dt>
+          <dd className="tabular font-semibold text-text-2">{a.status === "planned" ? formatMonthYear(a.executedAt) : formatDate(a.executedAt)}</dd>
         </div>
         <div>
           <dt className="text-[11px] text-text-3">Atualizada</dt>
@@ -256,7 +257,7 @@ function ActionRow({ clientId, action: a, onEdit }: { clientId: string; action: 
 
 /** O que cada status significa e onde a ação aparece no portal. */
 const STATUS_HINT: Record<ActionStatus, string> = {
-  planned: "Ainda vamos apresentar. No portal: Previstas.",
+  planned: "Ainda vamos apresentar. No portal: Previstas, só com o mês e o ano da execução prevista.",
   suggested: "Já apresentada, sem resposta do cliente. No portal: Aguardando aprovação.",
   approved: "O cliente aprovou, ainda não começou. No portal: Em andamento.",
   in_progress: "Em execução. No portal: Em andamento.",
@@ -343,12 +344,19 @@ function ActionDialog({ clientId, action, categories, onClose }: { clientId: str
             ))}
           </Select>
         </Field>
-        <Field label={draft.status === "planned" ? "Apresentação prevista para" : "Quando foi sugerida"} htmlFor="action-suggested" optional error={errors.suggestedAt}>
+        <Field label="Quando foi sugerida" htmlFor="action-suggested" optional error={errors.suggestedAt} hint={draft.status === "planned" ? "Não aparece no portal enquanto a ação estiver prevista." : undefined}>
           <Input id="action-suggested" type="date" value={draft.suggestedAt} onChange={(e) => set("suggestedAt", e.target.value)} />
         </Field>
-        <Field label="Quando foi executada" htmlFor="action-executed" optional error={errors.executedAt}>
-          <Input id="action-executed" type="date" value={draft.executedAt} onChange={(e) => set("executedAt", e.target.value)} />
-        </Field>
+        {draft.status === "planned" ? (
+          // Prevista: o cliente vê só o mês e o ano da execução; grava o dia 1º do mês.
+          <Field label="Execução prevista (mês e ano)" htmlFor="action-executed" optional error={errors.executedAt} hint="É a única data que o cliente vê numa ação prevista.">
+            <Input id="action-executed" type="month" value={draft.executedAt.slice(0, 7)} onChange={(e) => set("executedAt", e.target.value ? `${e.target.value}-01` : "")} />
+          </Field>
+        ) : (
+          <Field label="Quando foi executada" htmlFor="action-executed" optional error={errors.executedAt}>
+            <Input id="action-executed" type="date" value={draft.executedAt} onChange={(e) => set("executedAt", e.target.value)} />
+          </Field>
+        )}
         <Field label="Última atualização" htmlFor="action-updated" optional error={errors.lastUpdateAt}>
           <Input id="action-updated" type="date" value={draft.lastUpdateAt} onChange={(e) => set("lastUpdateAt", e.target.value)} />
         </Field>

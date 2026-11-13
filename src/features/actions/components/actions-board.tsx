@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { CalendarClock, CircleCheck, CircleX, Hourglass, ListChecks, LoaderCircle } from "lucide-react";
-import { formatDate } from "@/lib/dates/period";
+import { formatDate, formatMonthYear } from "@/lib/dates/period";
 import { formatInteger } from "@/lib/format/number";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui/badge";
@@ -184,14 +184,15 @@ function ActionCard({ action: a, today }: { action: PortalActionItem; today: str
         <dl className="mt-auto flex flex-wrap gap-x-5 gap-y-1 pt-3 text-[12.5px]">
           {a.suggestedAt ? (
             <div className="flex gap-1">
-              <dt className="text-text-3">{a.status === "planned" || a.suggestedAt > today ? "Apresentação prevista para" : "Sugerida em"}</dt>
+              <dt className="text-text-3">{a.suggestedAt > today ? "Apresentação prevista para" : "Sugerida em"}</dt>
               <dd className="tabular font-semibold text-text-2">{formatDate(a.suggestedAt)}</dd>
             </div>
           ) : null}
           {a.executedAt ? (
             <div className="flex gap-1">
-              <dt className="text-text-3">{a.executedAt > today ? "Execução prevista para" : "Executada em"}</dt>
-              <dd className="tabular font-semibold text-text-2">{formatDate(a.executedAt)}</dd>
+              <dt className="text-text-3">{a.status === "planned" || a.executedAt > today ? "Execução prevista para" : "Executada em"}</dt>
+              {/* Prevista: só o mês e o ano da execução. */}
+              <dd className="tabular font-semibold text-text-2">{a.status === "planned" ? formatMonthYear(a.executedAt) : formatDate(a.executedAt)}</dd>
             </div>
           ) : null}
         </dl>
